@@ -392,5 +392,21 @@ export interface Database {
         };
       };
     };
+    // The current version of @supabase/supabase-js expects a Database
+    // type to declare all five of these keys (Tables, Views,
+    // Functions, Enums, CompositeTypes) to correctly work out the
+    // return type of .select()/.insert()/.update() calls. This file
+    // only ever declared Tables (it predates that stricter
+    // requirement), which is what made some queries below silently
+    // resolve to `never`/`never[]` and fail Vercel's build with
+    // "Type error: ... does not exist in type 'never'" — the code was
+    // always fine at runtime, the type information was just
+    // incomplete. Declaring the other four as empty here is
+    // sufficient; this project doesn't use database views, stored
+    // functions, enum types, or composite types.
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
