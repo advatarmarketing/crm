@@ -81,11 +81,19 @@ export async function POST(request: Request) {
   // Idempotency: Fathom (like most webhook senders) may retry
   // delivery. If we've already fully processed this call, don't
   // create a second client/planner for it.
+  //
+  // The explicit `.returns<...>()` below pins the shape of `existing`
+  // by hand. Without it, some versions of the Supabase client
+  // library fail to work out the row type for this particular
+  // select-string/maybeSingle combination and fall back to `never`,
+  // which made every property access below a type error at build
+  // time even though the query itself is fine at runtime.
   const { data: existing } = await supabase
     .from("fathom_calls")
     .select("id, applied, client_id")
     .eq("fathom_call_id", callId)
-    .maybeSingle();
+    .maybeSingle()
+    .returns<{ id: string; applied: boolean; client_id: string | null } | null>();
 
   if (existing?.applied) {
     return NextResponse.json({ ok: true, status: "already processed", client_id: existing.client_id });
