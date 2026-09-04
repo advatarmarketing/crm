@@ -21,6 +21,8 @@ export type LeadTemperature = "hot" | "warm" | "cold";
 // "Overdue" is not in this list on purpose — it is a sent invoice
 // past its due date, worked out at read time rather than stored.
 export type InvoiceStatus = "draft" | "sent" | "paid";
+// Phase 18 — not every client is on a monthly retainer.
+export type BillingFrequency = "monthly" | "quarterly" | "annual" | "per_project" | "one_off";
 export type ClientStage = "lead" | "proposal" | "active";
 export type PlannerStatus = "draft" | "published";
 
@@ -122,17 +124,28 @@ export interface Database {
       client_finance: {
         Row: {
           client_id: string;
+          // Phase 18: derived from billing_amount/billing_frequency by
+          // a trigger — do not write it directly.
           monthly_value: number | null;
+          billing_amount: number | null;
+          billing_frequency: BillingFrequency | null;
+          billing_notes: string | null;
           updated_at: string;
         };
         Insert: {
           client_id: string;
           monthly_value?: number | null;
+          billing_amount?: number | null;
+          billing_frequency?: BillingFrequency | null;
+          billing_notes?: string | null;
           updated_at?: string;
         };
         Update: {
           client_id?: string;
           monthly_value?: number | null;
+          billing_amount?: number | null;
+          billing_frequency?: BillingFrequency | null;
+          billing_notes?: string | null;
           updated_at?: string;
         };
       };

@@ -37,7 +37,11 @@ export default async function ClientDetailPage({
         .eq("client_id", params.id)
         .order("due_date", { ascending: true, nullsFirst: false }),
       // ceo-only under RLS — `finance` is null for anyone else.
-      supabase.from("client_finance").select("monthly_value").eq("client_id", params.id).maybeSingle(),
+      supabase
+        .from("client_finance")
+        .select("monthly_value, billing_amount, billing_frequency, billing_notes")
+        .eq("client_id", params.id)
+        .maybeSingle(),
       // client_staff: ceo/staff full access (Phase 3) — a
       // videographer never reaches this page anyway (see the note in
       // AssignedTeamPanel.tsx), so this query is never even attempted
@@ -133,6 +137,7 @@ export default async function ClientDetailPage({
         documents={documents ?? []}
         tasks={tasks ?? []}
         monthlyValue={finance ? finance.monthly_value : undefined}
+        finance={finance ?? undefined}
         initialTab={searchParams?.tab === "plan" ? "plan" : "info"}
         teamMembers={teamMembers}
         assignableProfiles={assignable}

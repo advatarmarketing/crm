@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AvatarUpload } from "./AvatarUpload";
 import { ClientInfoForm } from "./ClientInfoForm";
-import { ClientFinanceField } from "./ClientFinanceField";
+import { ClientFinanceField, type BillingFrequency } from "./ClientFinanceField";
 import { DocumentsList } from "./DocumentsList";
 import { TaskList } from "./TaskList";
 import { PlannerDocument } from "./PlannerDocument";
@@ -40,6 +40,7 @@ export function ClientDetailTabs({
   activity = [],
   checklist = [],
   templates = [],
+  finance,
 }: {
   client: Client;
   documents: Document[];
@@ -62,6 +63,13 @@ export function ClientDetailTabs({
   checklist?: ChecklistItem[];
   /** Phase 17: task templates available to apply. */
   templates?: TemplateOption[];
+  /** Phase 18: the client's payment agreement. CEO-only, so undefined for everyone else. */
+  finance?: {
+    monthly_value: number | null;
+    billing_amount: number | null;
+    billing_frequency: string | null;
+    billing_notes: string | null;
+  };
 }) {
   const [tab, setTab] = useState<TabId>(initialTab);
 
@@ -112,8 +120,17 @@ export function ClientDetailTabs({
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Info</h2>
             <ClientInfoForm client={client} />
             {monthlyValue !== undefined && (
-              <div style={{ marginTop: 16 }}>
-                <ClientFinanceField clientId={client.id} initialValue={monthlyValue} />
+              <div style={{ marginTop: 20 }}>
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, margin: "0 0 12px", letterSpacing: "0.02em" }}>
+                  Payment agreement
+                </h3>
+                <ClientFinanceField
+                  clientId={client.id}
+                  initialValue={monthlyValue}
+                  initialAmount={finance?.billing_amount ?? null}
+                  initialFrequency={(finance?.billing_frequency as BillingFrequency | null) ?? null}
+                  initialNotes={finance?.billing_notes ?? null}
+                />
               </div>
             )}
           </section>

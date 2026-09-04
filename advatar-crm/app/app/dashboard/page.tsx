@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/components/StatTile";
 import { DonutChart } from "@/components/DonutChart";
 import { AttentionList, type AttentionItem } from "@/components/AttentionList";
+import { RevenueChart, type PaidInvoice } from "@/components/RevenueChart";
 import { formatMoney, daysSince, isPast, startOfToday } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -146,6 +147,12 @@ export default async function DashboardPage() {
     .filter((i) => i.status === "sent")
     .reduce((sum, i) => sum + (i.amount ?? 0), 0);
 
+  // Everything ever paid — the chart picks its own window from this,
+  // so switching range doesn't need another round trip.
+  const paidInvoices: PaidInvoice[] = allInvoices
+    .filter((i) => i.status === "paid" && i.paid_at && typeof i.amount === "number")
+    .map((i) => ({ paidAt: i.paid_at as string, amount: i.amount as number }));
+
   const financeRows = (finance ?? []) as unknown as {
     client_id: string;
     monthly_value: number | null;
@@ -224,6 +231,8 @@ export default async function DashboardPage() {
             </Link>
             {financeRows.length > 0 && <StatTile label="Monthly recurring" value={formatMoney(mrr)} />}
           </div>
+
+          <RevenueChart invoices={paidInvoices} />
         </section>
       )}
 

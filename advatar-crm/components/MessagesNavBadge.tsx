@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -27,36 +27,65 @@ import { createClient } from "@/lib/supabase/client";
  */
 export function MessagesNavBadge() {
   const [count, setCount] = useState(0);
+  // Phase 18 fix: the channel name has to be unique PER INSTANCE.
+  //
+  // Since the nav gained a mobile menu, two copies of this badge are
+  // mounted at once — the desktop row is only hidden with CSS, not
+  // unmounted, so opening the menu mounts a second one. Both used to
+  // subscribe to a channel literally named "messages-nav-badge", and
+  // @supabase/ssr hands every component the same browser client, so
+  // the second subscribe threw ("tried to subscribe multiple times")
+  // and took the whole page down with it — which is exactly the
+  // "client-side exception" you got when tapping the menu on a phone.
+  const instanceId = useId();
 
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
 
     async function loadCount() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const { count: c } = await supabase
-        .from("messages")
-        .select("id", { count: "exact", head: true })
-        .eq("read", false)
-        .neq("sender_id", user.id);
-      if (!cancelled) setCount(c ?? 0);
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+        const { count: c } = await supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("read", false)
+          .neq("sender_id", user.id);
+        if (!cancelled) setCount(c ?? 0);
+      } catch {
+        // Leave the count as it is rather than crashing the nav.
+      }
     }
 
     loadCount();
 
-    const channel = supabase
-      .channel("messages-nav-badge")
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => loadCount())
-      .subscribe();
+    // Belt and braces: even with a unique name, a realtime failure
+    // must never be able to break the navigation. An unread badge is
+    // the least important thing on the screen.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`messages-nav-badge:${instanceId}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => loadCount())
+        .subscribe();
+    } catch {
+      // Live updates are lost; the count still loaded once above.
+    }
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch {
+          /* already gone */
+        }
+      }
     };
-  }, []);
+  }, [instanceId]);
 
   if (count === 0) return null;
 
