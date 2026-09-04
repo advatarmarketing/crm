@@ -16,7 +16,8 @@
  * moment the schema changes and won't catch it.
  */
 
-export type ProfileRole = "ceo" | "staff" | "videographer" | "client";
+export type ProfileRole = "ceo" | "operations_manager" | "staff" | "videographer" | "client";
+export type LeadTemperature = "hot" | "warm" | "cold";
 export type ClientStage = "lead" | "proposal" | "active";
 export type PlannerStatus = "draft" | "published";
 
@@ -61,6 +62,9 @@ export interface Database {
           next_action: string | null;
           avatar_url: string | null;
           notes: string | null;
+          lead_source: string | null;
+          lead_temperature: LeadTemperature | null;
+          follow_up_date: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -74,6 +78,9 @@ export interface Database {
           next_action?: string | null;
           avatar_url?: string | null;
           notes?: string | null;
+          lead_source?: string | null;
+          lead_temperature?: LeadTemperature | null;
+          follow_up_date?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -87,6 +94,9 @@ export interface Database {
           next_action?: string | null;
           avatar_url?: string | null;
           notes?: string | null;
+          lead_source?: string | null;
+          lead_temperature?: LeadTemperature | null;
+          follow_up_date?: string | null;
           created_at?: string;
           updated_at?: string;
         };

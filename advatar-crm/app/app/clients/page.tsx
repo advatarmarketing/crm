@@ -1,17 +1,31 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ClientCard } from "@/components/ClientCard";
 
 export default async function ClientsPage() {
   const supabase = createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: callerProfile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+    : { data: null };
+
+  const canAddClient = callerProfile?.role === "ceo" || callerProfile?.role === "operations_manager";
+
   // Two separate queries rather than one join: clients.* is readable
-  // by ceo/staff/assigned-videographer/own-client (Phase 3 RLS), but
-  // client_finance is ceo-only. A postgrest embed (clients(*, ...))
-  // works fine for embedding a restricted child table — Supabase
-  // simply omits rows the caller's RLS can't see — but keeping them
-  // as two plain queries here makes it obvious in this file that the
-  // £ figure is a distinct, more-restricted fetch, not a field that
-  // happens to be blank.
+  // by management/assigned-staff/assigned-videographer/own-client
+  // (0002 + 0010 RLS), but client_finance is ceo-only. A postgrest
+  // embed (clients(*, ...)) works fine for embedding a restricted
+  // child table — Supabase simply omits rows the caller's RLS can't
+  // see — but keeping them as two plain queries here makes it obvious
+  // in this file that the £ figure is a distinct, more-restricted
+  // fetch, not a field that happens to be blank. This list also shows
+  // leads (stage='lead') alongside everything else — /app/leads is a
+  // filtered, more detailed view of the same rows, not a separate
+  // table.
   const [{ data: clients }, { data: finance }] = await Promise.all([
     supabase
       .from("clients")
@@ -24,9 +38,27 @@ export default async function ClientsPage() {
 
   return (
     <main style={{ padding: "40px 32px", maxWidth: 1040, margin: "0 auto" }}>
-      <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 24px" }}>
-        Clients
-      </h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: 0 }}>Clients</h1>
+        {canAddClient && (
+          <Link
+            href="/app/clients/new"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+              padding: "10px 16px",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--text-1)",
+              color: "var(--bg)",
+            }}
+          >
+            + Add client
+          </Link>
+        )}
+      </div>
 
       {!clients || clients.length === 0 ? (
         <p style={{ fontFamily: "var(--font-body)", color: "var(--text-3)" }}>

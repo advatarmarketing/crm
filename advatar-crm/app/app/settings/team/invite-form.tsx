@@ -26,6 +26,7 @@ export function InviteForm() {
         <span style={labelStyle}>Role</span>
         <select name="role" required defaultValue="staff" style={inputStyle}>
           <option value="staff">Staff</option>
+          <option value="operations_manager">Operations Manager</option>
           <option value="videographer">Videographer</option>
           <option value="ceo">CEO</option>
         </select>

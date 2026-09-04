@@ -9,7 +9,7 @@ export interface InviteState {
   success: string | null;
 }
 
-const INVITABLE_ROLES: ProfileRole[] = ["ceo", "staff", "videographer"];
+const INVITABLE_ROLES: ProfileRole[] = ["ceo", "operations_manager", "staff", "videographer"];
 
 /**
  * CEO-only: invites a new staff/videographer/ceo user by email and

@@ -10,6 +10,7 @@ import type { ProfileRole } from "@/lib/supabase/types";
 // strict as the nav itself.
 const HOME_BY_ROLE: Record<ProfileRole, string> = {
   ceo: "/app/dashboard",
+  operations_manager: "/app/dashboard",
   staff: "/app/dashboard",
   videographer: "/app/my-clients",
   client: "/app/portal",
@@ -23,6 +24,7 @@ const HOME_BY_ROLE: Record<ProfileRole, string> = {
 // substitute for RLS.
 const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
   ceo: ["/app"],
+  operations_manager: ["/app"],
   staff: ["/app"],
   videographer: ["/app/my-clients", "/app/messages", "/app/my-payments"],
   client: ["/app/portal"],

@@ -30,7 +30,8 @@ export default async function MessagesPage() {
   // none yet (0007_messaging.sql's RLS on message_threads' insert) —
   // this just decides whether ChatShell tries, the RLS is what
   // actually enforces it either way.
-  const canCreateThreads = profile.role === "ceo" || profile.role === "staff";
+  const canCreateThreads =
+    profile.role === "ceo" || profile.role === "operations_manager" || profile.role === "staff";
 
   const [{ data: clients }, { data: threads }, { data: unread }] = await Promise.all([
     supabase.from("clients").select("id, name, avatar_url").order("name"),

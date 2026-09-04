@@ -27,15 +27,35 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   ceo: [
     { href: "/app/dashboard", label: "Dashboard" },
     { href: "/app/clients", label: "Clients" },
+    { href: "/app/leads", label: "Leads" },
     { href: "/app/prospects", label: "Prospects" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/payments", label: "Payments" },
     { href: "/app/settings/team", label: "Team" },
   ],
+  // New role (Phase 12): runs sales/strategy alongside the CEO, so it
+  // shares the CEO's nav minus the two purely-financial items
+  // (Payments, and Team since inviting logins is kept CEO-only) —
+  // see 0010_ops_manager_leads_staff_scoping.sql for why this role
+  // has no invoices/client_finance/payments access.
+  operations_manager: [
+    { href: "/app/dashboard", label: "Dashboard" },
+    { href: "/app/clients", label: "Clients" },
+    { href: "/app/leads", label: "Leads" },
+    { href: "/app/prospects", label: "Prospects" },
+    { href: "/app/messages", label: "Messages" },
+  ],
+  // Phase 12: staff's RLS is now scoped to only its assigned clients
+  // (0010_ops_manager_leads_staff_scoping.sql) — this nav is unchanged
+  // on purpose, since the page itself naturally comes back empty/
+  // filtered for anything staff isn't assigned to, same pattern this
+  // app already uses for videographer's "My Clients". "Prospects" was
+  // dropped from staff's nav because fathom_calls moved to
+  // management-only in that same migration.
   staff: [
     { href: "/app/dashboard", label: "Dashboard" },
     { href: "/app/clients", label: "Clients" },
-    { href: "/app/prospects", label: "Prospects" },
+    { href: "/app/leads", label: "Leads" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },
   ],

@@ -6,6 +6,7 @@ import type { ProfileRole } from "@/lib/supabase/types";
 
 const HOME_BY_ROLE: Record<ProfileRole, string> = {
   ceo: "/app/dashboard",
+  operations_manager: "/app/dashboard",
   staff: "/app/dashboard",
   videographer: "/app/my-clients",
   client: "/app/portal",
