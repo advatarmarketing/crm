@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f5f5f3;
+  --surface: #ffffff;
+  --surface-2: #f0f0ee;
+  --surface-3: #e8e8e6;
+  --border: #e0e0de;
+  --border-2: #cacaca;
+  --text-1: #111111;
+  --text-2: #555555;
+  --text-3: #909090;
+
+  --chrome-lo: #b8b8b8;
+  --chrome-hi: #f5f5f5;
+  --chrome-beam: linear-gradient(135deg, #e8e8e8 0%, #ffffff 45%, #a8a8a8 55%, #f0f0f0 100%);
+  --chrome-text: linear-gradient(135deg, #6b6b6b 0%, #1a1a1a 40%, #6b6b6b 60%, #1a1a1a 100%);
+
+  --status-active: #4a7c59;
+  --status-warm: #b8863b;
+  --status-closed: #a64a4a;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  --font-display: "Bebas Neue", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+  --font-mono: "Space Mono", monospace;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e0e0e;
+  --surface: #181818;
+  --surface-2: #222222;
+  --surface-3: #2c2c2c;
+  --border: #2e2e2e;
+  --border-2: #3c3c3c;
+  --text-1: #f4f4f2;
+  --text-2: #9a9a9a;
+  --text-3: #5e5e5e;
+
+  --chrome-lo: #3a3a3a;
+  --chrome-hi: #6a6a6a;
+  --chrome-beam: linear-gradient(135deg, #3a3a3a 0%, #6a6a6a 45%, #2a2a2a 55%, #4a4a4a 100%);
+  --chrome-text: linear-gradient(135deg, #d4d4d4 0%, #8a8a8a 40%, #d4d4d4 60%, #8a8a8a 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-body);
+}
