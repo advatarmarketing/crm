@@ -45,7 +45,7 @@ export default async function PortalContentHubPage() {
 
   if (!planner) {
     return (
-      <main style={{ padding: "40px 32px", maxWidth: 1040, margin: "0 auto" }}>
+      <main className="page">
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 24px" }}>
           Content Hub
         </h1>
@@ -59,7 +59,7 @@ export default async function PortalContentHubPage() {
   const content = planner.content as unknown as PlannerContent;
 
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 1040, margin: "0 auto" }}>
+    <main className="page">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 24px" }}>
         Content Hub
       </h1>

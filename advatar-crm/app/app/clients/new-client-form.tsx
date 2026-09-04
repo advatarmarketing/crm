@@ -31,7 +31,7 @@ export function NewClientForm({ defaultStage = "lead" }: { defaultStage?: "lead"
         </select>
       </label>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+      <div className="row-2" style={{ marginBottom: 16 }}>
         <label style={{ display: "block", flex: 1 }}>
           <span style={labelStyle}>Contact name</span>
           <input name="contact_name" style={inputStyle} placeholder="Optional" />
@@ -56,7 +56,7 @@ export function NewClientForm({ defaultStage = "lead" }: { defaultStage?: "lead"
         Lead tracking (only matters while stage is "Lead")
       </p>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+      <div className="row-2" style={{ marginBottom: 16 }}>
         <label style={{ display: "block", flex: 1 }}>
           <span style={labelStyle}>Source</span>
           <input name="lead_source" style={inputStyle} placeholder="e.g. Referral, Instagram, cold outreach" />
@@ -69,6 +69,17 @@ export function NewClientForm({ defaultStage = "lead" }: { defaultStage?: "lead"
             <option value="warm">Warm</option>
             <option value="cold">Cold</option>
           </select>
+        </label>
+      </div>
+
+      <div className="row-2" style={{ marginBottom: 16 }}>
+        <label style={{ display: "block", flex: 1 }}>
+          <span style={labelStyle}>Estimated value (£/mo)</span>
+          <input name="estimated_value" type="number" min="0" step="0.01" style={inputStyle} placeholder="e.g. 1500" />
+        </label>
+        <label style={{ display: "block", flex: 1 }}>
+          <span style={labelStyle}>Likelihood (%)</span>
+          <input name="likelihood" type="number" min="0" max="100" step="5" style={inputStyle} placeholder="e.g. 60" />
         </label>
       </div>
 

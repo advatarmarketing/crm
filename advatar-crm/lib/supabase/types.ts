@@ -18,6 +18,9 @@
 
 export type ProfileRole = "ceo" | "operations_manager" | "staff" | "videographer" | "client";
 export type LeadTemperature = "hot" | "warm" | "cold";
+// "Overdue" is not in this list on purpose — it is a sent invoice
+// past its due date, worked out at read time rather than stored.
+export type InvoiceStatus = "draft" | "sent" | "paid";
 export type ClientStage = "lead" | "proposal" | "active";
 export type PlannerStatus = "draft" | "published";
 
@@ -65,6 +68,10 @@ export interface Database {
           lead_source: string | null;
           lead_temperature: LeadTemperature | null;
           follow_up_date: string | null;
+          // Phase 16 — see 0013_pipeline.sql.
+          estimated_value: number | null;
+          likelihood: number | null;
+          last_contacted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -81,6 +88,9 @@ export interface Database {
           lead_source?: string | null;
           lead_temperature?: LeadTemperature | null;
           follow_up_date?: string | null;
+          estimated_value?: number | null;
+          likelihood?: number | null;
+          last_contacted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -97,6 +107,9 @@ export interface Database {
           lead_source?: string | null;
           lead_temperature?: LeadTemperature | null;
           follow_up_date?: string | null;
+          estimated_value?: number | null;
+          likelihood?: number | null;
+          last_contacted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -186,6 +199,11 @@ export interface Database {
           transcript_url: string | null;
           received_at: string | null;
           applied: boolean;
+          // Phase 15 — 'webhook' or 'manual'.
+          source: string;
+          meeting_url: string | null;
+          title: string | null;
+          created_by: string | null;
           // Phase 6 — see 0005_fathom_reviewed.sql. null = a human
           // hasn't opened this call's prospect review yet.
           reviewed_at: string | null;
@@ -202,6 +220,10 @@ export interface Database {
           transcript_url?: string | null;
           received_at?: string | null;
           applied?: boolean;
+          source?: string;
+          meeting_url?: string | null;
+          title?: string | null;
+          created_by?: string | null;
           reviewed_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -216,6 +238,10 @@ export interface Database {
           transcript_url?: string | null;
           received_at?: string | null;
           applied?: boolean;
+          source?: string;
+          meeting_url?: string | null;
+          title?: string | null;
+          created_by?: string | null;
           reviewed_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -230,6 +256,10 @@ export interface Database {
           type: string | null;
           status: string | null;
           url: string | null;
+          storage_path: string | null;
+          mime_type: string | null;
+          size_bytes: number | null;
+          uploaded_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -240,6 +270,10 @@ export interface Database {
           type?: string | null;
           status?: string | null;
           url?: string | null;
+          storage_path?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number | null;
+          uploaded_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -250,8 +284,125 @@ export interface Database {
           type?: string | null;
           status?: string | null;
           url?: string | null;
+          storage_path?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number | null;
+          uploaded_by?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+
+      // Phase 17 — see 0014_onboarding_templates.sql.
+      client_checklist_items: {
+        Row: {
+          id: string;
+          client_id: string;
+          label: string;
+          position: number;
+          done: boolean;
+          done_at: string | null;
+          done_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          label: string;
+          position?: number;
+          done?: boolean;
+          done_at?: string | null;
+          done_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          label?: string;
+          position?: number;
+          done?: boolean;
+          done_at?: string | null;
+          done_by?: string | null;
+          created_at?: string;
+        };
+      };
+
+      task_templates: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+      };
+
+      task_template_items: {
+        Row: {
+          id: string;
+          template_id: string;
+          text: string;
+          offset_days: number;
+          position: number;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          text: string;
+          offset_days?: number;
+          position?: number;
+        };
+        Update: {
+          id?: string;
+          template_id?: string;
+          text?: string;
+          offset_days?: number;
+          position?: number;
+        };
+      };
+
+      // Phase 15 — see 0012_documents_fathom_activity.sql.
+      client_activity: {
+        Row: {
+          id: string;
+          client_id: string;
+          kind: string;
+          summary: string;
+          meta: Record<string, unknown> | null;
+          actor_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          kind: string;
+          summary: string;
+          meta?: Record<string, unknown> | null;
+          actor_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          kind?: string;
+          summary?: string;
+          meta?: Record<string, unknown> | null;
+          actor_id?: string | null;
+          created_at?: string;
         };
       };
 
@@ -344,7 +495,9 @@ export interface Database {
           service: string | null;
           amount: number | null;
           invoice_date: string | null;
-          status: string | null;
+          due_date: string | null;
+          paid_at: string | null;
+          status: InvoiceStatus | null;
           created_at: string;
           updated_at: string;
         };
@@ -355,7 +508,9 @@ export interface Database {
           service?: string | null;
           amount?: number | null;
           invoice_date?: string | null;
-          status?: string | null;
+          due_date?: string | null;
+          paid_at?: string | null;
+          status?: InvoiceStatus | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -366,7 +521,9 @@ export interface Database {
           service?: string | null;
           amount?: number | null;
           invoice_date?: string | null;
-          status?: string | null;
+          due_date?: string | null;
+          paid_at?: string | null;
+          status?: InvoiceStatus | null;
           created_at?: string;
           updated_at?: string;
         };

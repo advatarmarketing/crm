@@ -61,6 +61,59 @@ alter table clients add constraint clients_lead_temperature_check
 -- 3. Helper functions
 -- =================================================================
 
+-- Re-declared here with `create or replace`, not just referenced,
+-- because this live database turned out not to have them (running
+-- this migration surfaced "function public.current_role() does not
+-- exist" — whatever set up this project's RLS originally didn't
+-- fully apply 0002_schema_rls.sql's helper functions, even though the
+-- app has been working off whatever simpler rules ARE in place). This
+-- makes 0010 self-contained: it (re)creates the full set correctly
+-- rather than assuming any particular prior state. If these already
+-- existed with this exact definition, `create or replace` is a no-op.
+
+create or replace function public.current_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.profiles where id = auth.uid();
+$$;
+
+create or replace function public.current_client_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select client_id from public.profiles where id = auth.uid();
+$$;
+
+create or replace function public.is_ceo()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.current_role() = 'ceo';
+$$;
+
+create or replace function public.is_assigned_staff(target_client_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.client_staff
+    where client_id = target_client_id and staff_id = auth.uid()
+  );
+$$;
+
 -- "Management": ceo + operations_manager. Full, unrestricted access
 -- everywhere `is_staff_or_ceo()` used to be used, EXCEPT the tables
 -- that are now staff-scoped (see below) — there, this replaces the

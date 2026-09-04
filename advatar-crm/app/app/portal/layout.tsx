@@ -34,7 +34,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
 
   if (!profile?.client_id) {
     return (
-      <main style={{ padding: "40px 32px", maxWidth: 720, margin: "0 auto" }}>
+      <main className="page page-xs">
         <p style={{ fontFamily: "var(--font-body)", color: "var(--text-3)" }}>
           Your account isn't linked to a project yet — check back once your team has set things up.
         </p>

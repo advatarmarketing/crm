@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ClientCard } from "@/components/ClientCard";
+import { ClientsBrowser, type BrowsableClient } from "@/components/ClientsBrowser";
+
+export const dynamic = "force-dynamic";
 
 export default async function ClientsPage() {
   const supabase = createClient();
@@ -29,66 +31,39 @@ export default async function ClientsPage() {
   const [{ data: clients }, { data: finance }] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, name, service, stage, next_action, avatar_url")
+      .select("id, name, contact_name, contact_email, service, stage, next_action, avatar_url, created_at")
       .order("created_at", { ascending: false }),
     supabase.from("client_finance").select("client_id, monthly_value"),
   ]);
 
   const financeByClient = new Map((finance ?? []).map((f) => [f.client_id, f.monthly_value]));
 
+  const rows: BrowsableClient[] = (clients ?? []).map((c) => ({
+    ...c,
+    // undefined (not null/0) when this client has no row in
+    // client_finance visible to the caller — ClientCard only renders
+    // the £ figure when this is actually a number.
+    monthlyValue: financeByClient.has(c.id) ? financeByClient.get(c.id) : undefined,
+  }));
+
+  // Only offer services that actually exist, so the dropdown reflects
+  // this agency rather than a guessed list.
+  const services = Array.from(
+    new Set((clients ?? []).map((c) => c.service).filter((s): s is string => !!s))
+  ).sort();
+
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 1040, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: 0 }}>Clients</h1>
+    <main className="page">
+      <div className="page-head">
+        <h1 className="page-title">Clients</h1>
         {canAddClient && (
-          <Link
-            href="/app/clients/new"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              textDecoration: "none",
-              padding: "10px 16px",
-              borderRadius: "var(--radius-sm)",
-              background: "var(--text-1)",
-              color: "var(--bg)",
-            }}
-          >
+          <Link href="/app/clients/new" className="btn btn-primary">
             + Add client
           </Link>
         )}
       </div>
 
-      {!clients || clients.length === 0 ? (
-        <p style={{ fontFamily: "var(--font-body)", color: "var(--text-3)" }}>
-          No clients to show.
-        </p>
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-            gap: 16,
-          }}
-        >
-          {clients.map((c) => (
-            <ClientCard
-              key={c.id}
-              id={c.id}
-              name={c.name}
-              service={c.service}
-              stage={c.stage}
-              nextAction={c.next_action}
-              avatarUrl={c.avatar_url}
-              // undefined (not null/0) when this client has no row in
-              // client_finance visible to the caller — ClientCard only
-              // renders the £ figure when this is actually a number.
-              monthlyValue={financeByClient.has(c.id) ? financeByClient.get(c.id) : undefined}
-            />
-          ))}
-        </div>
-      )}
+      <ClientsBrowser clients={rows} services={services} />
     </main>
   );
 }

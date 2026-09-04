@@ -1,4 +1,13 @@
-export function StatTile({ label, value }: { label: string; value: string }) {
+export function StatTile({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  /** Optional line under the figure — e.g. a comparison with last month. */
+  hint?: string;
+}) {
   return (
     <div
       style={{
@@ -34,6 +43,19 @@ export function StatTile({ label, value }: { label: string; value: string }) {
       >
         {value}
       </span>
+      {hint && (
+        <span
+          style={{
+            display: "block",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10.5,
+            color: "var(--text-3)",
+            marginTop: 4,
+          }}
+        >
+          {hint}
+        </span>
+      )}
     </div>
   );
 }

@@ -65,6 +65,11 @@ export function ChatShell({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [markReadTick, setMarkReadTick] = useState(0);
+  // Phase 13: on a phone the two panes cannot sit side by side, so
+  // one is shown at a time and this decides which. It is ignored
+  // entirely above the breakpoint (see .chat rules in globals.css),
+  // which is why selecting a client can set it unconditionally.
+  const [mobilePane, setMobilePane] = useState<"list" | "thread">("list");
 
   const selectedThreadId = useMemo(
     () => threads.find((t) => t.clientId === selectedClientId)?.threadId ?? null,
@@ -169,6 +174,7 @@ export function ChatShell({
 
   function selectThread(clientId: string) {
     setSelectedClientId(clientId);
+    setMobilePane("thread");
     // Optimistic: the reader is looking at this thread right now.
     // The real mark-as-read call (MarkThreadRead below) and its
     // Realtime echo will settle the exact count shortly after.
@@ -196,8 +202,8 @@ export function ChatShell({
   const selected = threads.find((t) => t.clientId === selectedClientId) ?? null;
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 56px)" }}>
-      <aside style={{ width: 300, flexShrink: 0, borderRight: "1px solid var(--border)", overflowY: "auto" }}>
+    <div className={`chat ${mobilePane === "thread" ? "chat--thread" : "chat--list"}`}>
+      <aside className="chat-list" style={{ width: 300, flexShrink: 0, borderRight: "1px solid var(--border)", overflowY: "auto" }}>
         <h1
           style={{
             fontFamily: "var(--font-display)",
@@ -275,7 +281,7 @@ export function ChatShell({
                           height: 16,
                           borderRadius: 8,
                           background: "var(--status-warm, #c0392b)",
-                          color: "#fff",
+                          color: "var(--text-on-accent)",
                           fontFamily: "var(--font-mono)",
                           fontSize: 10,
                           display: "flex",
@@ -307,7 +313,7 @@ export function ChatShell({
         )}
       </aside>
 
-      <section style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <section className="chat-thread" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {!selected ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)" }}>
             Select a client to see their conversation.
@@ -315,7 +321,30 @@ export function ChatShell({
         ) : (
           <>
             <MarkThreadRead threadId={selected.threadId} tick={markReadTick} />
-            <header style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)" }}>
+            <header style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                type="button"
+                className="chat-back"
+                onClick={() => setMobilePane("list")}
+                aria-label="Back to conversations"
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 36,
+                  height: 36,
+                  flexShrink: 0,
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text-1)",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
               <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: 0 }}>{selected.clientName}</h2>
             </header>
             <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>

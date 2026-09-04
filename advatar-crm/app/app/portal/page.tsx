@@ -55,7 +55,7 @@ export default async function PortalOverviewPage() {
   const displayName = profile.full_name || client?.name || "there";
 
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 1040, margin: "0 auto" }}>
+    <main className="page">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 4px" }}>
         Welcome back, {displayName}
       </h1>

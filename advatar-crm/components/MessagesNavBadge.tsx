@@ -71,7 +71,7 @@ export function MessagesNavBadge() {
         height: 15,
         borderRadius: 8,
         background: "var(--status-warm, #c0392b)",
-        color: "#fff",
+        color: "var(--text-on-accent)",
         fontFamily: "var(--font-mono)",
         fontSize: 9.5,
         padding: "0 4px",

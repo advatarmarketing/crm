@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =================================================================
+   THEME TOKENS
+   Three states are handled deliberately:
+     :root                          -> light (the default)
+     prefers-color-scheme: dark     -> dark, unless the user explicitly
+                                       chose light
+     :root[data-theme="dark"]       -> dark, chosen explicitly
+   The middle case is what makes the app follow the operating system
+   for anyone who has never touched the toggle. Every colour used
+   anywhere in the app must come from these variables -- a hardcoded
+   hex in a component is the classic "unreadable in dark mode" bug.
+   ================================================================= */
+
 :root {
   --bg: #f5f5f3;
   --surface: #ffffff;
@@ -12,6 +25,7 @@
   --text-1: #111111;
   --text-2: #555555;
   --text-3: #909090;
+  --text-on-accent: #ffffff;
 
   --chrome-lo: #b8b8b8;
   --chrome-hi: #f5f5f5;
@@ -19,8 +33,11 @@
   --chrome-text: linear-gradient(135deg, #6b6b6b 0%, #1a1a1a 40%, #6b6b6b 60%, #1a1a1a 100%);
 
   --status-active: #4a7c59;
-  --status-warm: #b8863b;
+  --status-warm: #8a6220;
   --status-closed: #a64a4a;
+
+  --overlay: rgba(0, 0, 0, 0.32);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -29,6 +46,37 @@
   --font-display: "Bebas Neue", sans-serif;
   --font-body: "DM Sans", sans-serif;
   --font-mono: "Space Mono", monospace;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e0e0e;
+    --surface: #181818;
+    --surface-2: #222222;
+    --surface-3: #2c2c2c;
+    --border: #2e2e2e;
+    --border-2: #3c3c3c;
+    --text-1: #f4f4f2;
+    --text-2: #9a9a9a;
+    --text-3: #5e5e5e;
+    --text-on-accent: #0e0e0e;
+
+    --chrome-lo: #3a3a3a;
+    --chrome-hi: #6a6a6a;
+    --chrome-beam: linear-gradient(135deg, #3a3a3a 0%, #6a6a6a 45%, #2a2a2a 55%, #4a4a4a 100%);
+    --chrome-text: linear-gradient(135deg, #d4d4d4 0%, #8a8a8a 40%, #d4d4d4 60%, #8a8a8a 100%);
+
+    --status-active: #6fa07d;
+    --status-warm: #d0a256;
+    --status-closed: #cc7a7a;
+
+    --overlay: rgba(0, 0, 0, 0.6);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+
+    color-scheme: dark;
+  }
 }
 
 :root[data-theme="dark"] {
@@ -41,11 +89,21 @@
   --text-1: #f4f4f2;
   --text-2: #9a9a9a;
   --text-3: #5e5e5e;
+  --text-on-accent: #0e0e0e;
 
   --chrome-lo: #3a3a3a;
   --chrome-hi: #6a6a6a;
   --chrome-beam: linear-gradient(135deg, #3a3a3a 0%, #6a6a6a 45%, #2a2a2a 55%, #4a4a4a 100%);
   --chrome-text: linear-gradient(135deg, #d4d4d4 0%, #8a8a8a 40%, #d4d4d4 60%, #8a8a8a 100%);
+
+  --status-active: #6fa07d;
+  --status-warm: #d0a256;
+  --status-closed: #cc7a7a;
+
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
 }
 
 * {
@@ -59,4 +117,438 @@ body {
   background: var(--bg);
   color: var(--text-1);
   font-family: var(--font-body);
+  /* Stops iOS Safari inflating text in landscape. */
+  -webkit-text-size-adjust: 100%;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Form controls don't inherit the page font by default, and on iOS a
+   font-size under 16px makes Safari zoom in on focus -- which reads as
+   the layout "jumping" every time you tap a field on a phone. */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--text-1);
+}
+
+@media (min-width: 700px) {
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 14px;
+  }
+}
+
+input,
+select,
+textarea {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-1);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-3);
+}
+
+:focus-visible {
+  outline: 2px solid var(--text-2);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* =================================================================
+   SHARED LAYOUT UTILITIES
+   This app styles almost everything with inline `style` props, which
+   cannot express a media query -- that is the single reason nothing
+   was responsive. These classes exist so page shells, card grids and
+   form rows can adapt at breakpoints; components use them instead of
+   repeating the same inline layout object.
+   ================================================================= */
+
+.page {
+  padding: 40px 32px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.page-narrow {
+  padding: 48px 24px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.row-2 {
+  display: flex;
+  gap: 12px;
+}
+
+.row-2 > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Wide content (tables, chat transcripts, chart rows) scrolls inside
+   its own box so the page body never scrolls sideways. */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.stat-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: var(--border-2);
+  color: var(--text-1);
+}
+
+.btn-primary {
+  background: var(--text-1);
+  border-color: var(--text-1);
+  color: var(--bg);
+}
+
+.btn-primary:hover {
+  color: var(--bg);
+  opacity: 0.85;
+}
+
+@media (max-width: 700px) {
+  .page {
+    padding: 24px 16px 48px;
+  }
+
+  .page-narrow {
+    padding: 32px 16px 48px;
+  }
+
+  .page-title {
+    font-size: 28px;
+  }
+
+  .page-head {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Two-up form rows stack rather than squeezing two inputs into a
+     phone's width. */
+  .row-2 {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .stat-row > * {
+    flex: 1 1 100%;
+  }
+}
+
+/* =================================================================
+   LOGO SWAPPING
+   Four logo files: wordmark + mini mark, each supplied in a light and
+   a dark version whose backdrop is already the exact colour of the
+   nav in that theme (they are flat-backed images, not cut-outs, so
+   they only look right on their own theme's surface). Which one shows
+   is decided in CSS rather than JavaScript so there is no flicker on
+   load and no hydration mismatch: the outer wrapper picks wordmark vs
+   mark by viewport width, the inner image picks light vs dark by
+   theme, and the two compose.
+   ================================================================= */
+
+.logo-full {
+  display: block;
+}
+
+.logo-mark {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .logo-full {
+    display: none;
+  }
+  .logo-mark {
+    display: block;
+  }
+}
+
+.logo-for-light {
+  display: block;
+}
+
+.logo-for-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo-for-light {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .logo-for-dark {
+    display: block;
+  }
+}
+
+:root[data-theme="dark"] .logo-for-light {
+  display: none;
+}
+
+:root[data-theme="dark"] .logo-for-dark {
+  display: block;
+}
+
+:root[data-theme="light"] .logo-for-light {
+  display: block;
+}
+
+:root[data-theme="light"] .logo-for-dark {
+  display: none;
+}
+
+/* =================================================================
+   APP NAV
+   Display is controlled here rather than with inline styles on the
+   elements themselves: an inline `style` beats a class in the
+   cascade, so a component that sets display inline can never be
+   hidden by a media query. That is exactly the trap the old nav fell
+   into.
+   ================================================================= */
+
+.nav-links {
+  display: flex;
+}
+
+.nav-burger {
+  display: none;
+}
+
+.nav-panel {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .nav-links {
+    display: none;
+  }
+
+  .nav-burger {
+    display: inline-flex;
+  }
+
+  .nav-panel {
+    display: block;
+  }
+}
+
+/* Width variants of .page, matching the widths the individual pages
+   were already using inline. */
+.page-md {
+  max-width: 900px;
+}
+
+.page-sm {
+  max-width: 800px;
+}
+
+.page-xs {
+  max-width: 720px;
+}
+
+/* Lead rows: details and actions sit side by side on a desktop and
+   stack on a phone, where two buttons plus a block of contact detail
+   will not fit across. */
+.lead-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (max-width: 700px) {
+  .lead-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* =================================================================
+   MESSAGES (ChatShell)
+   Two panes side by side on a desktop; one at a time on a phone,
+   where 300px of conversation list plus a readable thread will not
+   fit across the screen. Which pane shows is driven by the
+   .chat--list / .chat--thread class on the wrapper.
+   ================================================================= */
+
+.chat {
+  display: flex;
+  /* dvh accounts for the browser's own collapsing toolbar on mobile;
+     the vh line is the fallback for browsers without it. */
+  height: calc(100vh - 56px);
+  height: calc(100dvh - 56px);
+}
+
+.chat-back {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .chat-list {
+    width: 100% !important;
+    border-right: none !important;
+  }
+
+  .chat--thread .chat-list {
+    display: none;
+  }
+
+  .chat--list .chat-thread {
+    display: none;
+  }
+
+  .chat-back {
+    display: inline-flex;
+  }
+}
+
+/* =================================================================
+   PIPELINE (Leads)
+   Three columns on a desktop, stacked on a phone. Stacking rather
+   than horizontally scrolling: a scrolling board hides the columns
+   that need attention, and "what have I forgotten to chase" is the
+   whole point of this screen.
+   ================================================================= */
+
+.pipeline {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .pipeline {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+/* =================================================================
+   FILTER BARS
+   Search + dropdowns above a list. Wraps to as many rows as it needs
+   rather than squeezing, and the search field is the one thing that
+   grows to fill the space.
+   ================================================================= */
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.filter-search {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 10px 12px;
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-family: var(--font-body);
+}
+
+.filter-select {
+  padding: 10px 12px;
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.filter-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .filter-count {
+    margin-left: 0;
+    width: 100%;
+  }
 }

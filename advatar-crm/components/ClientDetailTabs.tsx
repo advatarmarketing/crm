@@ -8,6 +8,11 @@ import { DocumentsList } from "./DocumentsList";
 import { TaskList } from "./TaskList";
 import { PlannerDocument } from "./PlannerDocument";
 import { AssignedTeamPanel, type AssignedTeamMember, type AssignableProfile } from "./AssignedTeamPanel";
+import { ClientFinancePanel, type ClientInvoice } from "./ClientFinancePanel";
+import { DocumentUpload } from "./DocumentUpload";
+import { FathomLinkPanel, type LinkedMeeting } from "./FathomLinkPanel";
+import { ActivityTimeline, type ActivityEntry } from "./ActivityTimeline";
+import { OnboardingChecklist, type ChecklistItem, type TemplateOption } from "./OnboardingChecklist";
 import type { Database } from "@/lib/supabase/types";
 
 type Client = Database["public"]["Tables"]["clients"]["Row"];
@@ -17,6 +22,7 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 const TABS = [
   { id: "info", label: "Info" },
   { id: "plan", label: "90-Day Plan" },
+  { id: "activity", label: "Activity" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -29,6 +35,11 @@ export function ClientDetailTabs({
   initialTab = "info",
   teamMembers,
   assignableProfiles,
+  invoices = [],
+  meetings = [],
+  activity = [],
+  checklist = [],
+  templates = [],
 }: {
   client: Client;
   documents: Document[];
@@ -37,6 +48,20 @@ export function ClientDetailTabs({
   initialTab?: TabId;
   teamMembers: AssignedTeamMember[];
   assignableProfiles: AssignableProfile[];
+  /**
+   * Phase 14. Empty for anyone whose RLS can't read `invoices`
+   * (staff, videographer) — the Finance section below is simply not
+   * rendered in that case, rather than gated on a role check here.
+   */
+  invoices?: ClientInvoice[];
+  /** Phase 15: meetings attached to this client, newest first. */
+  meetings?: LinkedMeeting[];
+  /** Phase 15: this client's history, newest first. */
+  activity?: ActivityEntry[];
+  /** Phase 17: onboarding steps for this client. */
+  checklist?: ChecklistItem[];
+  /** Phase 17: task templates available to apply. */
+  templates?: TemplateOption[];
 }) {
   const [tab, setTab] = useState<TabId>(initialTab);
 
@@ -82,7 +107,7 @@ export function ClientDetailTabs({
       </div>
 
       {tab === "info" && (
-        <div style={{ maxWidth: 720 }}>
+        <div style={{ maxWidth: 720 }} className="client-info-col">
           <section style={{ marginBottom: 36 }}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Info</h2>
             <ClientInfoForm client={client} />
@@ -94,13 +119,31 @@ export function ClientDetailTabs({
           </section>
 
           <section style={{ marginBottom: 36 }}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Onboarding</h2>
+            <OnboardingChecklist clientId={client.id} items={checklist} templates={templates} />
+          </section>
+
+          <section style={{ marginBottom: 36 }}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Tasks</h2>
             <TaskList initialTasks={tasks} />
           </section>
 
+          {invoices.length > 0 || monthlyValue !== undefined ? (
+            <section style={{ marginBottom: 36 }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Finance</h2>
+              <ClientFinancePanel clientId={client.id} invoices={invoices} />
+            </section>
+          ) : null}
+
           <section style={{ marginBottom: 36 }}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Documents</h2>
-            <DocumentsList initialDocuments={documents} />
+            <DocumentsList initialDocuments={documents} clientId={client.id} />
+            <DocumentUpload clientId={client.id} />
+          </section>
+
+          <section style={{ marginBottom: 36 }}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Meetings</h2>
+            <FathomLinkPanel clientId={client.id} meetings={meetings} />
           </section>
 
           {/* This page is only ever reached by ceo/staff — see the
@@ -117,6 +160,12 @@ export function ClientDetailTabs({
           planner's fetch + Realtime subscription on every client
           detail page load, only when staff actually opens the tab. */}
       {tab === "plan" && <PlannerDocument clientId={client.id} editable={true} />}
+
+      {tab === "activity" && (
+        <div style={{ maxWidth: 720 }}>
+          <ActivityTimeline clientId={client.id} entries={activity} />
+        </div>
+      )}
     </div>
   );
 }

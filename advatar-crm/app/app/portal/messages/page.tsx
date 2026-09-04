@@ -51,7 +51,7 @@ export default async function PortalMessagesPage() {
     : { data: null };
 
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", minHeight: "60vh" }}>
+    <main className="page page-xs" style={{ display: "flex", flexDirection: "column", minHeight: "60vh" }}>
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 24px" }}>
         Messages
       </h1>

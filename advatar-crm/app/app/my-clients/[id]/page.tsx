@@ -32,7 +32,7 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
     : { data: null };
 
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 1040, margin: "0 auto" }}>
+    <main className="page">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 32, margin: "0 0 4px" }}>
         {client.name}
       </h1>

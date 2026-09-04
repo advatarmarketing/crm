@@ -26,7 +26,7 @@ export default async function ProspectsPage() {
   const rows = (calls ?? []) as unknown as Row[];
 
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 800, margin: "0 auto" }}>
+    <main className="page page-sm">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 8px" }}>
         Prospects
       </h1>

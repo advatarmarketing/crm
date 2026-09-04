@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { login, type LoginState } from "./actions";
+import { Logo } from "@/components/Logo";
 
 type Tab = "client" | "staff";
 
@@ -30,23 +31,16 @@ export default function LoginPage() {
           background: "var(--surface)",
           border: "1px solid var(--border)",
           borderRadius: "var(--radius-lg)",
-          padding: "40px 36px",
+          padding: "36px 28px",
         }}
       >
-        <h1
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 40,
-            letterSpacing: "0.03em",
-            margin: "0 0 4px",
-            backgroundImage: "var(--chrome-text)",
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            color: "transparent",
-          }}
-        >
-          ADVATAR
-        </h1>
+        {/* The real wordmark replaces the text treatment here. The
+            card's background is var(--surface), which is exactly the
+            colour baked into each logo file's backdrop, so it sits
+            flush against the card in both themes. */}
+        <div style={{ marginBottom: 10 }}>
+          <Logo height={34} variant="full" />
+        </div>
         <p
           style={{
             fontFamily: "var(--font-mono)",

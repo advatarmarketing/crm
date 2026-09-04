@@ -66,6 +66,21 @@ export async function createClientRecord(
   const followUpDateRaw = String(formData.get("follow_up_date") ?? "").trim();
   const followUpDate = followUpDateRaw || null;
 
+  // Phase 16: both optional, and both have to survive being left
+  // blank — Number("") is 0, which would quietly record a lead as
+  // worth nothing rather than as "not estimated yet".
+  const estimatedValueRaw = String(formData.get("estimated_value") ?? "").trim();
+  const estimatedValue = estimatedValueRaw ? Number(estimatedValueRaw) : null;
+  if (estimatedValue !== null && (Number.isNaN(estimatedValue) || estimatedValue < 0)) {
+    return { error: "Estimated value must be a positive number." };
+  }
+
+  const likelihoodRaw = String(formData.get("likelihood") ?? "").trim();
+  const likelihood = likelihoodRaw ? Number(likelihoodRaw) : null;
+  if (likelihood !== null && (Number.isNaN(likelihood) || likelihood < 0 || likelihood > 100)) {
+    return { error: "Likelihood must be between 0 and 100." };
+  }
+
   const { data: inserted, error } = await supabase
     .from("clients")
     .insert({
@@ -78,6 +93,8 @@ export async function createClientRecord(
       lead_source: leadSource,
       lead_temperature: leadTemperature,
       follow_up_date: followUpDate,
+      estimated_value: estimatedValue,
+      likelihood,
     })
     .select("id")
     .single();

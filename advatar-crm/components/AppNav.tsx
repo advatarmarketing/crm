@@ -1,7 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { ProfileRole } from "@/lib/supabase/types";
 import { signOutAction } from "@/app/app/actions";
 import { MessagesNavBadge } from "@/components/MessagesNavBadge";
+import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { QuickSearch } from "@/components/QuickSearch";
 
 /**
  * Phase 7: the nav's content per role is a presentation choice layered
@@ -16,33 +23,31 @@ import { MessagesNavBadge } from "@/components/MessagesNavBadge";
  * feature.
  */
 const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
-  // Phase 10: "Messages" added here and to staff below — neither role
-  // had a way to reach the chat UI from the nav before this (it was
-  // reachable by URL only, via the "/app" catch-all). ceo isn't named
-  // explicitly in this phase's brief ("staff/ceo" for the page itself,
-  // but only "staff"/"videographer" for the nav badge) — added anyway
-  // since ceo and staff have shared every other nav item and page in
-  // this app so far, and having ceo able to reach the chat page from
-  // nowhere but a typed URL would be an inconsistent exception.
   ceo: [
     { href: "/app/dashboard", label: "Dashboard" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/leads", label: "Leads" },
     { href: "/app/prospects", label: "Prospects" },
+    { href: "/app/finance", label: "Finance" },
+    { href: "/app/summary", label: "This week" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/payments", label: "Payments" },
     { href: "/app/settings/team", label: "Team" },
   ],
-  // New role (Phase 12): runs sales/strategy alongside the CEO, so it
-  // shares the CEO's nav minus the two purely-financial items
-  // (Payments, and Team since inviting logins is kept CEO-only) —
-  // see 0010_ops_manager_leads_staff_scoping.sql for why this role
-  // has no invoices/client_finance/payments access.
+  // Phase 12/14: runs sales and strategy alongside the CEO, so it gets
+  // the CEO's nav minus "Payments" (what staff are paid) and "Team"
+  // (inviting logins stays CEO-only). It DOES get Finance: raising and
+  // chasing invoices for work you sold is part of the job. What it
+  // still cannot see is each client's monthly recurring value
+  // (client_finance) or anyone's wages — both remain CEO-only at the
+  // database level. See 0011_invoices_finance.sql.
   operations_manager: [
     { href: "/app/dashboard", label: "Dashboard" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/leads", label: "Leads" },
     { href: "/app/prospects", label: "Prospects" },
+    { href: "/app/finance", label: "Finance" },
+    { href: "/app/summary", label: "This week" },
     { href: "/app/messages", label: "Messages" },
   ],
   // Phase 12: staff's RLS is now scoped to only its assigned clients
@@ -67,70 +72,192 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   client: [{ href: "/app/portal", label: "Your Project" }],
 };
 
+/**
+ * Phase 13: rebuilt as a client component so it can (a) highlight the
+ * page you're actually on and (b) collapse into a menu on a phone.
+ * Before this the links sat in one un-wrapping row, which on a narrow
+ * screen pushed "Sign out" off the edge and made half the app
+ * unreachable from a phone.
+ *
+ * `signOutAction` is a server action imported into a client component,
+ * which is supported — the function isn't bundled to the browser, only
+ * a reference to it is, and it still executes on the server.
+ */
 export function AppNav({ role }: { role: ProfileRole }) {
   const links = NAV_BY_ROLE[role];
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the mobile menu on navigation — without this, tapping a link
+  // leaves the panel sitting open over the page you just moved to.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  function isActive(href: string) {
+    if (!pathname) return false;
+    return pathname === href || pathname.startsWith(href + "/");
+  }
 
   return (
     <nav
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 32px",
         borderBottom: "1px solid var(--border)",
         background: "var(--surface)",
+        position: "sticky",
+        top: 0,
+        zIndex: 40,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <span
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 20,
-            letterSpacing: "0.02em",
-            color: "var(--text-1)",
-            marginRight: 20,
-          }}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          padding: "0 16px",
+          minHeight: 56,
+        }}
+      >
+        <Link
+          href={links[0]?.href ?? "/app"}
+          style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", marginRight: 8 }}
         >
-          ADVATAR
-        </span>
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
+          <Logo />
+        </Link>
+
+        {/* Desktop links. Hidden under 900px, where the button below
+            takes over — the breakpoint is where this row starts
+            colliding with the sign-out control on the CEO's seven-item
+            nav, not an arbitrary device width. */}
+        <div className="nav-links" style={{ alignItems: "center", gap: 2, flex: 1, minWidth: 0 }}>
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                color: isActive(link.href) ? "var(--text-1)" : "var(--text-2)",
+                textDecoration: "none",
+                padding: "18px 10px",
+                whiteSpace: "nowrap",
+                borderBottom: isActive(link.href) ? "2px solid var(--text-1)" : "2px solid transparent",
+              }}
+            >
+              {link.label}
+              {link.href === "/app/messages" && <MessagesNavBadge />}
+            </Link>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {role !== "client" && <QuickSearch />}
+          <ThemeToggle />
+
+          <form action={signOutAction} className="nav-links">
+            <button
+              type="submit"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                background: "none",
+                border: "none",
+                color: "var(--text-3)",
+                cursor: "pointer",
+                padding: "8px 4px",
+                minHeight: 44,
+              }}
+            >
+              Sign out
+            </button>
+          </form>
+
+          <button
+            type="button"
+            className="nav-burger"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
             style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              color: "var(--text-2)",
-              textDecoration: "none",
-              padding: "16px 12px",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 36,
+              height: 36,
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+              background: "var(--surface)",
+              color: "var(--text-1)",
+              cursor: "pointer",
+              padding: 0,
             }}
           >
-            {link.label}
-            {link.href === "/app/messages" && <MessagesNavBadge />}
-          </Link>
-        ))}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              {menuOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M3 6h18M3 12h18M3 18h18" />}
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <form action={signOutAction}>
-        <button
-          type="submit"
+      {menuOpen && (
+        <div
+          className="nav-panel"
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
-            background: "none",
-            border: "none",
-            color: "var(--text-3)",
-            cursor: "pointer",
-            padding: "8px 0",
+            borderTop: "1px solid var(--border)",
+            background: "var(--surface)",
+            padding: "8px 16px 16px",
           }}
         >
-          Sign out
-        </button>
-      </form>
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                fontFamily: "var(--font-mono)",
+                fontSize: 13,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                color: isActive(link.href) ? "var(--text-1)" : "var(--text-2)",
+                textDecoration: "none",
+                padding: "14px 4px",
+                minHeight: 48,
+                borderBottom: "1px solid var(--border)",
+              }}
+            >
+              {link.label}
+              {link.href === "/app/messages" && <MessagesNavBadge />}
+            </Link>
+          ))}
+
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 13,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                background: "none",
+                border: "none",
+                color: "var(--text-3)",
+                cursor: "pointer",
+                padding: "14px 4px",
+                minHeight: 48,
+                width: "100%",
+                textAlign: "left",
+              }}
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+      )}
     </nav>
   );
 }

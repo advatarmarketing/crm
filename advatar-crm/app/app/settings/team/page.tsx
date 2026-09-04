@@ -28,7 +28,7 @@ export default async function TeamSettingsPage() {
   }
 
   return (
-    <main style={{ maxWidth: 480, margin: "0 auto", padding: "48px 24px" }}>
+    <main className="page-narrow">
       <h1
         style={{
           fontFamily: "var(--font-display)",
@@ -52,6 +52,19 @@ export default async function TeamSettingsPage() {
         created from a client's detail page, not here.
       </p>
       <InviteForm />
+
+      <div style={{ marginTop: 40, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+        <a
+          href="/app/settings/templates"
+          className="btn"
+          style={{ textDecoration: "none" }}
+        >
+          Task templates →
+        </a>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--text-3)", margin: "10px 0 0" }}>
+          Repeatable sets of tasks your team can apply to a client in one click.
+        </p>
+      </div>
     </main>
   );
 }

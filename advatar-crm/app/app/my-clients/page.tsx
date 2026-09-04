@@ -19,7 +19,7 @@ export default async function MyClientsPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 1040, margin: "0 auto" }}>
+    <main className="page">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 24px" }}>
         My Clients
       </h1>
@@ -30,11 +30,7 @@ export default async function MyClientsPage() {
         </p>
       ) : (
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-            gap: 16,
-          }}
+          className="card-grid"
         >
           {clients.map((c) => (
             <ClientCard

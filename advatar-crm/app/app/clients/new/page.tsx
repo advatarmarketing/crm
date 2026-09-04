@@ -32,7 +32,7 @@ export default async function NewClientPage({
     : "lead";
 
   return (
-    <main style={{ maxWidth: 480, margin: "0 auto", padding: "48px 24px" }}>
+    <main className="page-narrow">
       <h1
         style={{
           fontFamily: "var(--font-display)",

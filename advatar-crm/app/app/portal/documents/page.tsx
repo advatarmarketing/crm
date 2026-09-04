@@ -33,7 +33,7 @@ export default async function PortalDocumentsPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 720, margin: "0 auto" }}>
+    <main className="page page-xs">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 24px" }}>
         Documents
       </h1>

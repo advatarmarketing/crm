@@ -1,48 +1,27 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { advanceClientStage } from "./actions";
+import { StatTile } from "@/components/StatTile";
+import type { PipelineLead } from "./LeadCard";
+import { PipelineBoard } from "./PipelineBoard";
+import { formatMoney, isPast } from "@/lib/format";
 
-const TEMPERATURE_COLOR: Record<string, string> = {
-  hot: "var(--status-closed)",
-  warm: "var(--status-warm)",
-  cold: "var(--text-3)",
-};
+export const dynamic = "force-dynamic";
 
-function TemperatureChip({ temperature }: { temperature: string | null }) {
-  if (!temperature) return null;
-  const color = TEMPERATURE_COLOR[temperature] ?? "var(--text-3)";
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        fontFamily: "var(--font-mono)",
-        fontSize: 10.5,
-        letterSpacing: "0.05em",
-        textTransform: "uppercase",
-        color,
-        border: `1px solid ${color}`,
-        borderRadius: 20,
-        padding: "3px 10px",
-      }}
-    >
-      {temperature}
-    </span>
-  );
-}
-
-function isOverdue(dateStr: string | null) {
-  if (!dateStr) return false;
-  return new Date(dateStr) < new Date(new Date().toDateString());
-}
-
-// Same `clients` table as /app/clients, filtered to stage='lead' and
-// with the lead-tracking columns from 0010_ops_manager_leads_staff_
-// scoping.sql surfaced (source, temperature, follow-up date). RLS
-// scopes this exactly the same way it scopes /app/clients: a plain
-// `staff` account only ever sees leads it's already assigned to via
-// client_staff — a brand-new, unassigned lead is management-only
-// (ceo/operations_manager) territory until someone's put on it.
+/**
+ * The sales pipeline — the same `clients` table as /app/clients, read
+ * as a funnel rather than a directory.
+ *
+ * RLS scopes this exactly as it scopes /app/clients: a plain `staff`
+ * account only sees clients it is assigned to, so a brand-new
+ * unassigned lead is management-only territory until someone is put on
+ * it (0010_ops_manager_leads_staff_scoping.sql).
+ *
+ * The "Recently won" column is capped to the last 30 days on purpose.
+ * The other two columns are work in progress and need to be complete;
+ * won business belongs on the Clients page, and an uncapped column
+ * would grow forever and push the columns that need attention off the
+ * screen.
+ */
 export default async function LeadsPage() {
   const supabase = createClient();
 
@@ -56,125 +35,82 @@ export default async function LeadsPage() {
 
   const canAdd = callerProfile?.role === "ceo" || callerProfile?.role === "operations_manager";
 
-  const { data: leads } = await supabase
+  const { data } = await supabase
     .from("clients")
-    .select("id, name, contact_name, contact_email, service, next_action, lead_source, lead_temperature, follow_up_date")
-    .eq("stage", "lead")
+    .select(
+      "id, name, contact_name, contact_email, service, stage, next_action, lead_source, lead_temperature, follow_up_date, estimated_value, likelihood, last_contacted_at, updated_at"
+    )
     .order("follow_up_date", { ascending: true, nullsFirst: false });
 
+  const all = (data ?? []) as unknown as (PipelineLead & { updated_at: string })[];
+
+  // Headline figures deliberately reflect the WHOLE pipeline, not
+  // whatever is currently filtered on screen — "weighted pipeline"
+  // has to mean the same number every time it's read, or it isn't a
+  // number you can plan against.
+  const openPipeline = all.filter((c) => c.stage === "lead" || c.stage === "proposal");
+
+  const sources = Array.from(
+    new Set(all.map((c) => c.lead_source).filter((s): s is string => !!s))
+  ).sort();
+
+  // Weighted = value x likelihood. Anything without a likelihood is
+  // counted at 50% rather than dropped: a lead with a value and no
+  // percentage is still real money, and excluding it would quietly
+  // understate the forecast.
+  const weighted = openPipeline.reduce(
+    (sum, c) => sum + (c.estimated_value ?? 0) * ((c.likelihood ?? 50) / 100),
+    0
+  );
+
+  const totalValue = openPipeline.reduce((sum, c) => sum + (c.estimated_value ?? 0), 0);
+  const overdueCount = openPipeline.filter((c) => isPast(c.follow_up_date)).length;
+
+  // Of everything that has reached a conclusion, how much was won.
+  // Only meaningful once there is something to divide by.
+  const won = all.filter((c) => c.stage === "active").length;
+  const conversionBase = won + openPipeline.length;
+  const conversion = conversionBase > 0 ? Math.round((won / conversionBase) * 100) : null;
+
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: 0 }}>Leads</h1>
+    <main className="page">
+      <div className="page-head">
+        <h1 className="page-title">Pipeline</h1>
         {canAdd && (
-          <Link
-            href="/app/clients/new?stage=lead"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              textDecoration: "none",
-              padding: "10px 16px",
-              borderRadius: "var(--radius-sm)",
-              background: "var(--text-1)",
-              color: "var(--bg)",
-            }}
-          >
+          <Link href="/app/clients/new?stage=lead" className="btn btn-primary">
             + Add lead
           </Link>
         )}
       </div>
-      <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)", margin: "0 0 28px" }}>
-        Clients not yet won — track who needs progressing and when to follow up.
-      </p>
 
-      {!leads || leads.length === 0 ? (
-        <p style={{ fontFamily: "var(--font-body)", color: "var(--text-3)" }}>No leads to show.</p>
-      ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-          {leads.map((lead) => {
-            const overdue = isOverdue(lead.follow_up_date);
-            return (
-              <li
-                key={lead.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 16,
-                  padding: "16px 18px",
-                  border: `1px solid ${overdue ? "var(--status-closed)" : "var(--border)"}`,
-                  borderRadius: "var(--radius-md)",
-                  background: "var(--surface)",
-                }}
-              >
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                    <span style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15, color: "var(--text-1)" }}>
-                      {lead.name}
-                    </span>
-                    <TemperatureChip temperature={lead.lead_temperature} />
-                  </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)", marginBottom: 6 }}>
-                    {[lead.contact_name, lead.contact_email, lead.service].filter(Boolean).join(" · ") || "No contact details yet"}
-                  </div>
-                  {lead.next_action && (
-                    <p style={{ margin: "0 0 6px", fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--text-2)" }}>
-                      {lead.next_action}
-                    </p>
-                  )}
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: overdue ? "var(--status-closed)" : "var(--text-3)" }}>
-                    {lead.lead_source ? `Source: ${lead.lead_source}` : "Source not set"}
-                    {lead.follow_up_date &&
-                      ` · Follow up ${overdue ? "was due" : "due"} ${new Date(lead.follow_up_date).toLocaleDateString()}`}
-                  </div>
-                </div>
+      <div className="stat-row">
+        <StatTile label="Weighted pipeline" value={formatMoney(weighted)} />
+        <StatTile label="Total in play" value={formatMoney(totalValue)} />
+        <StatTile label="Overdue follow-ups" value={String(overdueCount)} />
+        {conversion !== null && <StatTile label="Won rate" value={`${conversion}%`} />}
+      </div>
 
-                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <Link
-                    href={`/app/clients/${lead.id}`}
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      textDecoration: "none",
-                      color: "var(--text-2)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "var(--radius-sm)",
-                      padding: "8px 12px",
-                    }}
-                  >
-                    Open
-                  </Link>
-                  <form action={advanceClientStage}>
-                    <input type="hidden" name="clientId" value={lead.id} />
-                    <input type="hidden" name="nextStage" value="proposal" />
-                    <button
-                      type="submit"
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 11,
-                        letterSpacing: "0.05em",
-                        textTransform: "uppercase",
-                        border: "none",
-                        borderRadius: "var(--radius-sm)",
-                        padding: "8px 12px",
-                        background: "var(--text-1)",
-                        color: "var(--bg)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Move to proposal
-                    </button>
-                  </form>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+      {overdueCount > 0 && (
+        <p
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 13.5,
+            color: "var(--status-closed)",
+            border: "1px solid var(--status-closed)",
+            borderRadius: "var(--radius-sm)",
+            padding: "10px 14px",
+            margin: "0 0 24px",
+          }}
+        >
+          {overdueCount === 1
+            ? "1 lead is past its follow-up date."
+            : `${overdueCount} leads are past their follow-up date.`}{" "}
+          They&apos;re outlined in red below.
+        </p>
       )}
+
+      <PipelineBoard leads={all} sources={sources} />
+
     </main>
   );
 }

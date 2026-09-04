@@ -19,7 +19,7 @@ export default async function ClientPortalPlanPage() {
     // The known Phase 2 gap: a brand-new client-role signup hasn't
     // been linked to a real clients row yet.
     return (
-      <main style={{ padding: "40px 32px", maxWidth: 1040, margin: "0 auto" }}>
+      <main className="page">
         <p style={{ fontFamily: "var(--font-body)", color: "var(--text-3)" }}>
           Your account isn't linked to a project yet — check back once your team has set things up.
         </p>

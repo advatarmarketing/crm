@@ -26,7 +26,7 @@ export function PortalNav() {
       style={{
         display: "flex",
         gap: 4,
-        padding: "0 32px",
+        padding: "0 16px",
         borderBottom: "1px solid var(--border)",
         background: "var(--surface)",
         overflowX: "auto",
