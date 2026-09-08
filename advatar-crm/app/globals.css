@@ -36,12 +36,74 @@
   --status-warm: #8a6220;
   --status-closed: #a64a4a;
 
-  --overlay: rgba(0, 0, 0, 0.32);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+  /* -----------------------------------------------------------------
+     SEMANTIC STATUS — foreground / tinted background / border.
+     Outline-only chips made every state look like the same grey
+     rectangle. A tinted fill lets a genuinely urgent row carry visual
+     weight while everything calm stays quiet, which is the whole point
+     of using colour at all.
+     ----------------------------------------------------------------- */
+  --ok-fg: #2f6b47;
+  --ok-bg: #e9f3ed;
+  --ok-border: #b7d5c3;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --warn-fg: #8a6220;
+  --warn-bg: #fbf2e0;
+  --warn-border: #e5d1a6;
+
+  --danger-fg: #a13b3b;
+  --danger-bg: #fbebeb;
+  --danger-border: #edc2c2;
+
+  --info-fg: #3f6280;
+  --info-bg: #eaf1f7;
+  --info-border: #c0d5e4;
+
+  --neutral-fg: #5b5b5b;
+  --neutral-bg: #f0f0ee;
+  --neutral-border: #dcdcda;
+
+  /* Accent: one colour for what the eye should land on — the active
+     nav item, a focused field, a primary figure. Deliberately the only
+     saturated hue in the chrome, so it keeps meaning something. */
+  --accent: #8a6a1f;
+  --accent-hover: #6f5518;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(138, 106, 31, 0.1);
+  --accent-ring: rgba(138, 106, 31, 0.35);
+
+  /* Charts. Ordered by how distinguishable adjacent pairs are, since
+     series are usually read two or three at a time. */
+  --chart-1: #c9884f;
+  --chart-2: #6b8aa6;
+  --chart-3: #8fa37f;
+  --chart-4: #9a6fa0;
+  --chart-5: #d4af6a;
+  --chart-6: #7a9ba8;
+  --chart-grid: rgba(17, 17, 17, 0.07);
+  --chart-track: #ececea;
+
+  --overlay: rgba(0, 0, 0, 0.32);
+  --shadow-sm: 0 1px 2px rgba(17, 17, 17, 0.05), 0 1px 3px rgba(17, 17, 17, 0.04);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(17, 17, 17, 0.1);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* Spacing scale. Every gap in the app should be one of these, so
+     rhythm stays consistent instead of drifting between 10, 11 and 14. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
 
   --font-display: "Bebas Neue", sans-serif;
   --font-body: "DM Sans", sans-serif;
@@ -72,8 +134,48 @@
     --status-warm: #d0a256;
     --status-closed: #cc7a7a;
 
+    /* Dark tints are near-black with a hue rather than a lightened
+       version of the light-mode fill — a pale green panel on a dark
+       page glows and pulls the eye harder than the content does. */
+    --ok-fg: #7cc194;
+    --ok-bg: #16271c;
+    --ok-border: #2b4433;
+
+    --warn-fg: #e0b063;
+    --warn-bg: #292115;
+    --warn-border: #493820;
+
+    --danger-fg: #e28c8c;
+    --danger-bg: #2a1818;
+    --danger-border: #4b2b2b;
+
+    --info-fg: #8fb6d6;
+    --info-bg: #15212b;
+    --info-border: #2a4054;
+
+    --neutral-fg: #9a9a9a;
+    --neutral-bg: #222222;
+    --neutral-border: #333333;
+
+    --accent: #d4af6a;
+    --accent-hover: #e3c58c;
+    --accent-fg: #14100a;
+    --accent-soft: rgba(212, 175, 106, 0.14);
+    --accent-ring: rgba(212, 175, 106, 0.4);
+
+    --chart-1: #e0a06a;
+    --chart-2: #86a6c2;
+    --chart-3: #a5bb94;
+    --chart-4: #b489b9;
+    --chart-5: #e6c489;
+    --chart-6: #92b4c1;
+    --chart-grid: rgba(244, 244, 242, 0.08);
+    --chart-track: #2a2a2a;
+
     --overlay: rgba(0, 0, 0, 0.6);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
 
     color-scheme: dark;
   }
@@ -100,8 +202,45 @@
   --status-warm: #d0a256;
   --status-closed: #cc7a7a;
 
+  --ok-fg: #7cc194;
+  --ok-bg: #16271c;
+  --ok-border: #2b4433;
+
+  --warn-fg: #e0b063;
+  --warn-bg: #292115;
+  --warn-border: #493820;
+
+  --danger-fg: #e28c8c;
+  --danger-bg: #2a1818;
+  --danger-border: #4b2b2b;
+
+  --info-fg: #8fb6d6;
+  --info-bg: #15212b;
+  --info-border: #2a4054;
+
+  --neutral-fg: #9a9a9a;
+  --neutral-bg: #222222;
+  --neutral-border: #333333;
+
+  --accent: #d4af6a;
+  --accent-hover: #e3c58c;
+  --accent-fg: #14100a;
+  --accent-soft: rgba(212, 175, 106, 0.14);
+  --accent-ring: rgba(212, 175, 106, 0.4);
+
+  --chart-1: #e0a06a;
+  --chart-2: #86a6c2;
+  --chart-3: #a5bb94;
+  --chart-4: #b489b9;
+  --chart-5: #e6c489;
+  --chart-6: #92b4c1;
+  --chart-grid: rgba(244, 244, 242, 0.08);
+  --chart-track: #2a2a2a;
+
   --overlay: rgba(0, 0, 0, 0.6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
 
   color-scheme: dark;
 }
@@ -161,9 +300,20 @@ textarea::placeholder {
   color: var(--text-3);
 }
 
+/* Accent focus ring: high contrast against every surface in both
+   themes, and the same colour as the active-state accent so keyboard
+   focus reads as part of the system rather than a browser default. */
 :focus-visible {
-  outline: 2px solid var(--text-2);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+  border-color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -185,13 +335,13 @@ textarea::placeholder {
    ================================================================= */
 
 .page {
-  padding: 40px 32px;
-  max-width: 1040px;
+  padding: var(--space-7) var(--space-6) var(--space-8);
+  max-width: 1120px;
   margin: 0 auto;
 }
 
 .page-narrow {
-  padding: 48px 24px;
+  padding: var(--space-7) var(--space-5) var(--space-8);
   max-width: 480px;
   margin: 0 auto;
 }
@@ -200,21 +350,202 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 .page-title {
   font-family: var(--font-display);
-  font-size: 34px;
+  font-size: 38px;
   margin: 0;
   letter-spacing: 0.02em;
+  line-height: 1.05;
+}
+
+/* A short accent rule under a page title. Cheap, but it stops every
+   screen opening with an undifferentiated wall of text. */
+.page-title-accent::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  margin-top: var(--space-3);
 }
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+/* =================================================================
+   SURFACES
+   One card definition instead of the same six inline properties
+   repeated in forty components. Border plus a very soft shadow, so
+   panels sit above the page rather than being outlined boxes drawn
+   on it.
+   ================================================================= */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-pad {
+  padding: var(--space-5);
+}
+
+.card-pad-sm {
+  padding: var(--space-4);
+}
+
+/* Interactive cards lift slightly and warm their border on hover, and
+   nudge up 1px — enough to read as clickable without the page moving
+   about. Disabled under reduced-motion by the global rule above. */
+.card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.card-link:hover {
+  border-color: var(--border-2);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* =================================================================
+   SECTION RHYTHM
+   Sections were separated by hand-written margins that drifted
+   between 32 and 44px. One class, one rhythm.
+   ================================================================= */
+
+.section {
+  margin-bottom: var(--space-7);
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.section-head {
+  margin-bottom: var(--space-4);
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 23px;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--text-1);
+}
+
+.section-sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: var(--space-1) 0 0;
+}
+
+/* =================================================================
+   STATUS PILLS
+   Tinted rather than outlined. `.pill` alone is the quiet neutral
+   case; the tone modifiers are for states that genuinely need to be
+   noticed.
+   ================================================================= */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--neutral-border);
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
+  white-space: nowrap;
+}
+
+.pill-ok {
+  border-color: var(--ok-border);
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+
+.pill-warn {
+  border-color: var(--warn-border);
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.pill-danger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+.pill-info {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+
+.pill-accent {
+  border-color: var(--accent-ring);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* A 6px dot for pills that read better with a marker than a fill —
+   and it means state is never carried by colour alone. */
+.pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* =================================================================
+   METERS
+   A proportion is faster to read as a filled bar than as "7/12".
+   ================================================================= */
+
+.meter {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--chart-track);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.meter-fill-ok {
+  background: var(--ok-fg);
+}
+
+.meter-fill-warn {
+  background: var(--warn-fg);
+}
+
+.meter-fill-danger {
+  background: var(--danger-fg);
 }
 
 .row-2 {
@@ -236,9 +567,9 @@ textarea::placeholder {
 
 .stat-row {
   display: flex;
-  gap: 14px;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  margin-bottom: 36px;
+  margin-bottom: var(--space-6);
 }
 
 .btn {
@@ -258,11 +589,18 @@ textarea::placeholder {
   text-transform: uppercase;
   text-decoration: none;
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .btn:hover {
   border-color: var(--border-2);
   color: var(--text-1);
+  background: var(--surface-2);
+}
+
+.btn:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 .btn-primary {
@@ -273,20 +611,43 @@ textarea::placeholder {
 
 .btn-primary:hover {
   color: var(--bg);
-  opacity: 0.85;
+  background: var(--text-1);
+  opacity: 0.86;
+}
+
+/* The one genuinely coloured button, for the single most important
+   action on a screen. Used sparingly so it keeps its pull. */
+.btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.btn-accent:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-fg);
 }
 
 @media (max-width: 700px) {
   .page {
-    padding: 24px 16px 48px;
+    padding: var(--space-5) var(--space-4) var(--space-7);
   }
 
   .page-narrow {
-    padding: 32px 16px 48px;
+    padding: var(--space-6) var(--space-4) var(--space-7);
   }
 
   .page-title {
-    font-size: 28px;
+    font-size: 30px;
+  }
+
+  .section {
+    margin-bottom: var(--space-6);
+  }
+
+  .card-pad {
+    padding: var(--space-4);
   }
 
   .page-head {

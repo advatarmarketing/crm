@@ -112,7 +112,9 @@ export function RevenueChart({ invoices }: { invoices: PaidInvoice[] }) {
           border: "1px solid var(--border)",
           borderRadius: "var(--radius-md)",
           background: "var(--surface)",
-          padding: "20px 18px 14px",
+          boxShadow: "var(--shadow-sm)",
+          padding: "24px 22px 16px",
+          position: "relative",
         }}
       >
         <div
@@ -120,7 +122,7 @@ export function RevenueChart({ invoices }: { invoices: PaidInvoice[] }) {
             display: "flex",
             alignItems: "flex-end",
             gap: 6,
-            height: 180,
+            height: 190,
             minWidth: buckets.length * (barMinWidth + 6),
           }}
         >
@@ -146,7 +148,7 @@ export function RevenueChart({ invoices }: { invoices: PaidInvoice[] }) {
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 9.5,
-                    color: b.total > 0 ? "var(--text-2)" : "var(--text-3)",
+                    color: b.total === max && b.total > 0 ? "var(--accent)" : b.total > 0 ? "var(--text-2)" : "var(--text-3)",
                     textAlign: "center",
                     marginBottom: 4,
                     fontVariantNumeric: "tabular-nums",
@@ -155,12 +157,23 @@ export function RevenueChart({ invoices }: { invoices: PaidInvoice[] }) {
                 >
                   {b.total > 0 ? formatMoney(b.total) : "—"}
                 </span>
+                {/* The best month in the range is the only bar that
+                    takes the accent. Colouring all of them the same
+                    strength would say nothing; colouring one says
+                    "this is the month to look at". */}
                 <div
                   style={{
                     height: `${Math.max(heightPct, b.total > 0 ? 3 : 1)}%`,
-                    background: b.total > 0 ? "var(--status-warm)" : "var(--surface-3)",
-                    borderRadius: "3px 3px 0 0",
+                    background:
+                      b.total <= 0
+                        ? "var(--chart-track)"
+                        : b.total === max
+                        ? "var(--accent)"
+                        : "var(--chart-2)",
+                    opacity: b.total > 0 && b.total !== max ? 0.75 : 1,
+                    borderRadius: "var(--radius-xs) var(--radius-xs) 2px 2px",
                     minHeight: 2,
+                    transition: "height 0.3s ease",
                   }}
                 />
               </div>
