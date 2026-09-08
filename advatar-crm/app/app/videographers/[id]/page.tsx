@@ -109,7 +109,32 @@ export default async function VideographerDetailPage({ params }: { params: { id:
     clientName: t.client_id ? clientNameById.get(t.client_id) ?? null : null,
   }));
 
-  const resourceEntries = (resources ?? []) as unknown as ResourceEntry[];
+  // Checklist steps for the SOPs above, so the editor shows what is
+  // already there rather than appearing empty every time.
+  const resourceIds = ((resources ?? []) as unknown as { id: string }[]).map((r) => r.id);
+  const { data: checklistItems } = resourceIds.length
+    ? await supabase
+        .from("resource_checklist_items")
+        .select("id, resource_id, text, position")
+        .in("resource_id", resourceIds)
+        .order("position")
+    : { data: [] };
+
+  const stepsByResource = new Map<string, { id: string; text: string; position: number }[]>();
+  for (const i of (checklistItems ?? []) as unknown as {
+    id: string;
+    resource_id: string;
+    text: string;
+    position: number;
+  }[]) {
+    if (!stepsByResource.has(i.resource_id)) stepsByResource.set(i.resource_id, []);
+    stepsByResource.get(i.resource_id)!.push({ id: i.id, text: i.text, position: i.position });
+  }
+
+  const resourceEntries = ((resources ?? []) as unknown as ResourceEntry[]).map((r) => ({
+    ...r,
+    steps: stepsByResource.get(r.id) ?? [],
+  }));
 
   const name = videographer.full_name?.trim() || "Name not set";
 
@@ -179,7 +204,9 @@ export default async function VideographerDetailPage({ params }: { params: { id:
 
       <section style={{ marginBottom: 40, maxWidth: 760 }}>
         <h2 style={sectionHeading}>SOPs &amp; tutorials</h2>
-        <p style={eyebrow}>How-tos and standards that apply to videographers</p>
+        <p style={eyebrow}>
+          Add steps to any SOP and it becomes a checklist on their Guidelines tab
+        </p>
         <ResourcesPanel
           initialResources={resourceEntries}
           editable

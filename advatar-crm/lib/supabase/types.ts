@@ -462,6 +462,79 @@ export interface Database {
         };
       };
 
+      // Phase 22 — 0021_team_messages_sop_checklists.sql
+      direct_messages: {
+        Row: {
+          id: string;
+          sender_id: string;
+          recipient_id: string;
+          body: string;
+          read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sender_id: string;
+          recipient_id: string;
+          body: string;
+          read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          sender_id?: string;
+          recipient_id?: string;
+          body?: string;
+          read?: boolean;
+          created_at?: string;
+        };
+      };
+
+      resource_checklist_items: {
+        Row: {
+          id: string;
+          resource_id: string;
+          text: string;
+          position: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          resource_id: string;
+          text: string;
+          position?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          resource_id?: string;
+          text?: string;
+          position?: number;
+          created_at?: string;
+        };
+      };
+
+      resource_checklist_progress: {
+        Row: {
+          user_id: string;
+          item_id: string;
+          done: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          item_id: string;
+          done?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          item_id?: string;
+          done?: boolean;
+          updated_at?: string;
+        };
+      };
+
       // Phase 21 — 0020_submissions_brand_kits.sql
       submissions: {
         Row: {

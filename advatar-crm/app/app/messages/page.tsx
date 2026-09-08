@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChatShell, type ChatThreadSeed } from "@/components/ChatShell";
+import { MessagesTabs } from "@/components/MessagesTabs";
+import { TeamDirectMessages, type Teammate } from "@/components/TeamDirectMessages";
+import { ClientThreadPicker, type PickableClient } from "@/components/ClientThreadPicker";
 
 // Phase 10: staff/ceo/videographer chat. Every query below is sent
 // as-is and rendered from whatever comes back — no `if (role ===
@@ -80,5 +83,80 @@ export default async function MessagesPage() {
     };
   });
 
-  return <ChatShell currentUserId={user.id} canCreateThreads={canCreateThreads} initialThreads={seeds} />;
+  // ---------------- Phase 22: team messaging ----------------
+  // Everyone on the team except the viewer. `profiles` RLS already
+  // limits this to people this role may see; clients are excluded
+  // here and, more importantly, by direct_messages' own policies.
+  const [{ data: people }, { data: unreadDms }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .in("role", ["ceo", "operations_manager", "staff", "videographer"])
+      .neq("id", user.id)
+      .order("full_name", { nullsFirst: false }),
+    supabase.from("direct_messages").select("sender_id").eq("recipient_id", user.id).eq("read", false),
+  ]);
+
+  const unreadBySender = new Map<string, number>();
+  for (const row of ((unreadDms ?? []) as unknown as { sender_id: string }[])) {
+    unreadBySender.set(row.sender_id, (unreadBySender.get(row.sender_id) ?? 0) + 1);
+  }
+
+  const teammates: Teammate[] = ((people ?? []) as unknown as {
+    id: string;
+    full_name: string | null;
+    role: string;
+  }[]).map((p) => ({
+    id: p.id,
+    name: p.full_name?.trim() || "Name not set",
+    role: p.role,
+    unread: unreadBySender.get(p.id) ?? 0,
+  }));
+
+  const teamUnread = teammates.reduce((sum, t) => sum + t.unread, 0);
+
+  // The Clients half differs by role, and the difference is real
+  // rather than cosmetic:
+  //
+  //   videographer — the internal per-client threads (0020), the
+  //     team talking about a client. Their conversation WITH a client
+  //     is the portal thread, which still sits on that client's own
+  //     page under My Clients.
+  //
+  //   ceo / ops / staff — the portal conversations themselves, which
+  //     is what this page has always been for them.
+  const isVideographer = profile.role === "videographer";
+
+  const nameById: Record<string, string | null> = {};
+  for (const p of ((people ?? []) as unknown as { id: string; full_name: string | null }[])) {
+    nameById[p.id] = p.full_name?.trim() || null;
+  }
+  nameById[user.id] = "You";
+
+  const pickableClients: PickableClient[] = (clients ?? []).map((c) => ({ id: c.id, name: c.name }));
+
+  const clientsPane = isVideographer ? (
+    <ClientThreadPicker clients={pickableClients} currentUserId={user.id} nameById={nameById} />
+  ) : (
+    <ChatShell currentUserId={user.id} canCreateThreads={canCreateThreads} initialThreads={seeds} />
+  );
+
+  const clientUnread = isVideographer
+    ? 0
+    : seeds.reduce((sum, s) => sum + s.unreadCount, 0);
+
+  return (
+    <main className="page">
+      <h1 className="page-title" style={{ marginBottom: 20 }}>
+        Messages
+      </h1>
+      <MessagesTabs
+        clientsLabel="Clients"
+        clientsBadge={clientUnread}
+        teamBadge={teamUnread}
+        clients={clientsPane}
+        team={<TeamDirectMessages teammates={teammates} currentUserId={user.id} />}
+      />
+    </main>
+  );
 }

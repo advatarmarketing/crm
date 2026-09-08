@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ResourceChecklistEditor, type EditableStep } from "./ResourceChecklistEditor";
 import type { ResourceKind } from "@/lib/supabase/types";
 
 export interface ResourceEntry {
@@ -13,6 +14,8 @@ export interface ResourceEntry {
   body: string | null;
   audience_role: string;
   assigned_to: string | null;
+  /** Phase 22: the checklist steps people tick through. */
+  steps?: EditableStep[];
 }
 
 const KINDS: ResourceKind[] = ["sop", "tutorial", "template", "other"];
@@ -54,6 +57,10 @@ export function ResourcesPanel({
 }) {
   const [resources, setResources] = useState(initialResources);
   const [adding, setAdding] = useState(false);
+  // Set to the id of an SOP just created, so its checklist editor is
+  // the obvious next thing to fill in — an SOP without steps isn't
+  // usable as a checklist, and adding it later is easy to forget.
+  const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,7 +119,8 @@ export function ResourcesPanel({
       return;
     }
 
-    setResources((prev) => [...prev, data as ResourceEntry]);
+    setResources((prev) => [...prev, { ...(data as ResourceEntry), steps: [] }]);
+    setJustCreatedId((data as { id: string }).id);
     reset();
     setAdding(false);
     router.refresh();
@@ -231,6 +239,17 @@ export function ResourcesPanel({
                   </button>
                 )}
               </div>
+
+              {/* Phase 22: the checklist attached to this SOP.
+                  Management writes the steps here; videographers tick
+                  their own copy on the Guidelines page. */}
+              {editable && (
+                <ResourceChecklistEditor
+                  resourceId={r.id}
+                  initialSteps={r.steps ?? []}
+                  autoFocus={justCreatedId === r.id}
+                />
+              )}
             </li>
           ))}
         </ul>
