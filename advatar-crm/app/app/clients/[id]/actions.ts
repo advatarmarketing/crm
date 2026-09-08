@@ -97,11 +97,38 @@ export async function getDocumentDownloadUrl(
       : { url: null, error: "This document has no file attached." };
   }
 
+  // 60s was enough to hand a URL to window.open, but a phone waking a
+  // backgrounded tab, or a slow connection on a large PDF, could land
+  // outside it and fail with an expiry error that looked like a
+  // permissions problem. Five minutes costs nothing: the URL is
+  // single-purpose and only ever reaches the person who asked for it.
   const { data, error } = await supabase.storage
     .from(DOCUMENTS_BUCKET)
-    .createSignedUrl(doc.storage_path, 60);
+    .createSignedUrl(doc.storage_path, 300);
 
-  if (error || !data) return { url: null, error: error?.message ?? "Could not open the file." };
+  if (error || !data) {
+    // Storage answers an RLS refusal the same way it answers a
+    // genuinely missing object ("Object not found"), which made a
+    // missing storage policy indistinguishable from a deleted file.
+    // The `documents` row was readable a moment ago, so the file
+    // should exist — say which of the two it actually is.
+    const raw = error?.message ?? "";
+    const looksLikeDenial = /not found|denied|unauthor|permission|row-level/i.test(raw);
+
+    console.error("[getDocumentDownloadUrl] storage sign failed", {
+      documentId,
+      storagePath: doc.storage_path,
+      message: raw,
+    });
+
+    return {
+      url: null,
+      error: looksLikeDenial
+        ? "You don't have permission to open this file, or it's no longer stored. Ask your account manager to re-upload it."
+        : raw || "Could not open the file.",
+    };
+  }
+
   return { url: data.signedUrl, error: null };
 }
 
@@ -148,7 +175,7 @@ export async function deleteDocument(documentId: string, clientId: string): Prom
  * notes text — and files it against the client exactly like a webhook
  * delivery would. If notes are supplied they run through the same
  * `mapFathomToPlanner` used by the webhook, so a manually attached
- * meeting can populate the 90-day plan the same way an automatic one
+ * meeting can populate the content plan the same way an automatic one
  * does.
  *
  * `fathom_call_id` is `not null unique`, so manual rows get a
@@ -199,7 +226,7 @@ export async function linkFathomMeeting(
 
   if (insertError) return { error: insertError.message, success: null };
 
-  // Fold the notes into the client's 90-day plan, the same way the
+  // Fold the notes into the client's content plan, the same way the
   // webhook does. Best-effort: a mapping failure must not lose the
   // meeting that was just successfully attached above.
   let plannerNote = "";
@@ -218,7 +245,7 @@ export async function linkFathomMeeting(
           content: mapping.plannerContent as any,
           status: "draft",
         });
-        plannerNote = " A draft 90-day plan was created from the notes.";
+        plannerNote = " A draft content plan was created from the notes.";
       }
     } catch {
       plannerNote = " (The notes were saved, but couldn't be mapped into a plan.)";

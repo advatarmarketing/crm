@@ -29,7 +29,7 @@ export function AddPaymentForm({ staff }: { staff: { id: string; fullName: strin
           <option value="">Select…</option>
           {staff.map((s) => (
             <option key={s.id} value={s.id}>
-              {(s.fullName ?? "Unnamed") + ` (${s.role})`}
+              {(s.fullName?.trim() || "Name not set") + ` (${s.role})`}
             </option>
           ))}
         </select>

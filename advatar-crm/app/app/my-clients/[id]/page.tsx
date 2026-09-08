@@ -44,7 +44,7 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
 
       <section style={{ marginBottom: 40 }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>
-          90-Day Plan
+          Content Plan
         </h2>
         {/* Read-only per Phase 3's default RLS for videographers —
             select-only on planners, no status filter (unlike the

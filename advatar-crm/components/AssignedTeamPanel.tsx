@@ -103,7 +103,7 @@ export function AssignedTeamPanel({
               }}
             >
               <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-1)" }}>
-                {a.fullName ?? "Unnamed"}{" "}
+                {a.fullName?.trim() || "Name not set"}{" "}
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-3)", textTransform: "uppercase" }}>
                   {a.role}
                 </span>
@@ -150,7 +150,7 @@ export function AssignedTeamPanel({
           <option value="">Add a team member…</option>
           {options.map((p) => (
             <option key={p.id} value={p.id}>
-              {(p.fullName ?? "Unnamed") + ` (${p.role})`}
+              {(p.fullName?.trim() || "Name not set") + ` (${p.role})`}
             </option>
           ))}
         </select>

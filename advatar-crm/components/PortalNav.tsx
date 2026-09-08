@@ -3,11 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// Documents deliberately sits AFTER Content Plan: the plan is the
+// thing a client comes here to read, documents are the supporting
+// files behind it.
+//
+// The /app/portal/plan route keeps its path even though the label is
+// now "Content Plan" — renaming the URL would break any link already
+// sent to a client, and the path isn't shown anywhere in the UI.
 const LINKS = [
   { href: "/app/portal", label: "Overview" },
   { href: "/app/portal/content", label: "Content Hub" },
+  { href: "/app/portal/plan", label: "Content Plan" },
   { href: "/app/portal/documents", label: "Documents" },
-  { href: "/app/portal/plan", label: "90-Day Plan" },
   { href: "/app/portal/messages", label: "Messages" },
 ] as const;
 

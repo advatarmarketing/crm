@@ -4,7 +4,7 @@ import type { PlannerContent } from "@/lib/planner/content";
 
 // Phase 9: "Content Hub" isn't a table of its own — it's a curated,
 // read-only slice of the same `planners.content` jsonb the full
-// 90-Day Plan (/app/portal/plan) renders, pulled out because a client
+// Content Plan (/app/portal/plan) renders, pulled out because a client
 // checking in day-to-day cares about "what's our content strategy"
 // and "what's being made right now" far more often than the full
 // planner document (branding details, internal workflow steps,
@@ -13,7 +13,7 @@ import type { PlannerContent } from "@/lib/planner/content";
 // strategy) and the slot planner's items (the concrete videos in
 // production) as the two sections that best match what "Content Hub"
 // would mean to a client, and left the rest of the planner to the
-// dedicated 90-Day Plan page.
+// dedicated Content Plan page.
 export default async function PortalContentHubPage() {
   const supabase = createClient();
 

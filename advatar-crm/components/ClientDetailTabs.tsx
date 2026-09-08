@@ -21,7 +21,7 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 const TABS = [
   { id: "info", label: "Info" },
-  { id: "plan", label: "90-Day Plan" },
+  { id: "plan", label: "Content Plan" },
   { id: "activity", label: "Activity" },
 ] as const;
 

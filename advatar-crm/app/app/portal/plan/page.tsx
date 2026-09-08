@@ -38,7 +38,7 @@ export default async function ClientPortalPlanPage() {
         clientId={profile.client_id}
         editable={false}
         requirePublished
-        emptyMessage="Your 90-day plan isn't published yet — check back soon."
+        emptyMessage="Your content plan isn't published yet — check back soon."
       />
     </main>
   );

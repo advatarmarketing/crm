@@ -11,6 +11,20 @@ export function InviteForm() {
 
   return (
     <form action={formAction}>
+      {/* Captured at invite time so profiles.full_name is populated
+          from the start — otherwise the person shows up as "Unnamed"
+          on every client they're assigned to. */}
+      <label style={{ display: "block", marginBottom: 16 }}>
+        <span style={labelStyle}>Full name</span>
+        <input
+          name="full_name"
+          type="text"
+          required
+          style={inputStyle}
+          placeholder="Jordan Smith"
+        />
+      </label>
+
       <label style={{ display: "block", marginBottom: 16 }}>
         <span style={labelStyle}>Email</span>
         <input
