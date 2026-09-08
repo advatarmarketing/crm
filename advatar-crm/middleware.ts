@@ -22,12 +22,17 @@ const HOME_BY_ROLE: Record<ProfileRole, string> = {
 // added — do not widen ceo/staff's "/app" catch-all casually once
 // finance routes exist, since that's a UI convenience, not a
 // substitute for RLS.
+// Phase 19: every role gets /app/settings/password. Logins are handed
+// over with a temporary password, so a videographer or client with no
+// way to reach this page would be stuck with theirs permanently. It's
+// the only path under /app/settings that isn't management-only, and
+// the page itself only ever changes the caller's own password.
 const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
   ceo: ["/app"],
   operations_manager: ["/app"],
   staff: ["/app"],
-  videographer: ["/app/my-clients", "/app/messages", "/app/my-payments"],
-  client: ["/app/portal"],
+  videographer: ["/app/my-clients", "/app/messages", "/app/my-payments", "/app/settings/password"],
+  client: ["/app/portal", "/app/settings/password"],
 };
 
 function isAllowed(role: ProfileRole, pathname: string) {

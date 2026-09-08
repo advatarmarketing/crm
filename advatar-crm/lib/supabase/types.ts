@@ -25,6 +25,10 @@ export type InvoiceStatus = "draft" | "sent" | "paid";
 export type BillingFrequency = "monthly" | "quarterly" | "annual" | "per_project" | "one_off";
 export type ClientStage = "lead" | "proposal" | "active";
 export type PlannerStatus = "draft" | "published";
+// Phase 19 — 0018_schedule_resources.sql
+export type ScheduleEventKind = "shoot" | "call" | "meeting" | "deadline" | "other";
+export type ResourceKind = "sop" | "tutorial" | "template" | "other";
+export type ResourceAudience = "all" | "staff" | "videographer" | "operations_manager";
 
 export interface Database {
   public: {
@@ -447,6 +451,97 @@ export interface Database {
           text?: string;
           due_date?: string | null;
           done?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
+      // Phase 19 — 0018_schedule_resources.sql
+      schedule_events: {
+        Row: {
+          id: string;
+          title: string;
+          starts_at: string;
+          ends_at: string | null;
+          all_day: boolean;
+          location: string | null;
+          notes: string | null;
+          kind: ScheduleEventKind;
+          client_id: string | null;
+          assigned_to: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          starts_at: string;
+          ends_at?: string | null;
+          all_day?: boolean;
+          location?: string | null;
+          notes?: string | null;
+          kind?: ScheduleEventKind;
+          client_id?: string | null;
+          assigned_to?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          starts_at?: string;
+          ends_at?: string | null;
+          all_day?: boolean;
+          location?: string | null;
+          notes?: string | null;
+          kind?: ScheduleEventKind;
+          client_id?: string | null;
+          assigned_to?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
+      resources: {
+        Row: {
+          id: string;
+          title: string;
+          kind: ResourceKind;
+          url: string | null;
+          body: string | null;
+          audience_role: ResourceAudience;
+          assigned_to: string | null;
+          position: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          kind?: ResourceKind;
+          url?: string | null;
+          body?: string | null;
+          audience_role?: ResourceAudience;
+          assigned_to?: string | null;
+          position?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          kind?: ResourceKind;
+          url?: string | null;
+          body?: string | null;
+          audience_role?: ResourceAudience;
+          assigned_to?: string | null;
+          position?: number;
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
