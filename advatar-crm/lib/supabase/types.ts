@@ -29,6 +29,10 @@ export type PlannerStatus = "draft" | "published";
 // ScheduleEventKind union any more: 0019 replaced the fixed `kind`
 // column with event_categories, which staff edit from the app, so the
 // set of event types is data rather than something types can enumerate.
+// Phase 21 — 0020_submissions_brand_kits.sql. The order here is the
+// order the workflow moves in, and SUBMISSION_STATUSES below relies
+// on that.
+export type SubmissionStatus = "submitted" | "in_review" | "changes_requested" | "approved";
 export type ResourceKind = "sop" | "tutorial" | "template" | "other";
 export type ResourceAudience = "all" | "staff" | "videographer" | "operations_manager";
 
@@ -455,6 +459,163 @@ export interface Database {
           done?: boolean;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+
+      // Phase 21 — 0020_submissions_brand_kits.sql
+      submissions: {
+        Row: {
+          id: string;
+          client_id: string | null;
+          title: string;
+          brief: string | null;
+          status: SubmissionStatus;
+          current_version: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id?: string | null;
+          title: string;
+          brief?: string | null;
+          status?: SubmissionStatus;
+          current_version?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string | null;
+          title?: string;
+          brief?: string | null;
+          status?: SubmissionStatus;
+          current_version?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
+      submission_versions: {
+        Row: {
+          id: string;
+          submission_id: string;
+          version: number;
+          url: string | null;
+          notes: string | null;
+          submitted_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id: string;
+          version: number;
+          url?: string | null;
+          notes?: string | null;
+          submitted_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string;
+          version?: number;
+          url?: string | null;
+          notes?: string | null;
+          submitted_by?: string | null;
+          created_at?: string;
+        };
+      };
+
+      submission_feedback: {
+        Row: {
+          id: string;
+          submission_id: string;
+          version: number | null;
+          body: string;
+          author_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id: string;
+          version?: number | null;
+          body: string;
+          author_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string;
+          version?: number | null;
+          body?: string;
+          author_id?: string | null;
+          created_at?: string;
+        };
+      };
+
+      client_brand_kits: {
+        Row: {
+          client_id: string;
+          colours: string[];
+          fonts: string[];
+          platforms: string[];
+          logo_urls: string[];
+          tone_of_voice: string | null;
+          dos: string | null;
+          donts: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          client_id: string;
+          colours?: string[];
+          fonts?: string[];
+          platforms?: string[];
+          logo_urls?: string[];
+          tone_of_voice?: string | null;
+          dos?: string | null;
+          donts?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          client_id?: string;
+          colours?: string[];
+          fonts?: string[];
+          platforms?: string[];
+          logo_urls?: string[];
+          tone_of_voice?: string | null;
+          dos?: string | null;
+          donts?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+      };
+
+      client_team_messages: {
+        Row: {
+          id: string;
+          client_id: string;
+          author_id: string | null;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          author_id?: string | null;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          author_id?: string | null;
+          body?: string;
+          created_at?: string;
         };
       };
 

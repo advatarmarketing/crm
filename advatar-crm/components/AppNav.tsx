@@ -78,6 +78,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   videographer: [
     { href: "/app/my-dashboard", label: "Dashboard" },
     { href: "/app/my-calendar", label: "Calendar" },
+    { href: "/app/my-work", label: "My Work" },
     { href: "/app/my-clients", label: "My Clients" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },

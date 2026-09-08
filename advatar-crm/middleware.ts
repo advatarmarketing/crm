@@ -34,6 +34,7 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
   videographer: [
     "/app/my-dashboard",
     "/app/my-calendar",
+    "/app/my-work",
     "/app/my-clients",
     "/app/messages",
     "/app/my-payments",

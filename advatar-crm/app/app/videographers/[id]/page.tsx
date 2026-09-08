@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { ResourcesPanel, type ResourceEntry } from "@/components/ResourcesPanel";
+import { SubmissionsPanel } from "@/components/SubmissionsPanel";
+import { loadSubmissions } from "@/lib/submissions";
 import type { ProfileRole } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +61,7 @@ export default async function VideographerDetailPage({ params }: { params: { id:
     { data: assignments },
     { data: allClients },
     { data: categories },
+    submissions,
   ] =
     await Promise.all([
       supabase
@@ -82,6 +85,7 @@ export default async function VideographerDetailPage({ params }: { params: { id:
       supabase.from("client_staff").select("client_id").eq("staff_id", params.id),
       supabase.from("clients").select("id, name").order("name"),
       supabase.from("event_categories").select("id, name, colour").order("position"),
+      loadSubmissions(supabase, { createdBy: params.id }),
     ]);
 
   const clients: ClientChoice[] = ((allClients ?? []) as unknown as { id: string; name: string }[]).map((c) => ({
@@ -155,6 +159,21 @@ export default async function VideographerDetailPage({ params }: { params: { id:
           defaultAssignee={params.id}
           clients={clients}
           emptyMessage="Nothing assigned to them right now."
+        />
+      </section>
+
+      <section style={{ marginBottom: 40, maxWidth: 800 }}>
+        <h2 style={sectionHeading}>Video submissions</h2>
+        <p style={eyebrow}>Their work, and where each round sits</p>
+        {/* canReview: move the status on and leave feedback. The
+            videographer cannot do either — they have no update policy
+            on submissions and no insert on feedback (0020). */}
+        <SubmissionsPanel
+          initialSubmissions={submissions}
+          canReview
+          currentUserId={user.id}
+          clients={clients}
+          emptyMessage="They haven't submitted any work yet."
         />
       </section>
 
