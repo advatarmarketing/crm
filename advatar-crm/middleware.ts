@@ -12,7 +12,7 @@ const HOME_BY_ROLE: Record<ProfileRole, string> = {
   ceo: "/app/dashboard",
   operations_manager: "/app/dashboard",
   staff: "/app/dashboard",
-  videographer: "/app/my-clients",
+  videographer: "/app/my-dashboard",
   client: "/app/portal",
 };
 
@@ -31,7 +31,14 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
   ceo: ["/app"],
   operations_manager: ["/app"],
   staff: ["/app"],
-  videographer: ["/app/my-clients", "/app/messages", "/app/my-payments", "/app/settings/password"],
+  videographer: [
+    "/app/my-dashboard",
+    "/app/my-calendar",
+    "/app/my-clients",
+    "/app/messages",
+    "/app/my-payments",
+    "/app/settings/password",
+  ],
   client: ["/app/portal", "/app/settings/password"],
 };
 

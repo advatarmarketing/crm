@@ -72,7 +72,12 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },
   ],
+  // Phase 20: their own dashboard is now the landing page after
+  // signing in (see HOME_BY_ROLE in middleware.ts), with the calendar
+  // beside it.
   videographer: [
+    { href: "/app/my-dashboard", label: "Dashboard" },
+    { href: "/app/my-calendar", label: "Calendar" },
     { href: "/app/my-clients", label: "My Clients" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },

@@ -421,6 +421,23 @@ textarea::placeholder {
   max-width: 720px;
 }
 
+/* Month calendar grid. Seven equal columns; the cells shrink rather
+   than the grid scrolling, since a horizontally scrolling month is
+   worse to use on a phone than small cells. */
+.month-grid-head,
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+@media (max-width: 640px) {
+  .month-grid button {
+    min-height: 62px !important;
+    padding: 4px 4px !important;
+  }
+}
+
 /* Dashboard schedule + to-do sit side by side where there's room and
    stack on a laptop or phone. Two columns of dense lists below about
    1000px is narrower than either list wants to be. */

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { ScheduleEventKind } from "@/lib/supabase/types";
 
 export interface ScheduleEntry {
   id: string;
@@ -12,7 +11,7 @@ export interface ScheduleEntry {
   ends_at: string | null;
   all_day: boolean;
   location: string | null;
-  kind: string;
+  category_id: string | null;
   client_id: string | null;
   assigned_to: string | null;
   clientName?: string | null;
@@ -24,15 +23,14 @@ export interface ClientChoice {
   name: string;
 }
 
-const KINDS: ScheduleEventKind[] = ["shoot", "call", "meeting", "deadline", "other"];
+/** From event_categories (0019) — editable, not a fixed list. */
+export interface EventCategory {
+  id: string;
+  name: string;
+  colour: string;
+}
 
-const KIND_COLOUR: Record<string, string> = {
-  shoot: "var(--status-active, #4b8)",
-  call: "var(--text-2)",
-  meeting: "var(--text-2)",
-  deadline: "var(--status-closed, #c55)",
-  other: "var(--text-3)",
-};
+const FALLBACK_COLOUR = "#8a8a8a";
 
 /**
  * Writes go straight through the browser Supabase client, the same
@@ -47,6 +45,7 @@ export function SchedulePanel({
   editable = false,
   defaultAssignee = null,
   clients = [],
+  categories = [],
   emptyMessage = "Nothing scheduled.",
   showPerson = false,
 }: {
@@ -55,6 +54,8 @@ export function SchedulePanel({
   /** Pre-fills whose schedule a newly added entry lands on. */
   defaultAssignee?: string | null;
   clients?: ClientChoice[];
+  /** Event types and their colours, read from event_categories. */
+  categories?: EventCategory[];
   emptyMessage?: string;
   /** Dashboard shows whose entry it is; a person's own page doesn't. */
   showPerson?: boolean;
@@ -67,7 +68,7 @@ export function SchedulePanel({
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [kind, setKind] = useState<ScheduleEventKind>("shoot");
+  const [categoryId, setCategoryId] = useState("");
   const [location, setLocation] = useState("");
   const [clientId, setClientId] = useState("");
 
@@ -78,7 +79,7 @@ export function SchedulePanel({
     setTitle("");
     setDate("");
     setTime("");
-    setKind("shoot");
+    setCategoryId("");
     setLocation("");
     setClientId("");
   }
@@ -104,12 +105,12 @@ export function SchedulePanel({
         title: title.trim(),
         starts_at: startsAt,
         all_day: allDay,
-        kind,
+        category_id: categoryId || categories[0]?.id || null,
         location: location.trim() || null,
         client_id: clientId || null,
         assigned_to: defaultAssignee,
       })
-      .select("id, title, starts_at, ends_at, all_day, location, kind, client_id, assigned_to")
+      .select("id, title, starts_at, ends_at, all_day, location, category_id, client_id, assigned_to")
       .single();
 
     setBusy(false);
@@ -141,6 +142,10 @@ export function SchedulePanel({
     }
     router.refresh();
   }
+
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
+  const colourFor = (id: string | null) => categoryById.get(id ?? "")?.colour ?? FALLBACK_COLOUR;
+  const nameFor = (id: string | null) => categoryById.get(id ?? "")?.name ?? null;
 
   const grouped = groupByDay(events);
 
@@ -180,7 +185,7 @@ export function SchedulePanel({
                       gap: 10,
                       padding: "9px 12px",
                       border: "1px solid var(--border)",
-                      borderLeft: `3px solid ${KIND_COLOUR[e.kind] ?? "var(--text-3)"}`,
+                      borderLeft: `3px solid ${colourFor(e.category_id)}`,
                       borderRadius: "var(--radius-sm)",
                       background: "var(--surface)",
                     }}
@@ -201,7 +206,7 @@ export function SchedulePanel({
                       <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-1)" }}>
                         {e.title}
                       </span>
-                      {(e.clientName || e.location || (showPerson && e.personName)) && (
+                      {(e.category_id || e.clientName || e.location || (showPerson && e.personName)) && (
                         <span
                           style={{
                             display: "block",
@@ -211,7 +216,7 @@ export function SchedulePanel({
                             marginTop: 2,
                           }}
                         >
-                          {[showPerson ? e.personName : null, e.clientName, e.location]
+                          {[nameFor(e.category_id), showPerson ? e.personName : null, e.clientName, e.location]
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
@@ -281,13 +286,14 @@ export function SchedulePanel({
                 style={{ ...field, flex: "1 1 120px" }}
               />
               <select
-                value={kind}
-                onChange={(e) => setKind(e.target.value as ScheduleEventKind)}
-                style={{ ...field, flex: "1 1 120px" }}
+                value={categoryId || categories[0]?.id || ""}
+                onChange={(e) => setCategoryId(e.target.value)}
+                style={{ ...field, flex: "1 1 150px" }}
               >
-                {KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
+                {categories.length === 0 && <option value="">No categories set up</option>}
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
                 ))}
               </select>

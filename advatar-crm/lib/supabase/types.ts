@@ -25,8 +25,10 @@ export type InvoiceStatus = "draft" | "sent" | "paid";
 export type BillingFrequency = "monthly" | "quarterly" | "annual" | "per_project" | "one_off";
 export type ClientStage = "lead" | "proposal" | "active";
 export type PlannerStatus = "draft" | "published";
-// Phase 19 — 0018_schedule_resources.sql
-export type ScheduleEventKind = "shoot" | "call" | "meeting" | "deadline" | "other";
+// Phase 19 — 0018_schedule_resources.sql. There is deliberately no
+// ScheduleEventKind union any more: 0019 replaced the fixed `kind`
+// column with event_categories, which staff edit from the app, so the
+// set of event types is data rather than something types can enumerate.
 export type ResourceKind = "sop" | "tutorial" | "template" | "other";
 export type ResourceAudience = "all" | "staff" | "videographer" | "operations_manager";
 
@@ -456,7 +458,39 @@ export interface Database {
         };
       };
 
-      // Phase 19 — 0018_schedule_resources.sql
+      // Phase 20 — 0019_event_categories.sql
+      event_categories: {
+        Row: {
+          id: string;
+          name: string;
+          colour: string;
+          position: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          colour?: string;
+          position?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          colour?: string;
+          position?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
+      // Phase 19 — 0018_schedule_resources.sql, `kind` replaced by
+      // `category_id` in 0019.
       schedule_events: {
         Row: {
           id: string;
@@ -466,7 +500,7 @@ export interface Database {
           all_day: boolean;
           location: string | null;
           notes: string | null;
-          kind: ScheduleEventKind;
+          category_id: string | null;
           client_id: string | null;
           assigned_to: string | null;
           created_by: string | null;
@@ -481,7 +515,7 @@ export interface Database {
           all_day?: boolean;
           location?: string | null;
           notes?: string | null;
-          kind?: ScheduleEventKind;
+          category_id?: string | null;
           client_id?: string | null;
           assigned_to?: string | null;
           created_by?: string | null;
@@ -496,7 +530,7 @@ export interface Database {
           all_day?: boolean;
           location?: string | null;
           notes?: string | null;
-          kind?: ScheduleEventKind;
+          category_id?: string | null;
           client_id?: string | null;
           assigned_to?: string | null;
           created_by?: string | null;

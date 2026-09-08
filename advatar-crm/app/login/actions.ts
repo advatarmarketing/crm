@@ -8,7 +8,7 @@ const HOME_BY_ROLE: Record<ProfileRole, string> = {
   ceo: "/app/dashboard",
   operations_manager: "/app/dashboard",
   staff: "/app/dashboard",
-  videographer: "/app/my-clients",
+  videographer: "/app/my-dashboard",
   client: "/app/portal",
 };
 

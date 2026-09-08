@@ -4,7 +4,7 @@ import { StatTile } from "@/components/StatTile";
 import { DonutChart } from "@/components/DonutChart";
 import { AttentionList, type AttentionItem } from "@/components/AttentionList";
 import { RevenueChart, type PaidInvoice } from "@/components/RevenueChart";
-import { SchedulePanel, type ScheduleEntry, type ClientChoice } from "@/components/SchedulePanel";
+import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { formatMoney, daysSince, isPast, startOfToday } from "@/lib/format";
 
@@ -50,6 +50,7 @@ export default async function DashboardPage() {
     { count: prospectCount },
     { data: events },
     { data: people },
+    { data: categories },
   ] = await Promise.all([
     supabase
       .from("clients")
@@ -67,11 +68,12 @@ export default async function DashboardPage() {
       .is("reviewed_at", null),
     supabase
       .from("schedule_events")
-      .select("id, title, starts_at, ends_at, all_day, location, kind, client_id, assigned_to")
+      .select("id, title, starts_at, ends_at, all_day, location, category_id, client_id, assigned_to")
       .gte("starts_at", today.toISOString())
       .lt("starts_at", weekEnd.toISOString())
       .order("starts_at"),
     supabase.from("profiles").select("id, full_name"),
+    supabase.from("event_categories").select("id, name, colour").order("position"),
   ]);
 
   const allClients = clients ?? [];
@@ -233,6 +235,8 @@ export default async function DashboardPage() {
     .map((c) => ({ id: c.id, name: c.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const eventCategories = (categories ?? []) as unknown as EventCategory[];
+
   const scheduleEntries: ScheduleEntry[] = ((events ?? []) as unknown as ScheduleEntry[]).map((e) => ({
     ...e,
     clientName: e.client_id ? clientNameById.get(e.client_id) ?? null : null,
@@ -275,12 +279,18 @@ export default async function DashboardPage() {
         <div className="dashboard-widgets">
           <div style={{ minWidth: 0 }}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 4px" }}>Schedule</h2>
-            <p style={eyebrow}>Next two weeks</p>
+            <p style={eyebrow}>
+              Next two weeks ·{" "}
+              <Link href="/app/settings/event-categories" style={{ color: "inherit" }}>
+                categories
+              </Link>
+            </p>
             <SchedulePanel
               initialEvents={scheduleEntries}
               editable
               defaultAssignee={user?.id ?? null}
               clients={clientChoices}
+              categories={eventCategories}
               showPerson
               emptyMessage="Nothing scheduled in the next two weeks."
             />

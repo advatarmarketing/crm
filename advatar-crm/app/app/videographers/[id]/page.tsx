@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SchedulePanel, type ScheduleEntry, type ClientChoice } from "@/components/SchedulePanel";
+import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { ResourcesPanel, type ResourceEntry } from "@/components/ResourcesPanel";
 import type { ProfileRole } from "@/lib/supabase/types";
@@ -52,11 +52,18 @@ export default async function VideographerDetailPage({ params }: { params: { id:
     notFound();
   }
 
-  const [{ data: events }, { data: tasks }, { data: resources }, { data: assignments }, { data: allClients }] =
+  const [
+    { data: events },
+    { data: tasks },
+    { data: resources },
+    { data: assignments },
+    { data: allClients },
+    { data: categories },
+  ] =
     await Promise.all([
       supabase
         .from("schedule_events")
-        .select("id, title, starts_at, ends_at, all_day, location, kind, client_id, assigned_to")
+        .select("id, title, starts_at, ends_at, all_day, location, category_id, client_id, assigned_to")
         .eq("assigned_to", params.id)
         .order("starts_at"),
       supabase
@@ -74,6 +81,7 @@ export default async function VideographerDetailPage({ params }: { params: { id:
         .order("position"),
       supabase.from("client_staff").select("client_id").eq("staff_id", params.id),
       supabase.from("clients").select("id, name").order("name"),
+      supabase.from("event_categories").select("id, name, colour").order("position"),
     ]);
 
   const clients: ClientChoice[] = ((allClients ?? []) as unknown as { id: string; name: string }[]).map((c) => ({
@@ -133,6 +141,7 @@ export default async function VideographerDetailPage({ params }: { params: { id:
           editable
           defaultAssignee={params.id}
           clients={clients}
+          categories={(categories ?? []) as unknown as EventCategory[]}
           emptyMessage="Nothing in their schedule yet."
         />
       </section>
