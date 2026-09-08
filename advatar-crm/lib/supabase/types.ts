@@ -25,6 +25,16 @@ export type InvoiceStatus = "draft" | "sent" | "paid";
 export type BillingFrequency = "monthly" | "quarterly" | "annual" | "per_project" | "one_off";
 export type ClientStage = "lead" | "proposal" | "active";
 export type PlannerStatus = "draft" | "published";
+// Phase 19 — 0018_schedule_resources.sql. There is deliberately no
+// ScheduleEventKind union any more: 0019 replaced the fixed `kind`
+// column with event_categories, which staff edit from the app, so the
+// set of event types is data rather than something types can enumerate.
+// Phase 21 — 0020_submissions_brand_kits.sql. The order here is the
+// order the workflow moves in, and SUBMISSION_STATUSES below relies
+// on that.
+export type SubmissionStatus = "submitted" | "in_review" | "changes_requested" | "approved";
+export type ResourceKind = "sop" | "tutorial" | "template" | "other";
+export type ResourceAudience = "all" | "staff" | "videographer" | "operations_manager";
 
 export interface Database {
   public: {
@@ -447,6 +457,359 @@ export interface Database {
           text?: string;
           due_date?: string | null;
           done?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
+      // Phase 22 — 0021_team_messages_sop_checklists.sql
+      direct_messages: {
+        Row: {
+          id: string;
+          sender_id: string;
+          recipient_id: string;
+          body: string;
+          read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sender_id: string;
+          recipient_id: string;
+          body: string;
+          read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          sender_id?: string;
+          recipient_id?: string;
+          body?: string;
+          read?: boolean;
+          created_at?: string;
+        };
+      };
+
+      resource_checklist_items: {
+        Row: {
+          id: string;
+          resource_id: string;
+          text: string;
+          position: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          resource_id: string;
+          text: string;
+          position?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          resource_id?: string;
+          text?: string;
+          position?: number;
+          created_at?: string;
+        };
+      };
+
+      resource_checklist_progress: {
+        Row: {
+          user_id: string;
+          item_id: string;
+          done: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          item_id: string;
+          done?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          item_id?: string;
+          done?: boolean;
+          updated_at?: string;
+        };
+      };
+
+      // Phase 21 — 0020_submissions_brand_kits.sql
+      submissions: {
+        Row: {
+          id: string;
+          client_id: string | null;
+          title: string;
+          brief: string | null;
+          status: SubmissionStatus;
+          current_version: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id?: string | null;
+          title: string;
+          brief?: string | null;
+          status?: SubmissionStatus;
+          current_version?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string | null;
+          title?: string;
+          brief?: string | null;
+          status?: SubmissionStatus;
+          current_version?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
+      submission_versions: {
+        Row: {
+          id: string;
+          submission_id: string;
+          version: number;
+          url: string | null;
+          notes: string | null;
+          submitted_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id: string;
+          version: number;
+          url?: string | null;
+          notes?: string | null;
+          submitted_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string;
+          version?: number;
+          url?: string | null;
+          notes?: string | null;
+          submitted_by?: string | null;
+          created_at?: string;
+        };
+      };
+
+      submission_feedback: {
+        Row: {
+          id: string;
+          submission_id: string;
+          version: number | null;
+          body: string;
+          author_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id: string;
+          version?: number | null;
+          body: string;
+          author_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string;
+          version?: number | null;
+          body?: string;
+          author_id?: string | null;
+          created_at?: string;
+        };
+      };
+
+      client_brand_kits: {
+        Row: {
+          client_id: string;
+          colours: string[];
+          fonts: string[];
+          platforms: string[];
+          logo_urls: string[];
+          tone_of_voice: string | null;
+          dos: string | null;
+          donts: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          client_id: string;
+          colours?: string[];
+          fonts?: string[];
+          platforms?: string[];
+          logo_urls?: string[];
+          tone_of_voice?: string | null;
+          dos?: string | null;
+          donts?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          client_id?: string;
+          colours?: string[];
+          fonts?: string[];
+          platforms?: string[];
+          logo_urls?: string[];
+          tone_of_voice?: string | null;
+          dos?: string | null;
+          donts?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+      };
+
+      client_team_messages: {
+        Row: {
+          id: string;
+          client_id: string;
+          author_id: string | null;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          author_id?: string | null;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          author_id?: string | null;
+          body?: string;
+          created_at?: string;
+        };
+      };
+
+      // Phase 20 — 0019_event_categories.sql
+      event_categories: {
+        Row: {
+          id: string;
+          name: string;
+          colour: string;
+          position: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          colour?: string;
+          position?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          colour?: string;
+          position?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
+      // Phase 19 — 0018_schedule_resources.sql, `kind` replaced by
+      // `category_id` in 0019.
+      schedule_events: {
+        Row: {
+          id: string;
+          title: string;
+          starts_at: string;
+          ends_at: string | null;
+          all_day: boolean;
+          location: string | null;
+          notes: string | null;
+          category_id: string | null;
+          client_id: string | null;
+          assigned_to: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          starts_at: string;
+          ends_at?: string | null;
+          all_day?: boolean;
+          location?: string | null;
+          notes?: string | null;
+          category_id?: string | null;
+          client_id?: string | null;
+          assigned_to?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          starts_at?: string;
+          ends_at?: string | null;
+          all_day?: boolean;
+          location?: string | null;
+          notes?: string | null;
+          category_id?: string | null;
+          client_id?: string | null;
+          assigned_to?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
+      resources: {
+        Row: {
+          id: string;
+          title: string;
+          kind: ResourceKind;
+          url: string | null;
+          body: string | null;
+          audience_role: ResourceAudience;
+          assigned_to: string | null;
+          position: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          kind?: ResourceKind;
+          url?: string | null;
+          body?: string | null;
+          audience_role?: ResourceAudience;
+          assigned_to?: string | null;
+          position?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          kind?: ResourceKind;
+          url?: string | null;
+          body?: string | null;
+          audience_role?: ResourceAudience;
+          assigned_to?: string | null;
+          position?: number;
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };

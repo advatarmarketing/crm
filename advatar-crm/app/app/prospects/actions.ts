@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 /**
  * Marks a fathom_calls row reviewed and sends the staff member
- * straight to the client it created, on the 90-Day Plan tab, so they
+ * straight to the client it created, on the Content Plan tab, so they
  * can confirm/edit before it's ever published. Runs as the signed-in
  * user (not the admin client) — fathom_calls RLS is ceo/staff full
  * access (Phase 3), so this update simply fails under RLS for anyone

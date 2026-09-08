@@ -26,13 +26,14 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   ceo: [
     { href: "/app/dashboard", label: "Dashboard" },
     { href: "/app/clients", label: "Clients" },
+    { href: "/app/videographers", label: "Videographers" },
     { href: "/app/leads", label: "Leads" },
     { href: "/app/prospects", label: "Prospects" },
     { href: "/app/finance", label: "Finance" },
     { href: "/app/summary", label: "This week" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/payments", label: "Payments" },
-    { href: "/app/settings/team", label: "Team" },
+    { href: "/app/settings/logins", label: "Logins" },
   ],
   // Phase 12/14: runs sales and strategy alongside the CEO, so it gets
   // the CEO's nav minus "Payments" (what staff are paid) and "Team"
@@ -41,14 +42,21 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   // still cannot see is each client's monthly recurring value
   // (client_finance) or anyone's wages — both remain CEO-only at the
   // database level. See 0011_invoices_finance.sql.
+  // Phase 19: gains Videographers (the admin-side team view) and
+  // Logins. Creating logins is no longer CEO-only, but what an
+  // operations manager may create is narrower — staff, videographers
+  // and clients, never another manager or a CEO. That limit lives in
+  // settings/logins/actions.ts, not here.
   operations_manager: [
     { href: "/app/dashboard", label: "Dashboard" },
     { href: "/app/clients", label: "Clients" },
+    { href: "/app/videographers", label: "Videographers" },
     { href: "/app/leads", label: "Leads" },
     { href: "/app/prospects", label: "Prospects" },
     { href: "/app/finance", label: "Finance" },
     { href: "/app/summary", label: "This week" },
     { href: "/app/messages", label: "Messages" },
+    { href: "/app/settings/logins", label: "Logins" },
   ],
   // Phase 12: staff's RLS is now scoped to only its assigned clients
   // (0010_ops_manager_leads_staff_scoping.sql) — this nav is unchanged
@@ -61,11 +69,20 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
     { href: "/app/dashboard", label: "Dashboard" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/leads", label: "Leads" },
+    { href: "/app/guidelines", label: "Guidelines" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },
   ],
+  // Phase 20: their own dashboard is now the landing page after
+  // signing in (see HOME_BY_ROLE in middleware.ts), with the calendar
+  // beside it.
   videographer: [
+    { href: "/app/my-dashboard", label: "Dashboard" },
+    { href: "/app/my-calendar", label: "Calendar" },
+    { href: "/app/my-work", label: "My Work" },
     { href: "/app/my-clients", label: "My Clients" },
+    { href: "/app/guidelines", label: "Guidelines" },
+    { href: "/app/my-portfolio", label: "Portfolio" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },
   ],
@@ -130,7 +147,22 @@ export function AppNav({ role }: { role: ProfileRole }) {
             takes over — the breakpoint is where this row starts
             colliding with the sign-out control on the CEO's seven-item
             nav, not an arbitrary device width. */}
-        <div className="nav-links" style={{ alignItems: "center", gap: 2, flex: 1, minWidth: 0 }}>
+        {/* overflowX: the CEO's nav is ten items now, which between
+            900px and roughly 1400px is wider than the space left
+            beside the sign-out controls. Scrolling here keeps every
+            link reachable instead of pushing the last ones off the
+            edge. */}
+        <div
+          className="nav-links"
+          style={{
+            alignItems: "center",
+            gap: 2,
+            flex: 1,
+            minWidth: 0,
+            overflowX: "auto",
+            scrollbarWidth: "none",
+          }}
+        >
           {links.map((link) => (
             <Link
               key={link.href}
@@ -156,6 +188,29 @@ export function AppNav({ role }: { role: ProfileRole }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {role !== "client" && <QuickSearch />}
           <ThemeToggle />
+
+          {/* Every role, including videographer and client: logins are
+              handed over with a temporary password, so everyone needs
+              somewhere to change it. Kept out of the main link row so
+              it doesn't take space from the pages people actually
+              navigate between. */}
+          <Link
+            href="/app/settings/password"
+            className="nav-links"
+            title="Change your password"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: isActive("/app/settings/password") ? "var(--text-1)" : "var(--text-3)",
+              textDecoration: "none",
+              padding: "8px 4px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Password
+          </Link>
 
           <form action={signOutAction} className="nav-links">
             <button
@@ -234,6 +289,25 @@ export function AppNav({ role }: { role: ProfileRole }) {
               {link.href === "/app/messages" && <MessagesNavBadge />}
             </Link>
           ))}
+
+          <Link
+            href="/app/settings/password"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              fontFamily: "var(--font-mono)",
+              fontSize: 13,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: isActive("/app/settings/password") ? "var(--text-1)" : "var(--text-2)",
+              textDecoration: "none",
+              padding: "14px 4px",
+              minHeight: 48,
+              borderBottom: "1px solid var(--border)",
+            }}
+          >
+            Password
+          </Link>
 
           <form action={signOutAction}>
             <button

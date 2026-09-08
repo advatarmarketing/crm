@@ -100,7 +100,7 @@ export function PlannerDocument({
   clientId,
   editable,
   requirePublished = false,
-  emptyMessage = "Your 90-day plan isn't published yet — check back soon.",
+  emptyMessage = "Your content plan isn't published yet — check back soon.",
 }: {
   clientId: string;
   editable: boolean;
@@ -326,24 +326,31 @@ export function PlannerDocument({
       <div className="slate-stripes" id={sid("top")}></div>
       <div className="hero">
         <div className="hero-inner">
-          <div className="eyebrow-row">
-            <span>
-              SCENE:{" "}
-              <Editable as="b" editable={editable} value={content.hero.scene} onCommit={(v) => update(["hero", "scene"], v)} />
-            </span>
-            <span>
-              TAKE:{" "}
-              <Editable as="b" editable={editable} value={content.hero.take} onCommit={(v) => update(["hero", "take"], v)} />
-            </span>
-            <span>
-              DIRECTOR:{" "}
-              <Editable as="b" editable={editable} value={content.hero.director} onCommit={(v) => update(["hero", "director"], v)} />
-            </span>
-            <span>
-              ROLL:{" "}
-              <Editable as="b" editable={editable} value={content.hero.roll} onCommit={(v) => update(["hero", "roll"], v)} />
-            </span>
-          </div>
+          {/* The film-slate metadata (SCENE / TAKE / DIRECTOR / ROLL)
+              is set dressing, and it was the first thing a client saw
+              on the page. It now shows only while editing, so the
+              values stay reachable and editable for staff without
+              being the opening line of the client's plan. */}
+          {editable && (
+            <div className="eyebrow-row">
+              <span>
+                SCENE:{" "}
+                <Editable as="b" editable={editable} value={content.hero.scene} onCommit={(v) => update(["hero", "scene"], v)} />
+              </span>
+              <span>
+                TAKE:{" "}
+                <Editable as="b" editable={editable} value={content.hero.take} onCommit={(v) => update(["hero", "take"], v)} />
+              </span>
+              <span>
+                DIRECTOR:{" "}
+                <Editable as="b" editable={editable} value={content.hero.director} onCommit={(v) => update(["hero", "director"], v)} />
+              </span>
+              <span>
+                ROLL:{" "}
+                <Editable as="b" editable={editable} value={content.hero.roll} onCommit={(v) => update(["hero", "roll"], v)} />
+              </span>
+            </div>
+          )}
           <Editable
             as="h1"
             className="brand"

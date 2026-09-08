@@ -29,11 +29,20 @@ export const PLANNER_CSS = `
 .planner-doc *{box-sizing:border-box;}
 .planner-doc ::selection{background:var(--red);color:var(--paper);}
 .planner-doc{scroll-behavior:smooth;}
-.planner-doc section[id]{scroll-margin-top:54px;}
+
+/* The app's own AppNav is sticky at top:0 and is ~56px tall. This
+   document's section nav sticks directly underneath it, so anchor
+   jumps have to clear both. */
+.planner-doc{--app-nav-h:56px;--doc-nav-h:46px;}
+.planner-doc section[id]{scroll-margin-top:calc(var(--app-nav-h) + var(--doc-nav-h) + 8px);}
 
 /* ---------- PAGE NAV ---------- */
 .planner-doc .page-nav{
-  position:sticky;top:0;z-index:80;
+  /* Was top:0 with z-index:80 — i.e. the same position as AppNav but
+     stacked above it, so scrolling the client portal slid this bar
+     over the app's own navigation and hid it. It belongs below the
+     app nav, both in position and in stacking order (AppNav is 40). */
+  position:sticky;top:var(--app-nav-h);z-index:30;
   background:rgba(245,245,243,0.95);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   border-bottom:1px solid var(--line);
 }
@@ -59,20 +68,18 @@ export const PLANNER_CSS = `
 .planner-doc .page-nav a.page-nav-link.active{color:var(--red);border-bottom-color:var(--red);}
 
 /* ---------- HERO / SLATE ---------- */
-.planner-doc .slate-stripes{
-  height:16px;width:100%;
-  background:repeating-linear-gradient(135deg,var(--ink) 0 22px,var(--paper) 22px 26px,var(--red) 26px 30px,var(--paper) 30px 34px);
-}
+/* Decluttered: the diagonal "film slate" stripe bar and the vertical
+   scanline overlay on the hero were pure decoration stacked on top of
+   an already-dense document. Both are gone, and the hero is shorter.
+   .slate-stripes keeps its element because it doubles as the "back to
+   top" anchor target, so it becomes zero-height rather than
+   display:none — a display:none element can't be scrolled to. */
+.planner-doc .slate-stripes{height:0;width:100%;background:none;}
 .planner-doc .hero{
   background:var(--ink);color:var(--paper);
-  padding:64px 24px 40px;
+  padding:40px 24px 32px;
   position:relative;
   overflow:hidden;
-}
-.planner-doc .hero::after{
-  content:"";position:absolute;inset:0;
-  background:repeating-linear-gradient(90deg, rgba(245,245,243,0.035) 0 2px, transparent 2px 40px);
-  pointer-events:none;
 }
 .planner-doc .hero-inner{max-width:920px;margin:0 auto;position:relative;}
 .planner-doc .eyebrow-row{
@@ -83,7 +90,9 @@ export const PLANNER_CSS = `
 .planner-doc .eyebrow-row span b{color:var(--paper);font-weight:700;}
 .planner-doc h1.brand{
   font-family:var(--display);font-weight:400;
-  font-size:clamp(48px,10vw,96px);line-height:.92;
+  /* Was clamp(48px,10vw,96px) — 96px of display type above the fold
+     left no room for anything else on a laptop. */
+  font-size:clamp(38px,7vw,64px);line-height:.95;
   letter-spacing:.01em;margin:0 0 6px;color:var(--paper);
 }
 .planner-doc h1.brand em{font-style:normal;color:var(--red);}
@@ -94,10 +103,10 @@ export const PLANNER_CSS = `
 
 /* ---------- THESIS ---------- */
 .planner-doc .thesis{
-  max-width:760px;margin:0 auto;padding:56px 24px 40px;text-align:center;
+  max-width:760px;margin:0 auto;padding:40px 24px 32px;text-align:center;
 }
 .planner-doc .thesis p{
-  font-size:clamp(21px,3.4vw,28px);line-height:1.4;margin:0;
+  font-size:clamp(19px,2.8vw,24px);line-height:1.45;margin:0;
   font-weight:400;color:var(--ink);
 }
 .planner-doc .thesis .lead-mark{color:var(--red);font-family:var(--display);font-size:1.1em;}
@@ -106,8 +115,8 @@ export const PLANNER_CSS = `
   color:var(--muted);letter-spacing:.04em;
 }
 
-.planner-doc section{max-width:1040px;margin:0 auto;padding:48px 24px;}
-.planner-doc .section-head{margin-bottom:28px;}
+.planner-doc section{max-width:1040px;margin:0 auto;padding:36px 24px;}
+.planner-doc .section-head{margin-bottom:22px;}
 .planner-doc .section-head .tag{
   font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--red);display:block;margin-bottom:6px;

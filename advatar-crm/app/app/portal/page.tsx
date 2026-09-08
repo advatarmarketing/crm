@@ -3,10 +3,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/components/StatTile";
 
+// Same order as PortalNav — Documents after Content Plan.
 const JUMP_LINKS = [
   { href: "/app/portal/content", label: "Content Hub" },
+  { href: "/app/portal/plan", label: "Content Plan" },
   { href: "/app/portal/documents", label: "Documents" },
-  { href: "/app/portal/plan", label: "90-Day Plan" },
   { href: "/app/portal/messages", label: "Messages" },
 ];
 
@@ -66,8 +67,8 @@ export default async function PortalOverviewPage() {
       )}
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 36 }}>
+        <StatTile label="Content Plan" value={publishedPlanner ? "Published" : "In progress"} />
         <StatTile label="Documents" value={String(documentCount ?? 0)} />
-        <StatTile label="90-Day Plan" value={publishedPlanner ? "Published" : "In progress"} />
         <StatTile label="Messages" value={String(messageCount)} />
       </div>
 

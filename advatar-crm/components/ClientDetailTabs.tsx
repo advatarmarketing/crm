@@ -8,6 +8,8 @@ import { DocumentsList } from "./DocumentsList";
 import { TaskList } from "./TaskList";
 import { PlannerDocument } from "./PlannerDocument";
 import { AssignedTeamPanel, type AssignedTeamMember, type AssignableProfile } from "./AssignedTeamPanel";
+import { BrandKitPanel, emptyBrandKit, type BrandKit } from "./BrandKitPanel";
+import { ClientTeamThread, type TeamMessage } from "./ClientTeamThread";
 import { ClientFinancePanel, type ClientInvoice } from "./ClientFinancePanel";
 import { DocumentUpload } from "./DocumentUpload";
 import { FathomLinkPanel, type LinkedMeeting } from "./FathomLinkPanel";
@@ -21,7 +23,7 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 const TABS = [
   { id: "info", label: "Info" },
-  { id: "plan", label: "90-Day Plan" },
+  { id: "plan", label: "Content Plan" },
   { id: "activity", label: "Activity" },
 ] as const;
 
@@ -41,6 +43,9 @@ export function ClientDetailTabs({
   checklist = [],
   templates = [],
   finance,
+  brandKit,
+  teamMessages = [],
+  currentUserId = null,
 }: {
   client: Client;
   documents: Document[];
@@ -57,6 +62,12 @@ export function ClientDetailTabs({
   invoices?: ClientInvoice[];
   /** Phase 15: meetings attached to this client, newest first. */
   meetings?: LinkedMeeting[];
+  /** Phase 21: the brand kit, editable here (0020 gives management
+   * and assigned staff write access; videographers only read it). */
+  brandKit?: BrandKit | null;
+  /** Phase 21: the internal thread — never visible to the client. */
+  teamMessages?: TeamMessage[];
+  currentUserId?: string | null;
   /** Phase 15: this client's history, newest first. */
   activity?: ActivityEntry[];
   /** Phase 17: onboarding steps for this client. */
@@ -169,6 +180,26 @@ export function ClientDetailTabs({
           <section>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Assigned Team</h2>
             <AssignedTeamPanel clientId={client.id} initialAssignments={teamMembers} assignableProfiles={assignableProfiles} />
+          </section>
+
+          {/* Phase 21: what the videographer reads before a shoot.
+              Edited here so it stays with the rest of the client's
+              record rather than living in a separate screen. */}
+          <section style={{ marginBottom: 36 }}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Brand kit</h2>
+            <BrandKitPanel initialKit={brandKit ?? emptyBrandKit(client.id)} editable />
+          </section>
+
+          <section style={{ marginBottom: 36 }}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 4px" }}>Team thread</h2>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-3)", margin: "0 0 14px" }}>
+              Internal — the client cannot see this
+            </p>
+            <ClientTeamThread
+              clientId={client.id}
+              initialMessages={teamMessages}
+              currentUserId={currentUserId}
+            />
           </section>
         </div>
       )}

@@ -4,6 +4,8 @@ import { StatTile } from "@/components/StatTile";
 import { DonutChart } from "@/components/DonutChart";
 import { AttentionList, type AttentionItem } from "@/components/AttentionList";
 import { RevenueChart, type PaidInvoice } from "@/components/RevenueChart";
+import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
+import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { formatMoney, daysSince, isPast, startOfToday } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -33,23 +35,46 @@ export default async function DashboardPage() {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
 
-  const [{ data: clients }, { data: invoices }, { data: tasks }, { data: finance }, { count: prospectCount }] =
-    await Promise.all([
-      supabase
-        .from("clients")
-        .select("id, name, stage, service, follow_up_date, last_contacted_at, estimated_value, likelihood"),
-      supabase.from("invoices").select("id, client_id, amount, due_date, paid_at, status, number, clients(name)"),
-      supabase
-        .from("tasks")
-        .select("id, client_id, text, due_date, done, assigned_to, clients(name)")
-        .eq("done", false),
-      supabase.from("client_finance").select("client_id, monthly_value, clients(service)"),
-      supabase
-        .from("fathom_calls")
-        .select("id", { count: "exact", head: true })
-        .eq("applied", true)
-        .is("reviewed_at", null),
-    ]);
+  // Phase 19: the schedule and to-do widgets need a fortnight of
+  // calendar entries, and the people to label them with. Both follow
+  // this page's existing rule — no role branch, RLS decides what comes
+  // back, and a section with no rows simply doesn't render.
+  const weekEnd = new Date(today);
+  weekEnd.setDate(weekEnd.getDate() + 14);
+
+  const [
+    { data: clients },
+    { data: invoices },
+    { data: tasks },
+    { data: finance },
+    { count: prospectCount },
+    { data: events },
+    { data: people },
+    { data: categories },
+  ] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, name, stage, service, follow_up_date, last_contacted_at, estimated_value, likelihood"),
+    supabase.from("invoices").select("id, client_id, amount, due_date, paid_at, status, number, clients(name)"),
+    supabase
+      .from("tasks")
+      .select("id, client_id, text, due_date, done, assigned_to, clients(name)")
+      .eq("done", false),
+    supabase.from("client_finance").select("client_id, monthly_value, clients(service)"),
+    supabase
+      .from("fathom_calls")
+      .select("id", { count: "exact", head: true })
+      .eq("applied", true)
+      .is("reviewed_at", null),
+    supabase
+      .from("schedule_events")
+      .select("id, title, starts_at, ends_at, all_day, location, category_id, client_id, assigned_to")
+      .gte("starts_at", today.toISOString())
+      .lt("starts_at", weekEnd.toISOString())
+      .order("starts_at"),
+    supabase.from("profiles").select("id, full_name"),
+    supabase.from("event_categories").select("id, name, colour").order("position"),
+  ]);
 
   const allClients = clients ?? [];
 
@@ -196,6 +221,39 @@ export default async function DashboardPage() {
 
   const myTasks = user ? openTasks.filter((t) => t.assigned_to === user.id).length : 0;
 
+  // ---------------- schedule + to-do widgets ----------------
+
+  const nameById = new Map(
+    ((people ?? []) as unknown as { id: string; full_name: string | null }[]).map((p) => [
+      p.id,
+      p.full_name?.trim() || null,
+    ])
+  );
+  const clientNameById = new Map(allClients.map((c) => [c.id, c.name]));
+
+  const clientChoices: ClientChoice[] = allClients
+    .map((c) => ({ id: c.id, name: c.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const eventCategories = (categories ?? []) as unknown as EventCategory[];
+
+  const scheduleEntries: ScheduleEntry[] = ((events ?? []) as unknown as ScheduleEntry[]).map((e) => ({
+    ...e,
+    clientName: e.client_id ? clientNameById.get(e.client_id) ?? null : null,
+    personName: e.assigned_to ? nameById.get(e.assigned_to) ?? null : null,
+  }));
+
+  const todoEntries: TodoEntry[] = openTasks.map((t) => ({
+    id: t.id,
+    text: t.text,
+    due_date: t.due_date,
+    done: t.done,
+    client_id: t.client_id,
+    assigned_to: t.assigned_to,
+    clientName: t.clients?.name ?? null,
+    personName: t.assigned_to ? nameById.get(t.assigned_to) ?? null : null,
+  }));
+
   return (
     <main className="page">
       <h1 className="page-title" style={{ marginBottom: 24 }}>
@@ -210,6 +268,51 @@ export default async function DashboardPage() {
             : `${attention.length} thing${attention.length === 1 ? "" : "s"} to deal with`}
         </p>
         <AttentionList items={attention} />
+      </section>
+
+      {/* Phase 19: the day/week at a glance, and the to-do list, above
+          the reporting sections — this is what the morning screen is
+          actually opened for. New entries default to the signed-in
+          person, which is the one value every role's RLS will accept
+          on a write. */}
+      <section style={{ marginBottom: 40 }}>
+        <div className="dashboard-widgets">
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 4px" }}>Schedule</h2>
+            <p style={eyebrow}>
+              Next two weeks ·{" "}
+              <Link href="/app/settings/event-categories" style={{ color: "inherit" }}>
+                categories
+              </Link>
+            </p>
+            <SchedulePanel
+              initialEvents={scheduleEntries}
+              editable
+              defaultAssignee={user?.id ?? null}
+              clients={clientChoices}
+              categories={eventCategories}
+              showPerson
+              emptyMessage="Nothing scheduled in the next two weeks."
+            />
+          </div>
+
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 4px" }}>To-do list</h2>
+            <p style={eyebrow}>
+              {openTasks.length === 0
+                ? "All clear"
+                : `${openTasks.length} open${myTasks > 0 ? ` · ${myTasks} yours` : ""}`}
+            </p>
+            <TodoPanel
+              initialTasks={todoEntries}
+              editable
+              defaultAssignee={user?.id ?? null}
+              clients={clientChoices}
+              showPerson
+              emptyMessage="Nothing outstanding."
+            />
+          </div>
+        </div>
       </section>
 
       {/* Money. Renders only because rows came back — a staff session

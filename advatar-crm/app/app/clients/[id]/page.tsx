@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ClientDetailTabs } from "@/components/ClientDetailTabs";
 import type { AssignedTeamMember, AssignableProfile } from "@/components/AssignedTeamPanel";
+import type { BrandKit } from "@/components/BrandKitPanel";
+import type { TeamMessage } from "@/components/ClientTeamThread";
 
 export default async function ClientDetailPage({
   params,
@@ -11,6 +13,10 @@ export default async function ClientDetailPage({
   searchParams: { tab?: string };
 }) {
   const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const [
     { data: client },
@@ -24,6 +30,9 @@ export default async function ClientDetailPage({
     { data: activity },
     { data: checklist },
     { data: templates },
+    { data: brandKit },
+    { data: teamMessages },
+    { data: allProfiles },
   ] = await Promise.all([
       supabase.from("clients").select("*").eq("id", params.id).single(),
       supabase
@@ -90,6 +99,16 @@ export default async function ClientDetailPage({
         .eq("client_id", params.id)
         .order("position"),
       supabase.from("task_templates").select("id, name").order("name"),
+      supabase.from("client_brand_kits").select("*").eq("client_id", params.id).maybeSingle(),
+      supabase
+        .from("client_team_messages")
+        .select("id, body, created_at, author_id")
+        .eq("client_id", params.id)
+        .order("created_at", { ascending: true }),
+      // Names for the team thread. assignableProfiles above is only
+      // staff and videographers, and a CEO or ops manager posting here
+      // would otherwise show as "Someone".
+      supabase.from("profiles").select("id, full_name"),
     ]);
 
   // A missing client here means either it doesn't exist, or RLS
@@ -124,6 +143,18 @@ export default async function ClientDetailPage({
     actorName: a.profiles?.full_name ?? null,
   }));
 
+  const nameById = new Map(
+    ((allProfiles ?? []) as unknown as { id: string; full_name: string | null }[]).map((p) => [
+      p.id,
+      p.full_name?.trim() || null,
+    ])
+  );
+
+  const teamThread: TeamMessage[] = ((teamMessages ?? []) as unknown as TeamMessage[]).map((m) => ({
+    ...m,
+    authorName: m.author_id ? nameById.get(m.author_id) ?? null : null,
+  }));
+
   const assignable: AssignableProfile[] = (assignableProfiles ?? []).map((p) => ({
     id: p.id,
     fullName: p.full_name,
@@ -146,6 +177,9 @@ export default async function ClientDetailPage({
         activity={activityEntries}
         checklist={(checklist ?? []) as any}
         templates={(templates ?? []) as any}
+        brandKit={(brandKit as BrandKit | null) ?? null}
+        teamMessages={teamThread}
+        currentUserId={user?.id ?? null}
       />
     </main>
   );

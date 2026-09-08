@@ -26,7 +26,7 @@ export interface LinkedMeeting {
  * the summary text — the two things you can actually copy out of
  * Fathom — and file them against this client exactly as the webhook
  * would, including running the notes through the same mapper that
- * builds a draft 90-day plan.
+ * builds a draft content plan.
  *
  * If Fathom API credentials are added later, this form becomes the
  * fallback rather than the only route.
@@ -126,7 +126,7 @@ export function FathomLinkPanel({
               name="notes"
               rows={6}
               style={{ ...inputStyle, resize: "vertical" }}
-              placeholder="Paste the Fathom summary and action items here. If this client has no 90-day plan yet, one will be drafted from it."
+              placeholder="Paste the Fathom summary and action items here. If this client has no content plan yet, one will be drafted from it."
             />
           </label>
 

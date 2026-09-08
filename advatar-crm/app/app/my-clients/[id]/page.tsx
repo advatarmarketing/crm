@@ -3,15 +3,29 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PlannerDocument } from "@/components/PlannerDocument";
 import { DocumentsList } from "@/components/DocumentsList";
+import { BrandKitPanel, emptyBrandKit, type BrandKit } from "@/components/BrandKitPanel";
+import { ClientTeamThread, type TeamMessage } from "@/components/ClientTeamThread";
 
 export default async function MyClientDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const [{ data: client }, { data: documents }, { data: thread }] = await Promise.all([
-    supabase.from("clients").select("id, name, service, next_action").eq("id", params.id).single(),
-    supabase.from("documents").select("*").eq("client_id", params.id).order("created_at", { ascending: false }),
-    supabase.from("message_threads").select("id").eq("client_id", params.id).maybeSingle(),
-  ]);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const [{ data: client }, { data: documents }, { data: thread }, { data: brandKit }, { data: teamMessages }, { data: people }] =
+    await Promise.all([
+      supabase.from("clients").select("id, name, service, next_action").eq("id", params.id).single(),
+      supabase.from("documents").select("*").eq("client_id", params.id).order("created_at", { ascending: false }),
+      supabase.from("message_threads").select("id").eq("client_id", params.id).maybeSingle(),
+      supabase.from("client_brand_kits").select("*").eq("client_id", params.id).maybeSingle(),
+      supabase
+        .from("client_team_messages")
+        .select("id, body, created_at, author_id")
+        .eq("client_id", params.id)
+        .order("created_at", { ascending: true }),
+      supabase.from("profiles").select("id, full_name"),
+    ]);
 
   // Missing here means either the client doesn't exist, or (far more
   // likely) it exists but this videographer isn't in client_staff for
@@ -31,6 +45,18 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         .order("created_at", { ascending: true })
     : { data: null };
 
+  const nameById = new Map(
+    ((people ?? []) as unknown as { id: string; full_name: string | null }[]).map((p) => [
+      p.id,
+      p.full_name?.trim() || null,
+    ])
+  );
+
+  const teamThread: TeamMessage[] = ((teamMessages ?? []) as unknown as TeamMessage[]).map((m) => ({
+    ...m,
+    authorName: m.author_id ? nameById.get(m.author_id) ?? null : null,
+  }));
+
   return (
     <main className="page">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 32, margin: "0 0 4px" }}>
@@ -42,9 +68,36 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         </p>
       )}
 
+      {/* Brand kit first: it is what you check before shooting, not
+          after. Read-only here — client_brand_kits (0020) gives a
+          videographer select access only. */}
+      <section style={{ marginBottom: 40, maxWidth: 720 }}>
+        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>
+          Brand kit
+        </h2>
+        <BrandKitPanel
+          initialKit={(brandKit as BrandKit | null) ?? emptyBrandKit(params.id)}
+          editable={false}
+        />
+      </section>
+
+      <section style={{ marginBottom: 40, maxWidth: 720 }}>
+        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 4px" }}>
+          Team thread
+        </h2>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-3)", margin: "0 0 14px" }}>
+          Internal — the client cannot see this
+        </p>
+        <ClientTeamThread
+          clientId={params.id}
+          initialMessages={teamThread}
+          currentUserId={user?.id ?? null}
+        />
+      </section>
+
       <section style={{ marginBottom: 40 }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>
-          90-Day Plan
+          Content Plan
         </h2>
         {/* Read-only per Phase 3's default RLS for videographers —
             select-only on planners, no status filter (unlike the

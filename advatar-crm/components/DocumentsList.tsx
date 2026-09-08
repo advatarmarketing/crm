@@ -42,16 +42,34 @@ export function DocumentsList({
 
   // The bucket is private, so there is no permanent link to put in an
   // href — a fresh short-lived signed URL is minted per click.
+  //
+  // The tab is opened synchronously, BEFORE awaiting the URL, and
+  // pointed at the file once it arrives. Calling window.open() after
+  // an await runs outside the click's user-gesture window, which
+  // Safari (and iOS in particular) blocks as a popup — that silently
+  // did nothing, which is exactly what "the document doesn't open"
+  // looked like for clients viewing the portal on a phone. If the tab
+  // is blocked anyway, fall back to navigating this one.
   async function openDocument(id: string) {
     setBusyId(id);
     setError(null);
+
+    const tab = window.open("", "_blank", "noopener,noreferrer");
+
     const { url, error } = await getDocumentDownloadUrl(id);
     setBusyId(null);
+
     if (error || !url) {
+      tab?.close();
       setError(error ?? "Could not open that file.");
       return;
     }
-    window.open(url, "_blank", "noopener,noreferrer");
+
+    if (tab && !tab.closed) {
+      tab.location.href = url;
+    } else {
+      window.location.href = url;
+    }
   }
 
   async function removeDocument(id: string) {
