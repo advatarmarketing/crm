@@ -53,9 +53,7 @@ export default async function MyCalendarPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title" style={{ marginBottom: 6 }}>
-        Calendar
-      </h1>
+      <h1 className="page-title page-title-accent">Calendar</h1>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-2)", margin: "0 0 28px" }}>
         Your shoot days, edits, working time and joint sessions. Tap a day to see
         everything on it.

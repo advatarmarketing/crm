@@ -45,11 +45,31 @@ const STATUS_LABEL: Record<SubmissionStatus, string> = {
   approved: "Approved",
 };
 
+/**
+ * Each status maps to a semantic tone rather than a fixed hex, so the
+ * workflow reads the same in dark mode and the two states that need
+ * action ("changes requested", "in review") are the two that carry
+ * warm colour.
+ */
 const STATUS_COLOUR: Record<SubmissionStatus, string> = {
-  submitted: "#6b8aa6",
-  in_review: "#c9a227",
-  changes_requested: "#c1613f",
-  approved: "#5c8a52",
+  submitted: "var(--info-fg)",
+  in_review: "var(--warn-fg)",
+  changes_requested: "var(--danger-fg)",
+  approved: "var(--ok-fg)",
+};
+
+const STATUS_BG: Record<SubmissionStatus, string> = {
+  submitted: "var(--info-bg)",
+  in_review: "var(--warn-bg)",
+  changes_requested: "var(--danger-bg)",
+  approved: "var(--ok-bg)",
+};
+
+const STATUS_BORDER: Record<SubmissionStatus, string> = {
+  submitted: "var(--info-border)",
+  in_review: "var(--warn-border)",
+  changes_requested: "var(--danger-border)",
+  approved: "var(--ok-border)",
 };
 
 /**
@@ -330,8 +350,9 @@ function SubmissionCard({
       style={{
         border: "1px solid var(--border)",
         borderLeft: `3px solid ${STATUS_COLOUR[submission.status]}`,
-        borderRadius: "var(--radius-sm)",
+        borderRadius: "var(--radius-md)",
         background: "var(--surface)",
+        boxShadow: "var(--shadow-sm)",
         overflow: "hidden",
       }}
     >
@@ -363,17 +384,23 @@ function SubmissionCard({
 
           <span
             style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
               fontFamily: "var(--font-mono)",
               fontSize: 10,
               textTransform: "uppercase",
               letterSpacing: "0.05em",
-              color: "#fff",
-              background: STATUS_COLOUR[submission.status],
-              borderRadius: 20,
-              padding: "3px 10px",
+              color: STATUS_COLOUR[submission.status],
+              background: STATUS_BG[submission.status],
+              border: `1px solid ${STATUS_BORDER[submission.status]}`,
+              borderRadius: "var(--radius-pill)",
+              padding: "4px 11px",
               flexShrink: 0,
+              whiteSpace: "nowrap",
             }}
           >
+            <span className="pill-dot" aria-hidden="true" />
             {STATUS_LABEL[submission.status]}
           </span>
         </div>

@@ -53,8 +53,9 @@ export function PortalNav() {
               textDecoration: "none",
               whiteSpace: "nowrap",
               color: active ? "var(--text-1)" : "var(--text-3)",
-              borderBottom: active ? "2px solid var(--text-1)" : "2px solid transparent",
-              padding: "14px 12px",
+              borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
+              padding: "15px 13px",
+              transition: "color 0.15s ease, border-color 0.15s ease",
             }}
           >
             {link.label}

@@ -95,7 +95,7 @@ export default async function LoginsPage() {
   return (
     <main className="page page-xs">
       <div className="page-head">
-        <h1 className="page-title">Logins</h1>
+        <h1 className="page-title page-title-accent">Logins</h1>
       </div>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 32px", lineHeight: 1.6 }}>
         Create and manage every login here — staff, videographers and client

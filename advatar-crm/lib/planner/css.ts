@@ -1,24 +1,37 @@
 /**
- * Ported near-verbatim from planner.html's <style> block. Every
- * selector is scoped under `.planner-doc` so this can be dropped into
- * a page alongside the rest of the app's own CSS without leaking into
- * it (the original was a full standalone page, so its rules targeted
- * html/body/:root directly — those become `.planner-doc` here).
- * Values, spacing, and colours are unchanged from the source file —
- * this is a scoping transform only, not a restyle.
+ * Ported from planner.html's <style> block. Every selector is scoped
+ * under `.planner-doc` so this can be dropped into a page alongside
+ * the rest of the app's own CSS without leaking into it (the original
+ * was a full standalone page, so its rules targeted html/body/:root
+ * directly — those become `.planner-doc` here).
+ *
+ * The palette is no longer the source file's fixed light values. It
+ * was hardcoded to a paper-white ground, which meant the Content Plan
+ * rendered as a bright white sheet in dark mode — the one screen in
+ * the app that ignored the theme. Each planner variable now points at
+ * the app's own theme token, so all three theme states (light, system
+ * dark, explicitly chosen dark) are inherited rather than reimplemented
+ * here.
+ *
+ * The hero keeps its own fixed dark pair on purpose: it is meant to
+ * read as a title card in both themes, and inverting it to white in
+ * dark mode would put a floodlight at the top of the page.
  */
 export const PLANNER_CSS = `
 .planner-doc{
-  --ink:#111111;
-  --paper:#f5f5f3;
-  --paper-dim:#f0f0ee;
-  --red:#a67c1c;
-  --red-deep:#8fa37f;
-  --gold:#6b8aa6;
-  --coral:#c77b58;
-  --plum:#9a6fa0;
-  --line:#e0e0de;
-  --muted:#555555;
+  --ink:var(--text-1);
+  --paper:var(--bg);
+  --paper-dim:var(--surface-2);
+  --card:var(--surface);
+  --hero-bg:#111111;
+  --hero-fg:#f5f5f3;
+  --red:var(--accent);
+  --red-deep:var(--chart-3);
+  --gold:var(--chart-2);
+  --coral:var(--chart-1);
+  --plum:var(--chart-4);
+  --line:var(--border);
+  --muted:var(--text-2);
   --chrome-text: linear-gradient(135deg, #555 0%, #c0c0c0 45%, #e0e0e0 50%, #c0c0c0 55%, #555 100%);
   --display: 'Bebas Neue', 'Arial Narrow', Arial, sans-serif;
   --body: 'DM Sans', system-ui, Arial, sans-serif;
@@ -43,7 +56,7 @@ export const PLANNER_CSS = `
      over the app's own navigation and hid it. It belongs below the
      app nav, both in position and in stacking order (AppNav is 40). */
   position:sticky;top:var(--app-nav-h);z-index:30;
-  background:rgba(245,245,243,0.95);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  background:var(--paper);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
   border-bottom:1px solid var(--line);
 }
 .planner-doc .page-nav-inner{
@@ -76,8 +89,8 @@ export const PLANNER_CSS = `
    display:none — a display:none element can't be scrolled to. */
 .planner-doc .slate-stripes{height:0;width:100%;background:none;}
 .planner-doc .hero{
-  background:var(--ink);color:var(--paper);
-  padding:40px 24px 32px;
+  background:var(--hero-bg);color:var(--hero-fg);
+  padding:52px 24px 44px;
   position:relative;
   overflow:hidden;
 }
@@ -87,13 +100,13 @@ export const PLANNER_CSS = `
   font-family:var(--mono);font-size:11px;letter-spacing:.06em;
   color:var(--gold);margin-bottom:22px;text-transform:uppercase;
 }
-.planner-doc .eyebrow-row span b{color:var(--paper);font-weight:700;}
+.planner-doc .eyebrow-row span b{color:var(--hero-fg);font-weight:700;}
 .planner-doc h1.brand{
   font-family:var(--display);font-weight:400;
   /* Was clamp(48px,10vw,96px) — 96px of display type above the fold
      left no room for anything else on a laptop. */
   font-size:clamp(38px,7vw,64px);line-height:.95;
-  letter-spacing:.01em;margin:0 0 6px;color:var(--paper);
+  letter-spacing:.01em;margin:0 0 10px;color:var(--hero-fg);
 }
 .planner-doc h1.brand em{font-style:normal;color:var(--red);}
 .planner-doc .hero-sub{
@@ -103,7 +116,7 @@ export const PLANNER_CSS = `
 
 /* ---------- THESIS ---------- */
 .planner-doc .thesis{
-  max-width:760px;margin:0 auto;padding:40px 24px 32px;text-align:center;
+  max-width:760px;margin:0 auto;padding:56px 24px 44px;text-align:center;
 }
 .planner-doc .thesis p{
   font-size:clamp(19px,2.8vw,24px);line-height:1.45;margin:0;
@@ -115,8 +128,8 @@ export const PLANNER_CSS = `
   color:var(--muted);letter-spacing:.04em;
 }
 
-.planner-doc section{max-width:1040px;margin:0 auto;padding:36px 24px;}
-.planner-doc .section-head{margin-bottom:22px;}
+.planner-doc section{max-width:1040px;margin:0 auto;padding:52px 24px;}
+.planner-doc .section-head{margin-bottom:28px;}
 .planner-doc .section-head .tag{
   font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--red);display:block;margin-bottom:6px;
@@ -131,13 +144,13 @@ export const PLANNER_CSS = `
 .planner-doc .pillars{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
 @media (max-width:680px){.planner-doc .pillars{grid-template-columns:1fr;}}
 .planner-doc .pillar-card{
-  background:#fff;border:1px solid var(--line);border-radius:2px;padding:22px 22px 20px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:26px 24px 24px;box-shadow:var(--shadow-sm);
   position:relative;
 }
 .planner-doc .pillar-remove{
   position:absolute;top:10px;right:10px;
   width:22px;height:22px;border-radius:50%;
-  border:1px solid var(--line);background:#fff;color:var(--muted);
+  border:1px solid var(--line);background:var(--card);color:var(--muted);
   font-family:var(--mono);font-size:13px;line-height:1;
   display:flex;align-items:center;justify-content:center;cursor:pointer;
   opacity:0;transition:opacity .15s, border-color .15s, color .15s;
@@ -146,7 +159,7 @@ export const PLANNER_CSS = `
 .planner-doc .pillar-remove:hover{border-color:var(--red);color:var(--red);}
 .planner-doc .add-pillar-btn, .planner-doc .add-link-btn, .planner-doc .add-brand-btn, .planner-doc .add-timeline-btn{
   margin-top:16px;width:100%;
-  border:1.5px dashed var(--line);border-radius:2px;background:transparent;
+  border:1.5px dashed var(--line);border-radius:10px;background:transparent;
   padding:16px;cursor:pointer;
   font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
   color:var(--muted);transition:border-color .15s, color .15s, background-color .15s;
@@ -167,7 +180,7 @@ export const PLANNER_CSS = `
   font-family:var(--mono);font-size:11px;padding:4px 6px 4px 9px;border:1px solid var(--line);
   border-radius:20px;color:var(--muted);
 }
-.planner-doc .chip-text{cursor:text;border-radius:2px;outline:1px dashed transparent;outline-offset:2px;}
+.planner-doc .chip-text{cursor:text;border-radius:10px;outline:1px dashed transparent;outline-offset:2px;}
 .planner-doc .chip-text:hover{outline-color:rgba(26,26,26,0.45);}
 .planner-doc .chip-text:focus{outline:1px solid var(--red);background-color:rgba(26,26,26,0.06);}
 .planner-doc .chip-remove{
@@ -189,7 +202,7 @@ export const PLANNER_CSS = `
 .planner-doc .format-row{display:flex;gap:14px;flex-wrap:wrap;}
 .planner-doc .format-stat{
   flex:1;min-width:140px;background:var(--ink);color:var(--paper);
-  padding:20px 18px;border-radius:2px;
+  padding:20px 18px;border-radius:10px;
 }
 .planner-doc .format-stat .num{font-family:var(--display);font-size:34px;color:var(--red);display:block;}
 .planner-doc .format-stat .lbl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9a9a9a;}
@@ -224,7 +237,7 @@ export const PLANNER_CSS = `
 /* ---------- METRICS ---------- */
 .planner-doc .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
 @media (max-width:680px){.planner-doc .metrics{grid-template-columns:repeat(2,1fr);}}
-.planner-doc .metric-card{border:1px solid var(--line);background:#fff;padding:18px;border-radius:2px;}
+.planner-doc .metric-card{border:1px solid var(--line);background:var(--card);padding:22px;border-radius:10px;box-shadow:var(--shadow-sm);}
 .planner-doc .metric-card .m-lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);}
 .planner-doc .metric-card .m-val{font-family:var(--display);font-size:24px;margin-top:6px;display:block;}
 
@@ -235,7 +248,7 @@ export const PLANNER_CSS = `
 
 /* ---------- EDITABLE STATE ---------- */
 .planner-doc [contenteditable="true"]{
-  border-radius:2px;
+  border-radius:10px;
   outline:1px dashed transparent;
   outline-offset:3px;
   transition:outline-color .12s, background-color .12s;
@@ -253,15 +266,15 @@ export const PLANNER_CSS = `
 .planner-doc .toolbar{
   position:fixed;bottom:20px;right:20px;z-index:999;
   display:flex;gap:8px;align-items:center;
-  background:var(--ink);padding:10px 12px;border-radius:30px;
+  background:var(--hero-bg);padding:10px 12px;border-radius:30px;
   box-shadow:0 6px 20px rgba(0,0,0,.25);
 }
 .planner-doc .toolbar button{
   font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
-  background:var(--red);color:var(--paper);border:none;
+  background:var(--red);color:var(--hero-fg);border:none;
   padding:9px 16px;border-radius:20px;cursor:pointer;
 }
-.planner-doc .toolbar button.secondary{background:transparent;color:var(--paper);border:1px solid #3a3a3a;}
+.planner-doc .toolbar button.secondary{background:transparent;color:var(--hero-fg);border:1px solid #3a3a3a;}
 .planner-doc .toolbar .status{font-family:var(--mono);font-size:10px;color:#9a9a9a;padding-left:4px;white-space:nowrap;}
 @media (max-width:520px){
   .planner-doc .toolbar{left:12px;right:12px;bottom:12px;flex-wrap:wrap;justify-content:center;}
@@ -274,9 +287,9 @@ export const PLANNER_CSS = `
 }
 .planner-doc .logo-slot{
   width:220px;height:120px;
-  border:1.5px dashed var(--line);border-radius:2px;
+  border:1.5px dashed var(--line);border-radius:10px;
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;background:#fff;position:relative;overflow:hidden;
+  cursor:pointer;background:var(--card);position:relative;overflow:hidden;
   transition:border-color .15s, background-color .15s;
 }
 .planner-doc .logo-slot:hover{border-color:var(--red);background-color:rgba(26,26,26,0.04);}
@@ -294,7 +307,7 @@ export const PLANNER_CSS = `
 .planner-doc .link-list{border-top:1px solid var(--line);}
 .planner-doc .link-row{
   display:grid;grid-template-columns:28px 240px 1fr 28px 30px;gap:16px;align-items:center;
-  padding:14px 0;border-bottom:1px solid var(--line);background:#fff;
+  padding:14px 0;border-bottom:1px solid var(--line);background:var(--card);
 }
 @media (max-width:760px){
   .planner-doc .link-row{grid-template-columns:24px 1fr 28px 30px;grid-template-areas:"idx title open remove" "empty link link link";row-gap:8px;padding:16px 0;}
@@ -305,12 +318,12 @@ export const PLANNER_CSS = `
 .planner-doc .link-title{font-family:var(--body);font-weight:700;font-size:14px;line-height:1.4;}
 .planner-doc .link-input{
   font-family:var(--mono);font-size:12px;padding:9px 10px;width:100%;
-  border:1px solid var(--line);border-radius:2px;background:var(--paper-dim);color:var(--ink);
+  border:1px solid var(--line);border-radius:10px;background:var(--paper-dim);color:var(--ink);
 }
 .planner-doc .link-input::placeholder{color:#9a9a9a;}
-.planner-doc .link-input:focus{outline:none;border-color:var(--red);background:#fff;}
+.planner-doc .link-input:focus{outline:none;border-color:var(--red);background:var(--card);}
 .planner-doc .link-open{
-  width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:#fff;
+  width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);
   color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1;text-decoration:none;
   display:none;align-items:center;justify-content:center;flex-shrink:0;
   transition:border-color .15s, color .15s, background-color .15s;
@@ -318,7 +331,7 @@ export const PLANNER_CSS = `
 .planner-doc .link-row.has-link .link-open{display:flex;}
 .planner-doc .link-open:hover{border-color:var(--red);color:var(--red);background:rgba(26,26,26,0.06);}
 .planner-doc .link-remove{
-  width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:#fff;
+  width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);
   color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1;
   display:flex;align-items:center;justify-content:center;cursor:pointer;
   opacity:0;transition:opacity .15s, border-color .15s, color .15s;
@@ -345,7 +358,7 @@ export const PLANNER_CSS = `
 }
 .planner-doc .brand-value{font-size:14.5px;line-height:1.55;color:#2a2a2a;}
 .planner-doc .brand-remove{
-  width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:#fff;
+  width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);
   color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1;
   display:flex;align-items:center;justify-content:center;cursor:pointer;
   opacity:0;transition:opacity .15s, border-color .15s, color .15s;
@@ -358,7 +371,7 @@ export const PLANNER_CSS = `
 .planner-doc .slot-count-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);}
 .planner-doc .slot-count-input{
   width:64px;font-family:var(--mono);font-size:14px;padding:9px 8px;text-align:center;
-  border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink);
+  border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);
 }
 .planner-doc .slot-count-input:focus{outline:none;border-color:var(--red);}
 .planner-doc .slot-generate-btn{
@@ -371,26 +384,26 @@ export const PLANNER_CSS = `
 @media (max-width:900px){.planner-doc .slot-grid{grid-template-columns:repeat(3,1fr);}}
 @media (max-width:680px){.planner-doc .slot-grid{grid-template-columns:repeat(2,1fr);}}
 @media (max-width:460px){.planner-doc .slot-grid{grid-template-columns:1fr;}}
-.planner-doc .slot-card{background:#fff;border:1px solid var(--line);border-radius:2px;padding:16px 16px 14px;}
+.planner-doc .slot-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:var(--shadow-sm);}
 .planner-doc .slot-num{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px;}
 .planner-doc .slot-title{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.01em;line-height:1.15;margin-bottom:6px;}
 .planner-doc .slot-desc{font-family:var(--body);font-size:12.5px;line-height:1.5;color:#2a2a2a;margin-bottom:12px;}
 .planner-doc .slot-pillar-select{
   width:100%;font-family:var(--display);font-weight:400;font-size:15px;letter-spacing:.01em;
-  padding:8px 8px;margin-bottom:10px;border:1px solid var(--line);border-radius:2px;
+  padding:8px 8px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;
   background:var(--paper-dim);color:var(--ink);cursor:pointer;
 }
 .planner-doc .slot-pillar-select:focus{outline:none;border-color:var(--red);}
 .planner-doc .slot-link-wrap{position:relative;}
 .planner-doc .slot-link-input{
   width:100%;font-family:var(--mono);font-size:11px;padding:8px 30px 8px 9px;
-  border:1px solid var(--line);border-radius:2px;background:var(--paper-dim);color:var(--ink);
+  border:1px solid var(--line);border-radius:10px;background:var(--paper-dim);color:var(--ink);
 }
 .planner-doc .slot-link-input::placeholder{color:#9a9a9a;}
-.planner-doc .slot-link-input:focus{outline:none;border-color:var(--red);background:#fff;}
+.planner-doc .slot-link-input:focus{outline:none;border-color:var(--red);background:var(--card);}
 .planner-doc .slot-link-open{
   position:absolute;top:50%;right:5px;transform:translateY(-50%);
-  width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:#fff;
+  width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--card);
   color:var(--muted);font-family:var(--mono);font-size:11px;line-height:1;text-decoration:none;
   display:none;align-items:center;justify-content:center;
   transition:border-color .15s, color .15s, background-color .15s;
@@ -447,7 +460,7 @@ export const PLANNER_CSS = `
 .planner-doc .timeline-item.done .timeline-card{opacity:.62;}
 .planner-doc .timeline-remove{
   position:absolute;top:8px;right:6px;width:22px;height:22px;border-radius:50%;
-  border:1px solid var(--line);background:#fff;color:var(--muted);
+  border:1px solid var(--line);background:var(--card);color:var(--muted);
   font-family:var(--mono);font-size:12px;line-height:1;
   display:flex;align-items:center;justify-content:center;cursor:pointer;
   opacity:0;transition:opacity .15s, border-color .15s, color .15s;

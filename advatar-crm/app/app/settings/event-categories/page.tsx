@@ -58,7 +58,7 @@ export default async function EventCategoriesPage() {
         ← Dashboard
       </Link>
 
-      <h1 className="page-title" style={{ margin: "12px 0 4px" }}>
+      <h1 className="page-title page-title-accent" style={{ margin: "12px 0 4px" }}>
         Event categories
       </h1>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 32px", lineHeight: 1.6 }}>

@@ -55,17 +55,15 @@ export default async function MyPortfolioPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title" style={{ marginBottom: 6 }}>
-        My Portfolio
-      </h1>
+      <h1 className="page-title page-title-accent">My Portfolio</h1>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-2)", margin: "0 0 28px" }}>
         Every video you&rsquo;ve had approved. Work still in review appears here
         once it&rsquo;s signed off.
       </p>
 
       {items.length > 0 && (
-        <div className="stat-row" style={{ marginBottom: 32 }}>
-          <StatTile label="Videos completed" value={String(items.length)} />
+        <div className="stat-row">
+          <StatTile label="Videos completed" value={String(items.length)} tone="accent" hint="all time" />
           <StatTile label="This year" value={String(thisYear)} />
           <StatTile label="Clients worked with" value={String(clientCount)} />
         </div>

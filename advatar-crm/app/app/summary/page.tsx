@@ -70,7 +70,7 @@ export default async function SummaryPage() {
   return (
     <main className="page page-sm">
       <div className="page-head">
-        <h1 className="page-title">This week</h1>
+        <h1 className="page-title page-title-accent">This week</h1>
         <Link href="/app/dashboard" className="btn">
           Dashboard
         </Link>

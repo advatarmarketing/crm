@@ -59,7 +59,7 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
 
   return (
     <main className="page">
-      <h1 style={{ fontFamily: "var(--font-display)", fontSize: 32, margin: "0 0 4px" }}>
+      <h1 className="page-title page-title-accent" style={{ margin: "0 0 4px" }}>
         {client.name}
       </h1>
       {client.service && (
@@ -71,8 +71,8 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
       {/* Brand kit first: it is what you check before shooting, not
           after. Read-only here — client_brand_kits (0020) gives a
           videographer select access only. */}
-      <section style={{ marginBottom: 40, maxWidth: 720 }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>
+      <section className="section" style={{ maxWidth: 760 }}>
+        <h2 className="section-title" style={{ marginBottom: 16 }}>
           Brand kit
         </h2>
         <BrandKitPanel
@@ -81,8 +81,8 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         />
       </section>
 
-      <section style={{ marginBottom: 40, maxWidth: 720 }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 4px" }}>
+      <section className="section" style={{ maxWidth: 760 }}>
+        <h2 className="section-title">
           Team thread
         </h2>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-3)", margin: "0 0 14px" }}>
@@ -95,8 +95,8 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         />
       </section>
 
-      <section style={{ marginBottom: 40 }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>
+      <section className="section">
+        <h2 className="section-title" style={{ marginBottom: 16 }}>
           Content Plan
         </h2>
         {/* Read-only per Phase 3's default RLS for videographers —
@@ -112,8 +112,8 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         />
       </section>
 
-      <section style={{ marginBottom: 40, maxWidth: 720 }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>
+      <section className="section" style={{ maxWidth: 760 }}>
+        <h2 className="section-title" style={{ marginBottom: 16 }}>
           Documents
         </h2>
         {/* editable=false: Phase 3 gives videographers select-only
@@ -121,8 +121,8 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         <DocumentsList initialDocuments={documents ?? []} editable={false} />
       </section>
 
-      <section style={{ maxWidth: 720 }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>
+      <section className="section" style={{ maxWidth: 760 }}>
+        <h2 className="section-title" style={{ marginBottom: 16 }}>
           Messages
         </h2>
         {/* Still read-only here, deliberately, even though Phase 10

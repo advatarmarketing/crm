@@ -154,7 +154,7 @@ export default async function VideographerDetailPage({ params }: { params: { id:
         ← Videographers
       </Link>
 
-      <h1 className="page-title" style={{ margin: "12px 0 4px" }}>
+      <h1 className="page-title page-title-accent" style={{ margin: "14px 0 0" }}>
         {name}
       </h1>
       <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-3)", margin: "0 0 32px" }}>
@@ -162,9 +162,11 @@ export default async function VideographerDetailPage({ params }: { params: { id:
         {assignedClients.length > 0 && ` · ${assignedClients.map((c) => c.name).join(", ")}`}
       </p>
 
-      <section style={{ marginBottom: 40, maxWidth: 760 }}>
-        <h2 style={sectionHeading}>Schedule</h2>
-        <p style={eyebrow}>Shoots, calls and deadlines in their diary</p>
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head">
+          <h2 className="section-title">Schedule</h2>
+          <p className="section-sub">Shoots, calls and deadlines in their diary</p>
+        </div>
         <SchedulePanel
           initialEvents={scheduleEntries}
           editable
@@ -175,9 +177,11 @@ export default async function VideographerDetailPage({ params }: { params: { id:
         />
       </section>
 
-      <section style={{ marginBottom: 40, maxWidth: 760 }}>
-        <h2 style={sectionHeading}>Tasks &amp; to-do list</h2>
-        <p style={eyebrow}>Assigned to them — they see these from their own login too</p>
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head">
+          <h2 className="section-title">Tasks &amp; to-do list</h2>
+          <p className="section-sub">Assigned to them — they see these from their own login too</p>
+        </div>
         <TodoPanel
           initialTasks={todoEntries}
           editable
@@ -187,9 +191,11 @@ export default async function VideographerDetailPage({ params }: { params: { id:
         />
       </section>
 
-      <section style={{ marginBottom: 40, maxWidth: 800 }}>
-        <h2 style={sectionHeading}>Video submissions</h2>
-        <p style={eyebrow}>Their work, and where each round sits</p>
+      <section className="section" style={{ maxWidth: 820 }}>
+        <div className="section-head">
+          <h2 className="section-title">Video submissions</h2>
+          <p className="section-sub">Their work, and where each round sits</p>
+        </div>
         {/* canReview: move the status on and leave feedback. The
             videographer cannot do either — they have no update policy
             on submissions and no insert on feedback (0020). */}
@@ -202,11 +208,13 @@ export default async function VideographerDetailPage({ params }: { params: { id:
         />
       </section>
 
-      <section style={{ marginBottom: 40, maxWidth: 760 }}>
-        <h2 style={sectionHeading}>SOPs &amp; tutorials</h2>
-        <p style={eyebrow}>
-          Add steps to any SOP and it becomes a checklist on their Guidelines tab
-        </p>
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head">
+          <h2 className="section-title">SOPs &amp; tutorials</h2>
+          <p className="section-sub">
+            Add steps to any SOP and it becomes a checklist on their Guidelines tab
+          </p>
+        </div>
         <ResourcesPanel
           initialResources={resourceEntries}
           editable
@@ -217,8 +225,8 @@ export default async function VideographerDetailPage({ params }: { params: { id:
         />
       </section>
 
-      <section style={{ maxWidth: 760 }}>
-        <h2 style={sectionHeading}>Assigned clients</h2>
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head"><h2 className="section-title">Assigned clients</h2></div>
         {assignedClients.length === 0 ? (
           <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)" }}>
             Not assigned to any clients yet — you assign people from a client's

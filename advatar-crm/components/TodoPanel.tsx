@@ -132,10 +132,12 @@ export function TodoPanel({
                   display: "flex",
                   alignItems: "flex-start",
                   gap: 10,
-                  padding: "8px 10px",
+                  padding: "10px 12px",
                   borderRadius: "var(--radius-sm)",
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
+                  // Overdue is the only state that tints. A to-do list
+                  // where every row is coloured tells you nothing.
+                  background: overdue ? "var(--danger-bg)" : "var(--surface)",
+                  border: `1px solid ${overdue ? "var(--danger-border)" : "var(--border)"}`,
                   opacity: t.done ? 0.55 : 1,
                 }}
               >
@@ -172,7 +174,7 @@ export function TodoPanel({
                         display: "block",
                         fontFamily: "var(--font-mono)",
                         fontSize: 10.5,
-                        color: overdue ? "var(--status-closed)" : "var(--text-3)",
+                        color: overdue ? "var(--danger-fg)" : "var(--text-3)",
                         marginTop: 2,
                       }}
                     >

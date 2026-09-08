@@ -147,7 +147,7 @@ export default async function MessagesPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title" style={{ marginBottom: 20 }}>
+      <h1 className="page-title page-title-accent" style={{ marginBottom: 20 }}>
         Messages
       </h1>
       <MessagesTabs

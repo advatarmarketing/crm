@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { StatTile } from "@/components/StatTile";
+import { EmptyState } from "@/components/EmptyState";
 import { loadSubmissions } from "@/lib/submissions";
 import type { ClientChoice } from "@/components/SchedulePanel";
 import { startOfToday, isPast } from "@/lib/format";
@@ -92,27 +93,35 @@ export default async function MyWorkPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title" style={{ marginBottom: 6 }}>
-        My Work
-      </h1>
+      <h1 className="page-title page-title-accent">My Work</h1>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-2)", margin: "0 0 28px" }}>
         Your to-do list, what's due, and the work you've sent for review.
       </p>
 
-      <div className="stat-row" style={{ marginBottom: 36 }}>
-        <StatTile label="Tasks open" value={String(openTasks.length)} hint={overdue.length > 0 ? `${overdue.length} overdue` : undefined} />
-        <StatTile label="Due this week" value={String(dueThisWeek.length)} />
-        <StatTile label="Awaiting review" value={String(awaitingReview.length)} />
+      <div className="stat-row">
+        <StatTile
+          label="Tasks open"
+          value={String(openTasks.length)}
+          tone={overdue.length > 0 ? "danger" : "neutral"}
+          hint={overdue.length > 0 ? `${overdue.length} overdue` : "none overdue"}
+        />
+        <StatTile label="Due this week" value={String(dueThisWeek.length)} hint="next seven days" />
+        <StatTile label="Awaiting review" value={String(awaitingReview.length)} hint="with the reviewer" />
+        {/* The only tile here that is a call to action: changes
+            requested means the ball is back with them. */}
         <StatTile
           label="Changes requested"
           value={String(needsChanges.length)}
-          hint={needsChanges.length > 0 ? "needs a new version" : undefined}
+          tone={needsChanges.length > 0 ? "warn" : "neutral"}
+          hint={needsChanges.length > 0 ? "needs a new version" : "nothing to redo"}
         />
       </div>
 
-      <section style={{ marginBottom: 40, maxWidth: 800 }}>
-        <h2 style={heading}>Video submissions</h2>
-        <p style={eyebrow}>Submitted → in review → changes requested → approved</p>
+      <section className="section" style={{ maxWidth: 820 }}>
+        <div className="section-head">
+          <h2 className="section-title">Video submissions</h2>
+          <p className="section-sub">Submitted → in review → changes requested → approved</p>
+        </div>
         <SubmissionsPanel
           initialSubmissions={submissions}
           canSubmit
@@ -122,15 +131,15 @@ export default async function MyWorkPage() {
         />
       </section>
 
-      <section style={{ marginBottom: 40, maxWidth: 760 }}>
-        <h2 style={heading}>Deadlines</h2>
-        <p style={eyebrow}>
-          {deadlines.length === 0 ? "Nothing with a date on it" : "Soonest first"}
-        </p>
-        {deadlines.length === 0 ? (
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)" }}>
-            None of your open tasks have a due date.
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head">
+          <h2 className="section-title">Deadlines</h2>
+          <p className="section-sub">
+            {deadlines.length === 0 ? "Nothing with a date on it" : "Soonest first"}
           </p>
+        </div>
+        {deadlines.length === 0 ? (
+          <EmptyState title="No dated work" body="None of your open tasks have a due date on them." compact />
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
             {deadlines.map((t) => {
@@ -144,11 +153,15 @@ export default async function MyWorkPage() {
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: 12,
-                    padding: "10px 12px",
-                    border: "1px solid var(--border)",
-                    borderLeft: `3px solid ${late ? "var(--status-closed)" : today_ ? "#c9a227" : "var(--border)"}`,
+                    padding: "13px 15px",
+                    border: `1px solid ${late ? "var(--danger-border)" : today_ ? "var(--warn-border)" : "var(--border)"}`,
+                    borderLeft: `3px solid ${late ? "var(--danger-fg)" : today_ ? "var(--warn-fg)" : "var(--border-2)"}`,
                     borderRadius: "var(--radius-sm)",
-                    background: "var(--surface)",
+                    // Only late and due-today rows get a fill. Everything
+                    // further out stays plain, so the two that matter
+                    // are the two that stand out.
+                    background: late ? "var(--danger-bg)" : today_ ? "var(--warn-bg)" : "var(--surface)",
+                    boxShadow: "var(--shadow-sm)",
                   }}
                 >
                   <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-1)", minWidth: 0 }}>
@@ -158,7 +171,7 @@ export default async function MyWorkPage() {
                     style={{
                       fontFamily: "var(--font-mono)",
                       fontSize: 10.5,
-                      color: late ? "var(--status-closed)" : "var(--text-3)",
+                      color: late ? "var(--danger-fg)" : today_ ? "var(--warn-fg)" : "var(--text-3)",
                       flexShrink: 0,
                     }}
                   >
@@ -173,11 +186,11 @@ export default async function MyWorkPage() {
         )}
       </section>
 
-      <section style={{ maxWidth: 760 }}>
-        <h2 style={heading}>To-do list</h2>
-        <p style={eyebrow}>
-          {openTasks.length === 0 ? "All clear" : `${openTasks.length} open`}
-        </p>
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head">
+          <h2 className="section-title">To-do list</h2>
+          <p className="section-sub">{openTasks.length === 0 ? "All clear" : `${openTasks.length} open`}</p>
+        </div>
         {/* editable={false} hides add/delete — a videographer has no
             insert or delete policy on `tasks`. The tick boxes work,
             through 0019's "videographer update own". */}

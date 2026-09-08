@@ -174,9 +174,12 @@ export function AppNav({ role }: { role: ProfileRole }) {
                 textTransform: "uppercase",
                 color: isActive(link.href) ? "var(--text-1)" : "var(--text-2)",
                 textDecoration: "none",
-                padding: "18px 10px",
+                padding: "18px 11px",
                 whiteSpace: "nowrap",
-                borderBottom: isActive(link.href) ? "2px solid var(--text-1)" : "2px solid transparent",
+                // Accent, not ink: the active tab is the one thing in
+                // the chrome that should be findable at a glance.
+                borderBottom: isActive(link.href) ? "2px solid var(--accent)" : "2px solid transparent",
+                transition: "color 0.15s ease, border-color 0.15s ease",
               }}
             >
               {link.label}

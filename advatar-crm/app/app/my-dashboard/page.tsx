@@ -152,47 +152,77 @@ export default async function MyDashboardPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title" style={{ marginBottom: 4 }}>
-        {firstName ? `Morning, ${firstName}` : "Your day"}
-      </h1>
-      <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-3)", margin: "0 0 28px" }}>
-        {today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
-      </p>
+      <header style={{ marginBottom: 40 }}>
+        <h1 className="page-title page-title-accent">
+          {firstName ? `Morning, ${firstName}` : "Your day"}
+        </h1>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-3)", margin: "14px 0 0" }}>
+          {today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+        </p>
+      </header>
 
-      <div className="stat-row" style={{ marginBottom: 36 }}>
-        <StatTile label="On today" value={String(todays.length)} />
-        <StatTile label="This week" value={String(weekEvents.length)} />
-        <StatTile label="Tasks open" value={String(myTasks.length)} hint={overdue.length > 0 ? `${overdue.length} overdue` : undefined} />
-        <Link href="/app/messages" style={{ textDecoration: "none", flex: "1 1 160px", minWidth: 160 }}>
-          <StatTile label="Unread messages" value={String(unreadCount)} />
+      <div className="stat-row">
+        <StatTile
+          label="On today"
+          value={String(todays.length)}
+          tone={todays.length > 0 ? "accent" : "neutral"}
+          hint={todays.length > 0 ? "check the times below" : "nothing booked"}
+        />
+        <StatTile label="This week" value={String(weekEvents.length)} hint="next seven days" />
+        <StatTile
+          label="Tasks open"
+          value={String(myTasks.length)}
+          tone={overdue.length > 0 ? "danger" : "neutral"}
+          hint={overdue.length > 0 ? `${overdue.length} overdue` : "none overdue"}
+        />
+        <Link href="/app/messages" style={{ textDecoration: "none", flex: "1 1 180px", minWidth: 170 }}>
+          <StatTile
+            label="Unread messages"
+            value={String(unreadCount)}
+            tone={unreadCount > 0 ? "warn" : "neutral"}
+          />
         </Link>
       </div>
 
       {notifications.length > 0 && (
-        <section style={{ marginBottom: 36 }}>
-          <h2 style={heading}>Notifications</h2>
-          <p style={eyebrow}>What needs you right now</p>
+        <section className="section">
+          <div className="section-head">
+            <h2 className="section-title">Notifications</h2>
+            <p className="section-sub">What needs you right now</p>
+          </div>
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
             {notifications.map((n) => (
               <li key={n.id}>
                 <a
                   href={n.href}
+                  className="card-link"
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 10,
-                    padding: "11px 13px",
-                    border: "1px solid var(--border)",
+                    gap: 11,
+                    padding: "13px 16px",
+                    border: `1px solid ${
+                      n.severity === "bad"
+                        ? "var(--danger-border)"
+                        : n.severity === "warn"
+                        ? "var(--warn-border)"
+                        : "var(--ok-border)"
+                    }`,
                     borderLeft: `3px solid ${
                       n.severity === "bad"
-                        ? "var(--status-closed)"
+                        ? "var(--danger-fg)"
                         : n.severity === "warn"
-                        ? "var(--status-paused, #c90)"
-                        : "var(--status-active)"
+                        ? "var(--warn-fg)"
+                        : "var(--ok-fg)"
                     }`,
                     borderRadius: "var(--radius-sm)",
-                    background: "var(--surface)",
-                    textDecoration: "none",
+                    background:
+                      n.severity === "bad"
+                        ? "var(--danger-bg)"
+                        : n.severity === "warn"
+                        ? "var(--warn-bg)"
+                        : "var(--ok-bg)",
+                    minHeight: 50,
                     fontFamily: "var(--font-body)",
                     fontSize: 13.5,
                     color: "var(--text-1)",
@@ -206,9 +236,11 @@ export default async function MyDashboardPage() {
         </section>
       )}
 
-      <section id="today" style={{ marginBottom: 36, maxWidth: 760, scrollMarginTop: 70 }}>
-        <h2 style={heading}>Today</h2>
-        <p style={eyebrow}>Shoots and anything else booked in</p>
+      <section id="today" className="section" style={{ maxWidth: 780, scrollMarginTop: 90 }}>
+        <div className="section-head">
+          <h2 className="section-title">Today</h2>
+          <p className="section-sub">Shoots and anything else booked in</p>
+        </div>
         <SchedulePanel
           initialEvents={todays}
           categories={eventCategories}
@@ -216,9 +248,11 @@ export default async function MyDashboardPage() {
         />
       </section>
 
-      <section style={{ marginBottom: 36, maxWidth: 760 }}>
-        <h2 style={heading}>This week</h2>
-        <p style={eyebrow}>The next seven days</p>
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head">
+          <h2 className="section-title">This week</h2>
+          <p className="section-sub">The next seven days</p>
+        </div>
         <SchedulePanel
           initialEvents={weekEvents}
           categories={eventCategories}
@@ -233,13 +267,15 @@ export default async function MyDashboardPage() {
         </Link>
       </section>
 
-      <section id="tasks" style={{ maxWidth: 760, scrollMarginTop: 70 }}>
-        <h2 style={heading}>Your tasks</h2>
-        <p style={eyebrow}>
+      <section id="tasks" className="section" style={{ maxWidth: 780, scrollMarginTop: 90 }}>
+        <div className="section-head">
+          <h2 className="section-title">Your tasks</h2>
+          <p className="section-sub">
           {myTasks.length === 0
             ? "All clear"
             : `${myTasks.length} open${overdue.length > 0 ? ` · ${overdue.length} overdue` : ""}`}
-        </p>
+          </p>
+        </div>
         {/* editable={false} hides the add and delete controls — a
             videographer has no insert or delete policy on `tasks`, so
             those would fail. The tick boxes are always rendered and do
