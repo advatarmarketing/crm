@@ -55,9 +55,11 @@ export default async function ClientsPage() {
   return (
     <main className="page">
       <div className="page-head">
-        <h1 className="page-title">Clients</h1>
+        <div>
+          <h1 className="page-title page-title-accent">Clients</h1>
+        </div>
         {canAddClient && (
-          <Link href="/app/clients/new" className="btn btn-primary">
+          <Link href="/app/clients/new" className="btn btn-accent">
             + Add client
           </Link>
         )}

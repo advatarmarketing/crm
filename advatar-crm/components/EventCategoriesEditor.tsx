@@ -20,6 +20,9 @@ import type { EventCategory } from "./SchedulePanel";
 export function EventCategoriesEditor({ initialCategories }: { initialCategories: EventCategory[] }) {
   const [categories, setCategories] = useState(initialCategories);
   const [name, setName] = useState("");
+  // A literal hex, not a token: <input type="color"> only accepts a
+  // concrete value. Matches --chart-2 so a new category lands in the
+  // same family as the seeded ones.
   const [colour, setColour] = useState("#6b8aa6");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

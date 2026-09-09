@@ -9,6 +9,7 @@ import { MessagesNavBadge } from "@/components/MessagesNavBadge";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { QuickSearch } from "@/components/QuickSearch";
+import { NotificationBell, type AppNotification } from "@/components/NotificationBell";
 
 /**
  * Phase 7: the nav's content per role is a presentation choice layered
@@ -25,6 +26,8 @@ import { QuickSearch } from "@/components/QuickSearch";
 const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   ceo: [
     { href: "/app/dashboard", label: "Dashboard" },
+    { href: "/app/calendar", label: "Calendar" },
+    { href: "/app/todo", label: "To-do" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/videographers", label: "Videographers" },
     { href: "/app/leads", label: "Leads" },
@@ -49,6 +52,8 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   // settings/logins/actions.ts, not here.
   operations_manager: [
     { href: "/app/dashboard", label: "Dashboard" },
+    { href: "/app/calendar", label: "Calendar" },
+    { href: "/app/todo", label: "To-do" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/videographers", label: "Videographers" },
     { href: "/app/leads", label: "Leads" },
@@ -67,6 +72,8 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   // management-only in that same migration.
   staff: [
     { href: "/app/dashboard", label: "Dashboard" },
+    { href: "/app/calendar", label: "Calendar" },
+    { href: "/app/todo", label: "To-do" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/leads", label: "Leads" },
     { href: "/app/guidelines", label: "Guidelines" },
@@ -78,7 +85,8 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   // beside it.
   videographer: [
     { href: "/app/my-dashboard", label: "Dashboard" },
-    { href: "/app/my-calendar", label: "Calendar" },
+    { href: "/app/calendar", label: "Calendar" },
+    { href: "/app/todo", label: "To-do" },
     { href: "/app/my-work", label: "My Work" },
     { href: "/app/my-clients", label: "My Clients" },
     { href: "/app/guidelines", label: "Guidelines" },
@@ -86,7 +94,10 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },
   ],
-  client: [{ href: "/app/portal", label: "Your Project" }],
+  client: [
+    { href: "/app/portal", label: "Your Project" },
+    { href: "/app/calendar", label: "Calendar" },
+  ],
 };
 
 /**
@@ -100,7 +111,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
  * which is supported — the function isn't bundled to the browser, only
  * a reference to it is, and it still executes on the server.
  */
-export function AppNav({ role }: { role: ProfileRole }) {
+export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifications?: AppNotification[] }) {
   const links = NAV_BY_ROLE[role];
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -174,9 +185,12 @@ export function AppNav({ role }: { role: ProfileRole }) {
                 textTransform: "uppercase",
                 color: isActive(link.href) ? "var(--text-1)" : "var(--text-2)",
                 textDecoration: "none",
-                padding: "18px 10px",
+                padding: "18px 11px",
                 whiteSpace: "nowrap",
-                borderBottom: isActive(link.href) ? "2px solid var(--text-1)" : "2px solid transparent",
+                // Accent, not ink: the active tab is the one thing in
+                // the chrome that should be findable at a glance.
+                borderBottom: isActive(link.href) ? "2px solid var(--accent)" : "2px solid transparent",
+                transition: "color 0.15s ease, border-color 0.15s ease",
               }}
             >
               {link.label}
@@ -187,6 +201,11 @@ export function AppNav({ role }: { role: ProfileRole }) {
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {role !== "client" && <QuickSearch />}
+          {/* Every role gets the bell: clients are told when work is
+              shared with them, staff when they are given a client or a
+              task. It sits outside .nav-links so it stays visible on a
+              phone, where the link row collapses into the burger. */}
+          <NotificationBell initial={notifications} />
           <ThemeToggle />
 
           {/* Every role, including videographer and client: logins are
@@ -194,6 +213,24 @@ export function AppNav({ role }: { role: ProfileRole }) {
               somewhere to change it. Kept out of the main link row so
               it doesn't take space from the pages people actually
               navigate between. */}
+          <Link
+            href="/app/settings/profile"
+            className="nav-links"
+            title="Your name, phone and photo"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: isActive("/app/settings/profile") ? "var(--text-1)" : "var(--text-3)",
+              textDecoration: "none",
+              padding: "8px 4px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Profile
+          </Link>
+
           <Link
             href="/app/settings/password"
             className="nav-links"
@@ -289,6 +326,25 @@ export function AppNav({ role }: { role: ProfileRole }) {
               {link.href === "/app/messages" && <MessagesNavBadge />}
             </Link>
           ))}
+
+          <Link
+            href="/app/settings/profile"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              fontFamily: "var(--font-mono)",
+              fontSize: 13,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: isActive("/app/settings/profile") ? "var(--text-1)" : "var(--text-2)",
+              textDecoration: "none",
+              padding: "14px 4px",
+              minHeight: 48,
+              borderBottom: "1px solid var(--border)",
+            }}
+          >
+            Profile
+          </Link>
 
           <Link
             href="/app/settings/password"

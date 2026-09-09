@@ -22,7 +22,9 @@ const HOME_BY_ROLE: Record<ProfileRole, string> = {
 // added — do not widen ceo/staff's "/app" catch-all casually once
 // finance routes exist, since that's a UI convenience, not a
 // substitute for RLS.
-// Phase 19: every role gets /app/settings/password. Logins are handed
+// Phase 19: every role gets /app/settings/password, and Phase 23
+// /app/settings/profile — a client and a videographer both need
+// somewhere to fix their own name, phone and photo. Logins are handed
 // over with a temporary password, so a videographer or client with no
 // way to reach this page would be stuck with theirs permanently. It's
 // the only path under /app/settings that isn't management-only, and
@@ -33,6 +35,8 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
   staff: ["/app"],
   videographer: [
     "/app/my-dashboard",
+    "/app/calendar",
+    "/app/todo",
     "/app/my-calendar",
     "/app/my-work",
     "/app/my-clients",
@@ -41,8 +45,12 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
     "/app/messages",
     "/app/my-payments",
     "/app/settings/password",
+    "/app/settings/profile",
   ],
-  client: ["/app/portal", "/app/settings/password"],
+  // Phase 24: a client gets the Calendar tab too — shoot dates are the
+  // thing they most want to look up — but no To-do tab: they have no
+  // jobs in this system, only the agency does.
+  client: ["/app/portal", "/app/calendar", "/app/settings/password", "/app/settings/profile"],
 };
 
 function isAllowed(role: ProfileRole, pathname: string) {

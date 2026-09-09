@@ -6,6 +6,9 @@ import { AttentionList, type AttentionItem } from "@/components/AttentionList";
 import { RevenueChart, type PaidInvoice } from "@/components/RevenueChart";
 import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
+import { MonthCalendar } from "@/components/MonthCalendar";
+import { BarChart } from "@/components/BarChart";
+import { EmptyState } from "@/components/EmptyState";
 import { formatMoney, daysSince, isPast, startOfToday } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +45,13 @@ export default async function DashboardPage() {
   const weekEnd = new Date(today);
   weekEnd.setDate(weekEnd.getDate() + 14);
 
+  // Phase 24: the month grid below the widgets needs more than a
+  // fortnight, and the six-week grid can reach into the month either
+  // side — so one query covers last month through next, and the list
+  // widget filters that down rather than fetching twice.
+  const calendarFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const calendarTo = new Date(today.getFullYear(), today.getMonth() + 2, 1);
+
   const [
     { data: clients },
     { data: invoices },
@@ -69,8 +79,8 @@ export default async function DashboardPage() {
     supabase
       .from("schedule_events")
       .select("id, title, starts_at, ends_at, all_day, location, category_id, client_id, assigned_to")
-      .gte("starts_at", today.toISOString())
-      .lt("starts_at", weekEnd.toISOString())
+      .gte("starts_at", calendarFrom.toISOString())
+      .lt("starts_at", calendarTo.toISOString())
       .order("starts_at"),
     supabase.from("profiles").select("id, full_name"),
     supabase.from("event_categories").select("id, name, colour").order("position"),
@@ -221,6 +231,22 @@ export default async function DashboardPage() {
 
   const myTasks = user ? openTasks.filter((t) => t.assigned_to === user.id).length : 0;
 
+  // Six months of paid invoices, oldest first — the shape behind the
+  // "paid this month" figure. A single number can't say whether a good
+  // month is a recovery or a peak.
+  const paidTrend: number[] = Array.from({ length: 6 }, (_, i) => {
+    const from = new Date(today.getFullYear(), today.getMonth() - (5 - i), 1);
+    const to = new Date(today.getFullYear(), today.getMonth() - (4 - i), 1);
+    return allInvoices
+      .filter((inv) => inv.status === "paid" && inv.paid_at && new Date(inv.paid_at) >= from && new Date(inv.paid_at) < to)
+      .reduce((sum, inv) => sum + (inv.amount ?? 0), 0);
+  });
+
+  const overdueCount = overdueInvoices.length;
+  const overdueTotal = allInvoices
+    .filter((i) => i.status === "sent" && i.due_date && new Date(i.due_date) < today)
+    .reduce((sum, i) => sum + (i.amount ?? 0), 0);
+
   // ---------------- schedule + to-do widgets ----------------
 
   const nameById = new Map(
@@ -243,6 +269,13 @@ export default async function DashboardPage() {
     personName: e.assigned_to ? nameById.get(e.assigned_to) ?? null : null,
   }));
 
+  // The list widget is "what's coming"; the grid below is "the shape
+  // of the month". Same rows, two questions.
+  const fortnightEntries = scheduleEntries.filter((e) => {
+    const at = new Date(e.starts_at);
+    return at >= today && at < weekEnd;
+  });
+
   const todoEntries: TodoEntry[] = openTasks.map((t) => ({
     id: t.id,
     text: t.text,
@@ -256,17 +289,19 @@ export default async function DashboardPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title" style={{ marginBottom: 24 }}>
-        Dashboard
-      </h1>
+      <header style={{ marginBottom: 40 }}>
+        <h1 className="page-title page-title-accent">Dashboard</h1>
+      </header>
 
-      <section style={{ marginBottom: 40 }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 4px" }}>Needs attention</h2>
-        <p style={eyebrow}>
-          {attention.length === 0
-            ? "Nothing outstanding"
-            : `${attention.length} thing${attention.length === 1 ? "" : "s"} to deal with`}
-        </p>
+      <section className="section">
+        <div className="section-head">
+          <h2 className="section-title">Needs attention</h2>
+          <p className="section-sub">
+            {attention.length === 0
+              ? "Nothing outstanding"
+              : `${attention.length} thing${attention.length === 1 ? "" : "s"} to deal with`}
+          </p>
+        </div>
         <AttentionList items={attention} />
       </section>
 
@@ -275,18 +310,20 @@ export default async function DashboardPage() {
           actually opened for. New entries default to the signed-in
           person, which is the one value every role's RLS will accept
           on a write. */}
-      <section style={{ marginBottom: 40 }}>
+      <section className="section">
         <div className="dashboard-widgets">
           <div style={{ minWidth: 0 }}>
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 4px" }}>Schedule</h2>
-            <p style={eyebrow}>
-              Next two weeks ·{" "}
-              <Link href="/app/settings/event-categories" style={{ color: "inherit" }}>
-                categories
-              </Link>
-            </p>
+            <div className="section-head">
+              <h2 className="section-title">Schedule</h2>
+              <p className="section-sub">
+                Next two weeks ·{" "}
+                <Link href="/app/settings/event-categories" style={{ color: "var(--accent)" }}>
+                  categories
+                </Link>
+              </p>
+            </div>
             <SchedulePanel
-              initialEvents={scheduleEntries}
+              initialEvents={fortnightEntries}
               editable
               defaultAssignee={user?.id ?? null}
               clients={clientChoices}
@@ -297,12 +334,14 @@ export default async function DashboardPage() {
           </div>
 
           <div style={{ minWidth: 0 }}>
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 4px" }}>To-do list</h2>
-            <p style={eyebrow}>
-              {openTasks.length === 0
-                ? "All clear"
-                : `${openTasks.length} open${myTasks > 0 ? ` · ${myTasks} yours` : ""}`}
-            </p>
+            <div className="section-head">
+              <h2 className="section-title">To-do list</h2>
+              <p className="section-sub">
+                {openTasks.length === 0
+                  ? "All clear"
+                  : `${openTasks.length} open${myTasks > 0 ? ` · ${myTasks} yours` : ""}`}
+              </p>
+            </div>
             <TodoPanel
               initialTasks={todoEntries}
               editable
@@ -315,62 +354,117 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      {/* Phase 24: the month at a glance. The two widgets above answer
+          "what's next"; this answers "how busy is the month", which is
+          the question a list can't. Read-only here on purpose —
+          booking happens on the Calendar tab, where you choose whose
+          diary the entry lands on. */}
+      <section className="section">
+        <div className="section-head">
+          <h2 className="section-title">The month</h2>
+          <p className="section-sub">
+            Everyone&rsquo;s bookings ·{" "}
+            <Link href="/app/calendar" style={{ color: "var(--accent)" }}>
+              open the calendar
+            </Link>
+          </p>
+        </div>
+        <MonthCalendar events={scheduleEntries} categories={eventCategories} showPerson />
+      </section>
+
       {/* Money. Renders only because rows came back — a staff session
           gets none, so this whole section disappears for them without
           a role check here. */}
       {(allInvoices.length > 0 || financeRows.length > 0) && (
-        <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>Money</h2>
+        <section className="section">
+          <div className="section-head">
+            <h2 className="section-title">Money</h2>
+            <p className="section-sub">Cash in, and what is still owed</p>
+          </div>
+
           <div className="stat-row">
             <Link href="/app/finance" style={tileLink}>
               <StatTile
                 label="Paid this month"
                 value={formatMoney(paidThisMonth)}
-                hint={monthDelta === null ? undefined : `${monthDelta >= 0 ? "+" : ""}${monthDelta}% vs last month`}
+                delta={monthDelta}
+                spark={paidTrend}
+                hint="last 6 months"
               />
             </Link>
             <Link href="/app/finance" style={tileLink}>
-              <StatTile label="Outstanding" value={formatMoney(outstanding)} />
+              {/* Outstanding only turns red when something has actually
+                  gone past its due date — money that is merely unpaid
+                  and not yet due is normal, not a problem. */}
+              <StatTile
+                label="Outstanding"
+                value={formatMoney(outstanding)}
+                tone={overdueCount > 0 ? "danger" : "neutral"}
+                hint={
+                  overdueCount > 0
+                    ? `${formatMoney(overdueTotal)} overdue across ${overdueCount} invoice${overdueCount === 1 ? "" : "s"}`
+                    : "none overdue"
+                }
+              />
             </Link>
-            {financeRows.length > 0 && <StatTile label="Monthly recurring" value={formatMoney(mrr)} />}
+            {financeRows.length > 0 && (
+              <StatTile label="Monthly recurring" value={formatMoney(mrr)} tone="accent" hint="across active clients" />
+            )}
           </div>
 
           <RevenueChart invoices={paidInvoices} />
         </section>
       )}
 
-      <section style={{ marginBottom: 40 }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>Pipeline</h2>
+      <section className="section">
+        <div className="section-head">
+          <h2 className="section-title">Pipeline</h2>
+          <p className="section-sub">Where the next work is coming from</p>
+        </div>
         <div className="stat-row">
           <Link href="/app/leads" style={tileLink}>
-            <StatTile label="Weighted pipeline" value={formatMoney(weighted)} hint={`${open.length} open`} />
+            <StatTile
+              label="Weighted pipeline"
+              value={formatMoney(weighted)}
+              hint={`${open.length} open opportunit${open.length === 1 ? "y" : "ies"}`}
+            />
           </Link>
           <Link href="/app/clients" style={tileLink}>
-            <StatTile label="Active clients" value={String(activeCount)} />
+            <StatTile label="Active clients" value={String(activeCount)} tone="ok" />
           </Link>
-          {conversion !== null && <StatTile label="Won rate" value={`${conversion}%`} />}
+          {conversion !== null && (
+            <StatTile label="Won rate" value={`${conversion}%`} hint="active vs still open" />
+          )}
           {!!prospectCount && (
             <Link href="/app/prospects" style={tileLink}>
-              <StatTile label="Prospects to review" value={String(prospectCount)} />
+              {/* Prospects waiting on review are time-sensitive — a
+                  call sat unreviewed for a week is a lost deal. */}
+              <StatTile label="Prospects to review" value={String(prospectCount)} tone="warn" hint="waiting on you" />
             </Link>
           )}
         </div>
 
         {allClients.length > 0 && (
-          <div style={{ marginTop: 8 }}>
-            <DonutChart data={stageData} centerLabel={`${allClients.length} total`} />
+          <div className="card card-pad" style={{ marginTop: 4 }}>
+            <DonutChart data={stageData} centerLabel={`${allClients.length} clients`} />
           </div>
         )}
       </section>
 
-      <section style={{ marginBottom: 40 }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 4px" }}>Coming up</h2>
-        <p style={eyebrow}>
-          {myTasks > 0 ? `${myTasks} assigned to you` : "Next deadlines across every client"}
-        </p>
+      <section className="section">
+        <div className="section-head">
+          <h2 className="section-title">Coming up</h2>
+          <p className="section-sub">
+            {myTasks > 0 ? `${myTasks} assigned to you` : "Next deadlines across every client"}
+          </p>
+        </div>
 
         {upcoming.length === 0 ? (
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)" }}>Nothing scheduled.</p>
+          <EmptyState
+            title="Nothing scheduled"
+            body="No tasks with a future due date. Add one from a client's page or the to-do list above."
+            compact
+          />
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
             {upcoming.map((t) => (
@@ -381,10 +475,11 @@ export default async function DashboardPage() {
                   alignItems: "center",
                   justifyContent: "space-between",
                   gap: 12,
-                  padding: "10px 12px",
+                  padding: "13px 15px",
                   border: "1px solid var(--border)",
                   borderRadius: "var(--radius-sm)",
                   background: "var(--surface)",
+                  boxShadow: "var(--shadow-sm)",
                 }}
               >
                 <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-1)", minWidth: 0 }}>
@@ -401,9 +496,19 @@ export default async function DashboardPage() {
       </section>
 
       {revenueData.length > 0 && (
-        <section>
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 16px" }}>Revenue by service</h2>
-          <DonutChart data={revenueData} centerLabel={`${formatMoney(mrr)}/mo`} />
+        <section className="section">
+          <div className="section-head">
+            <h2 className="section-title">Revenue by service</h2>
+            <p className="section-sub">Monthly recurring, split by what you sold</p>
+          </div>
+          {/* Bars rather than a second donut: service names are words,
+              and two donuts on one page stop being distinguishable. */}
+          <div className="card card-pad">
+            <BarChart
+              data={revenueData.sort((a, b) => b.value - a.value)}
+              formatValue={(v) => `${formatMoney(v)}/mo`}
+            />
+          </div>
         </section>
       )}
     </main>

@@ -57,7 +57,7 @@ export default async function ClientDetailPage({
       // by anyone whose RLS would return something different.
       supabase
         .from("client_staff")
-        .select("staff_id, role_on_client, profiles(full_name, role)")
+        .select("staff_id, role_on_client, profiles(full_name, role, phone)")
         .eq("client_id", params.id),
       supabase
         .from("profiles")
@@ -119,13 +119,14 @@ export default async function ClientDetailPage({
     notFound();
   }
 
-  type AssignmentRow = { staff_id: string; role_on_client: string | null; profiles: { full_name: string | null; role: string } | null };
+  type AssignmentRow = { staff_id: string; role_on_client: string | null; profiles: { full_name: string | null; role: string; phone: string | null } | null };
   const assignmentRows = (assignments ?? []) as unknown as AssignmentRow[];
   const teamMembers: AssignedTeamMember[] = assignmentRows.map((a) => ({
     staffId: a.staff_id,
     fullName: a.profiles?.full_name ?? null,
     role: a.profiles?.role ?? "staff",
     roleOnClient: a.role_on_client,
+    phone: a.profiles?.phone ?? null,
   }));
 
   type ActivityRow = {

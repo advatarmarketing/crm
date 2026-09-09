@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SopChecklist } from "@/components/SopChecklist";
 import { loadSopsWithChecklists } from "@/lib/sops";
+import { EmptyState } from "@/components/EmptyState";
 import type { ProfileRole } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -52,9 +53,7 @@ export default async function GuidelinesPage() {
 
   return (
     <main className="page page-xs">
-      <h1 className="page-title" style={{ marginBottom: 6 }}>
-        Guidelines
-      </h1>
+      <h1 className="page-title page-title-accent">Guidelines</h1>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 28px", lineHeight: 1.6 }}>
         Work through these while you edit. Your ticks are yours alone — nobody
         else sees them — and each checklist has an <strong>Uncheck all</strong>{" "}
@@ -62,16 +61,18 @@ export default async function GuidelinesPage() {
       </p>
 
       {sops.length === 0 ? (
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--text-3)" }}>
-          No guidelines have been added yet. Your account manager adds them from
-          the Videographers area.
-        </p>
+        <EmptyState
+          title="No guidelines yet"
+          body="Your account manager adds SOPs and tutorials from the Videographers area. Once they do, they appear here as checklists you can work through."
+        />
       ) : (
         <>
           {withSteps.length > 0 && (
-            <section style={{ marginBottom: 36 }}>
-              <h2 style={heading}>Checklists</h2>
-              <p style={eyebrow}>Tick as you go</p>
+            <section className="section">
+              <div className="section-head">
+                <h2 className="section-title">Checklists</h2>
+                <p className="section-sub">Tick as you go</p>
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {withSteps.map((sop, i) => (
                   <SopChecklist key={sop.id} sop={sop} userId={user.id} defaultOpen={i === 0} />
@@ -81,9 +82,11 @@ export default async function GuidelinesPage() {
           )}
 
           {reference.length > 0 && (
-            <section>
-              <h2 style={heading}>Reference</h2>
-              <p style={eyebrow}>No steps to tick — read or watch</p>
+            <section className="section">
+              <div className="section-head">
+                <h2 className="section-title">Reference</h2>
+                <p className="section-sub">No steps to tick — read or watch</p>
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {reference.map((sop) => (
                   <SopChecklist key={sop.id} sop={sop} userId={user.id} />

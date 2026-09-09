@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { resetLoginPassword, updateLoginName } from "./actions";
+import { displayName } from "@/lib/names";
 
 export interface LoginRow {
   id: string;
@@ -140,7 +141,7 @@ function LoginItem({ login }: { login: LoginRow }) {
             />
           ) : (
             <span style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--text-1)" }}>
-              {login.fullName?.trim() || "Name not set"}
+              {displayName(login.fullName)}
             </span>
           )}
 

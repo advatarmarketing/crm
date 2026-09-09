@@ -1,0 +1,41 @@
+-- Run AFTER 0022, on its own. Changes nothing.
+-- Every row should say OK.
+
+with checks as (
+  select 'profiles.full_name is NOT NULL' as thing,
+         exists (select 1 from information_schema.columns
+                 where table_schema='public' and table_name='profiles'
+                   and column_name='full_name' and is_nullable='NO') as ok
+  union all select 'no blank names left',
+    not exists (select 1 from public.profiles where full_name is null or btrim(full_name) = '')
+  union all select 'blank-name constraint present',
+    exists (select 1 from pg_constraint where conname = 'profiles_full_name_not_blank')
+  union all select 'profiles.phone exists',
+    exists (select 1 from information_schema.columns
+            where table_schema='public' and table_name='profiles' and column_name='phone')
+  union all select 'bucket profile-avatars',
+    exists (select 1 from storage.buckets where id='profile-avatars')
+  union all select 'fn storage_object_owner_id',
+    exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+            where n.nspname='public' and p.proname='storage_object_owner_id')
+  union all select 'policy profile-avatars public read',
+    exists (select 1 from pg_policies where schemaname='storage' and tablename='objects'
+            and policyname='profile-avatars: public read')
+  union all select 'policy profile-avatars own write',
+    exists (select 1 from pg_policies where schemaname='storage' and tablename='objects'
+            and policyname='profile-avatars: own write')
+  union all select 'policy profiles management update any',
+    exists (select 1 from pg_policies where schemaname='public' and tablename='profiles'
+            and policyname='profiles: management update any')
+)
+select thing, case when ok then 'OK' else 'PROBLEM' end as state
+from checks
+order by thing;
+
+-- Every login and the name it will now display under. Nothing here
+-- should look like an email address or be blank — if one does, set it
+-- properly from Settings → Logins.
+select p.role, p.full_name, p.phone, u.email
+from public.profiles p
+left join auth.users u on u.id = p.id
+order by p.role, p.full_name;

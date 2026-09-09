@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { displayName } from "@/lib/names";
 
 export interface Teammate {
   id: string;

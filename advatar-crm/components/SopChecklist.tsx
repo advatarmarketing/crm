@@ -97,8 +97,9 @@ export function SopChecklist({
   return (
     <div
       style={{
-        border: "1px solid var(--border)",
-        borderLeft: `3px solid ${complete ? "#5c8a52" : "var(--border)"}`,
+        border: `1px solid ${complete ? "var(--ok-border)" : "var(--border)"}`,
+        boxShadow: "var(--shadow-sm)",
+        borderLeft: `3px solid ${complete ? "var(--ok-fg)" : "var(--border)"}`,
         borderRadius: "var(--radius-sm)",
         background: "var(--surface)",
         overflow: "hidden",
@@ -135,7 +136,7 @@ export function SopChecklist({
                 fontSize: 10.5,
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
-                color: complete ? "#5c8a52" : "var(--text-3)",
+                color: complete ? "var(--ok-fg)" : "var(--text-3)",
                 flexShrink: 0,
               }}
             >
@@ -164,8 +165,8 @@ export function SopChecklist({
             style={{
               height: 4,
               borderRadius: 2,
-              background: "var(--surface-2)",
-              marginTop: 10,
+              background: "var(--chart-track)",
+              marginTop: 12,
               overflow: "hidden",
             }}
           >
@@ -173,7 +174,7 @@ export function SopChecklist({
               style={{
                 width: `${(doneCount / total) * 100}%`,
                 height: "100%",
-                background: complete ? "#5c8a52" : "var(--text-2)",
+                background: complete ? "var(--ok-fg)" : "var(--accent)",
                 transition: "width .15s",
               }}
             />

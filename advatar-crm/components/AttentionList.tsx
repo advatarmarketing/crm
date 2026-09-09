@@ -15,23 +15,34 @@ export interface AttentionItem {
  * — the point of this section is that it can be cleared, so it shows
  * the worst of it and says how much is left rather than becoming
  * something to scroll past every morning.
+ *
+ * Overdue rows carry a tinted background rather than just a coloured
+ * left edge. This is the one place in the app where colour is used at
+ * full strength, and it earns it: if something here is red, it has
+ * genuinely been missed.
  */
 export function AttentionList({ items }: { items: AttentionItem[] }) {
   if (items.length === 0) {
     return (
-      <p
+      <div
         style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
           fontFamily: "var(--font-body)",
           fontSize: 13.5,
-          color: "var(--status-active)",
-          border: "1px solid var(--status-active)",
-          borderRadius: "var(--radius-sm)",
-          padding: "12px 14px",
-          margin: 0,
+          color: "var(--ok-fg)",
+          background: "var(--ok-bg)",
+          border: "1px solid var(--ok-border)",
+          borderRadius: "var(--radius-md)",
+          padding: "16px 18px",
         }}
       >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
         Nothing overdue. Everything is where it should be.
-      </p>
+      </div>
     );
   }
 
@@ -44,41 +55,64 @@ export function AttentionList({ items }: { items: AttentionItem[] }) {
     <>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
         {shown.map((item) => {
-          const color = item.severity === "bad" ? "var(--status-closed)" : "var(--status-warm)";
+          const bad = item.severity === "bad";
+          const fg = bad ? "var(--danger-fg)" : "var(--warn-fg)";
+          const bg = bad ? "var(--danger-bg)" : "var(--warn-bg)";
+          const bd = bad ? "var(--danger-border)" : "var(--warn-border)";
+
           return (
             <li key={item.id}>
               <Link
                 href={item.href}
+                className="card-link"
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: 12,
-                  padding: "11px 14px",
-                  border: "1px solid var(--border)",
-                  borderLeft: `3px solid ${color}`,
+                  gap: 14,
+                  padding: "13px 16px",
+                  border: `1px solid ${bd}`,
+                  borderLeft: `3px solid ${fg}`,
                   borderRadius: "var(--radius-sm)",
-                  background: "var(--surface)",
-                  textDecoration: "none",
-                  minHeight: 48,
+                  background: bg,
+                  minHeight: 52,
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize: 13.5,
-                    fontWeight: 600,
-                    color: "var(--text-1)",
-                    minWidth: 0,
-                  }}
-                >
-                  {item.label}
+                <span style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
+                  {/* Two different marks, not two colours of the same
+                      mark — severity survives greyscale this way. */}
+                  <span aria-hidden="true" style={{ color: fg, flexShrink: 0, lineHeight: 0 }}>
+                    {bad ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v6M12 16.5h.01" />
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 3l9 16H3z" />
+                        <path d="M12 9v4M12 16h.01" />
+                      </svg>
+                    )}
+                  </span>
+
+                  <span
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      color: "var(--text-1)",
+                      minWidth: 0,
+                    }}
+                  >
+                    {item.label}
+                  </span>
                 </span>
+
                 <span
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 10.5,
-                    color,
+                    color: fg,
                     flexShrink: 0,
                     textAlign: "right",
                   }}
@@ -92,7 +126,7 @@ export function AttentionList({ items }: { items: AttentionItem[] }) {
       </ul>
 
       {hidden > 0 && (
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)", margin: "10px 0 0" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)", margin: "12px 0 0" }}>
           + {hidden} more
         </p>
       )}

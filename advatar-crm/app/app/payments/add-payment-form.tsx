@@ -3,6 +3,7 @@
 import { useFormState, useFormStatus } from "react-dom";
 import type { CSSProperties, ReactNode } from "react";
 import { addPayment, type AddPaymentState } from "./actions";
+import { displayName } from "@/lib/names";
 
 const initialState: AddPaymentState = { error: null, success: false };
 
@@ -29,7 +30,7 @@ export function AddPaymentForm({ staff }: { staff: { id: string; fullName: strin
           <option value="">Select…</option>
           {staff.map((s) => (
             <option key={s.id} value={s.id}>
-              {(s.fullName?.trim() || "Name not set") + ` (${s.role})`}
+              {`${displayName(s.fullName)} (${s.role})`}
             </option>
           ))}
         </select>

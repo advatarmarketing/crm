@@ -75,38 +75,58 @@ export default async function LeadsPage() {
   return (
     <main className="page">
       <div className="page-head">
-        <h1 className="page-title">Pipeline</h1>
+        <h1 className="page-title page-title-accent">Pipeline</h1>
         {canAdd && (
-          <Link href="/app/clients/new?stage=lead" className="btn btn-primary">
+          <Link href="/app/clients/new?stage=lead" className="btn btn-accent">
             + Add lead
           </Link>
         )}
       </div>
 
       <div className="stat-row">
-        <StatTile label="Weighted pipeline" value={formatMoney(weighted)} />
-        <StatTile label="Total in play" value={formatMoney(totalValue)} />
-        <StatTile label="Overdue follow-ups" value={String(overdueCount)} />
-        {conversion !== null && <StatTile label="Won rate" value={`${conversion}%`} />}
+        <StatTile
+          label="Weighted pipeline"
+          value={formatMoney(weighted)}
+          tone="accent"
+          hint="value × likelihood"
+        />
+        <StatTile label="Total in play" value={formatMoney(totalValue)} hint="if everything landed" />
+        <StatTile
+          label="Overdue follow-ups"
+          value={String(overdueCount)}
+          tone={overdueCount > 0 ? "danger" : "ok"}
+          hint={overdueCount > 0 ? "chase these first" : "all up to date"}
+        />
+        {conversion !== null && <StatTile label="Won rate" value={`${conversion}%`} hint="won vs still open" />}
       </div>
 
       {overdueCount > 0 && (
-        <p
+        <div
           style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 11,
             fontFamily: "var(--font-body)",
             fontSize: 13.5,
-            color: "var(--status-closed)",
-            border: "1px solid var(--status-closed)",
-            borderRadius: "var(--radius-sm)",
-            padding: "10px 14px",
-            margin: "0 0 24px",
+            color: "var(--danger-fg)",
+            background: "var(--danger-bg)",
+            border: "1px solid var(--danger-border)",
+            borderRadius: "var(--radius-md)",
+            padding: "14px 16px",
+            margin: "0 0 28px",
           }}
         >
-          {overdueCount === 1
-            ? "1 lead is past its follow-up date."
-            : `${overdueCount} leads are past their follow-up date.`}{" "}
-          They&apos;re outlined in red below.
-        </p>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v6M12 16.5h.01" />
+          </svg>
+          <span>
+            {overdueCount === 1
+              ? "1 lead is past its follow-up date."
+              : `${overdueCount} leads are past their follow-up date.`}{" "}
+            They&apos;re highlighted below.
+          </span>
+        </div>
       )}
 
       <PipelineBoard leads={all} sources={sources} />

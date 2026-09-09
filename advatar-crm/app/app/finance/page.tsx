@@ -73,17 +73,27 @@ export default async function FinancePage() {
   return (
     <main className="page">
       <div className="page-head">
-        <h1 className="page-title">Finance</h1>
-        <Link href="/app/finance/new" className="btn btn-primary">
+        <h1 className="page-title page-title-accent">Finance</h1>
+        <Link href="/app/finance/new" className="btn btn-accent">
           + New invoice
         </Link>
       </div>
 
       <div className="stat-row">
-        <StatTile label="Outstanding" value={formatMoney(outstanding)} />
-        <StatTile label="Overdue" value={formatMoney(overdue)} />
-        <StatTile label="Paid this month" value={formatMoney(paidThisMonth)} />
-        {(finance ?? []).length > 0 && <StatTile label="Monthly recurring" value={formatMoney(mrr)} />}
+        <StatTile label="Outstanding" value={formatMoney(outstanding)} hint="sent, not yet paid" />
+        {/* Overdue is the one number on this page that means someone
+            has to pick up the phone, so it is the only one that turns
+            red — and only when there is actually something in it. */}
+        <StatTile
+          label="Overdue"
+          value={formatMoney(overdue)}
+          tone={overdue > 0 ? "danger" : "ok"}
+          hint={overdue > 0 ? "past the due date" : "nothing late"}
+        />
+        <StatTile label="Paid this month" value={formatMoney(paidThisMonth)} tone="ok" />
+        {(finance ?? []).length > 0 && (
+          <StatTile label="Monthly recurring" value={formatMoney(mrr)} tone="accent" hint="contracted per month" />
+        )}
       </div>
 
       <InvoicesBrowser invoices={browsable} />

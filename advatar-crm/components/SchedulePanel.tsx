@@ -30,6 +30,10 @@ export interface EventCategory {
   colour: string;
 }
 
+// A literal, not a token: this value gets an alpha suffix appended
+// (`${colour}22`) to tint a cell, and string-concatenating onto a
+// var() produces invalid CSS. Mid grey reads acceptably on both
+// themes' grounds.
 const FALLBACK_COLOUR = "#8a8a8a";
 
 /**
@@ -166,9 +170,9 @@ export function SchedulePanel({
                   fontSize: 10.5,
                   letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  color: isToday ? "var(--text-1)" : "var(--text-3)",
+                  color: isToday ? "var(--accent)" : "var(--text-3)",
                   fontWeight: isToday ? 700 : 400,
-                  marginBottom: 6,
+                  marginBottom: 8,
                 }}
               >
                 {label}
@@ -183,11 +187,12 @@ export function SchedulePanel({
                       display: "flex",
                       alignItems: "center",
                       gap: 10,
-                      padding: "9px 12px",
+                      padding: "11px 14px",
                       border: "1px solid var(--border)",
                       borderLeft: `3px solid ${colourFor(e.category_id)}`,
                       borderRadius: "var(--radius-sm)",
                       background: "var(--surface)",
+                      boxShadow: "var(--shadow-sm)",
                     }}
                   >
                     <span

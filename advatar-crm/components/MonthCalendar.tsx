@@ -4,6 +4,10 @@ import { useState } from "react";
 import type { EventCategory, ScheduleEntry } from "./SchedulePanel";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+// A literal, not a token: this value gets an alpha suffix appended
+// (`${colour}22`) to tint a cell, and string-concatenating onto a
+// var() produces invalid CSS. Mid grey reads acceptably on both
+// themes' grounds.
 const FALLBACK_COLOUR = "#8a8a8a";
 
 /**
@@ -22,11 +26,14 @@ export function MonthCalendar({
   events,
   categories,
   initialMonth,
+  showPerson = false,
 }: {
   events: ScheduleEntry[];
   categories: EventCategory[];
   /** ISO date for the month to open on. Defaults to this month. */
   initialMonth?: string;
+  /** Whose entry it is — only meaningful on a whole-team calendar. */
+  showPerson?: boolean;
 }) {
   const today = startOfDay(new Date());
   const opening = initialMonth ? new Date(initialMonth) : today;
@@ -126,10 +133,12 @@ export function MonthCalendar({
                 textAlign: "left",
                 minHeight: 92,
                 padding: "6px 7px",
-                border: selected === key ? "1px solid var(--text-1)" : "1px solid var(--border)",
+                border: selected === key ? "1px solid var(--accent)" : "1px solid var(--border)",
+                boxShadow: selected === key ? `0 0 0 2px var(--accent-ring)` : "none",
                 borderRadius: "var(--radius-sm)",
                 background: cell.inMonth ? "var(--surface)" : "var(--surface-2)",
                 opacity: cell.inMonth ? 1 : 0.45,
+                transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                 cursor: dayEvents.length > 0 ? "pointer" : "default",
                 display: "flex",
                 flexDirection: "column",
@@ -141,9 +150,9 @@ export function MonthCalendar({
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
-                  color: isToday ? "var(--bg)" : "var(--text-2)",
-                  background: isToday ? "var(--text-1)" : "transparent",
-                  borderRadius: 12,
+                  color: isToday ? "var(--accent-fg)" : "var(--text-2)",
+                  background: isToday ? "var(--accent)" : "transparent",
+                  borderRadius: "var(--radius-pill)",
                   padding: isToday ? "1px 7px" : "1px 0",
                   alignSelf: "flex-start",
                   fontWeight: isToday ? 700 : 400,
@@ -192,11 +201,12 @@ export function MonthCalendar({
       {selected && selectedEvents.length > 0 && (
         <div
           style={{
-            marginTop: 20,
-            padding: "16px 18px",
+            marginTop: 24,
+            padding: "20px 22px",
             border: "1px solid var(--border)",
             borderRadius: "var(--radius-md)",
             background: "var(--surface)",
+            boxShadow: "var(--shadow-sm)",
           }}
         >
           <h3 style={{ fontFamily: "var(--font-display)", fontSize: 18, margin: "0 0 12px" }}>
@@ -227,7 +237,9 @@ export function MonthCalendar({
                 <span style={{ minWidth: 0 }}>
                   <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-1)" }}>{e.title}</span>
                   <span style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-3)", marginTop: 2 }}>
-                    {[nameFor(e.category_id), e.clientName, e.location].filter(Boolean).join(" · ")}
+                    {[nameFor(e.category_id), showPerson ? e.personName : null, e.clientName, e.location]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </span>
               </li>

@@ -12,9 +12,9 @@ export function ClientCard({
   hrefBase = "/app/clients",
 }: {
   id: string;
-  name: string;
+  name: string | null;
   service: string | null;
-  stage: string;
+  stage: string | null;
   nextAction: string | null;
   avatarUrl: string | null;
   /**
@@ -33,66 +33,80 @@ export function ClientCard({
    */
   hrefBase?: string;
 }) {
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  // Defensive: a null name here is a server-side crash that takes
+  // the whole page down (see the note in app/app/my-clients/page.tsx).
+  const safeName = name?.trim() || "Untitled client";
+  const initial = safeName.charAt(0).toUpperCase() || "?";
 
   return (
-    <Link
-      href={`${hrefBase}/${id}`}
-      style={{
-        display: "block",
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-md)",
-        padding: 18,
-        textDecoration: "none",
-        color: "inherit",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+    <Link href={`${hrefBase}/${id}`} className="card card-link card-pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
         <div
+          aria-hidden="true"
           style={{
-            width: 44,
-            height: 44,
+            width: 46,
+            height: 46,
             borderRadius: "50%",
             flexShrink: 0,
             background: avatarUrl ? `center/cover no-repeat url(${avatarUrl})` : "var(--surface-3)",
+            border: "1px solid var(--border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontFamily: "var(--font-display)",
-            fontSize: 18,
+            fontSize: 19,
             color: "var(--text-2)",
           }}
         >
           {!avatarUrl && initial}
         </div>
-        <div style={{ minWidth: 0 }}>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div
             style={{
               fontFamily: "var(--font-body)",
               fontWeight: 600,
-              fontSize: 15,
+              fontSize: 15.5,
               color: "var(--text-1)",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
             }}
           >
-            {name}
+            {safeName}
           </div>
           {service && (
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)" }}>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10.5,
+                color: "var(--text-3)",
+                marginTop: 3,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               {service}
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <StatusChip stage={stage} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <StatusChip stage={stage ?? "lead"} />
         {typeof monthlyValue === "number" && (
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-1)" }}>
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 20,
+              letterSpacing: "0.01em",
+              color: "var(--text-1)",
+              lineHeight: 1,
+            }}
+          >
             £{monthlyValue.toLocaleString()}
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-3)" }}>/mo</span>
           </span>
         )}
       </div>
@@ -101,10 +115,12 @@ export function ClientCard({
         <p
           style={{
             margin: 0,
+            paddingTop: 14,
+            borderTop: "1px solid var(--border)",
             fontFamily: "var(--font-body)",
             fontSize: 12.5,
             color: "var(--text-2)",
-            lineHeight: 1.4,
+            lineHeight: 1.5,
           }}
         >
           {nextAction}

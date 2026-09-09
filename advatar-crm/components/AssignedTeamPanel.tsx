@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { displayName } from "@/lib/names";
 
 export interface AssignedTeamMember {
   staffId: string;
   fullName: string | null;
   role: string;
   roleOnClient: string | null;
+  /** Phase 23 — shown next to the name so whoever is on a shoot can
+   *  be reached without going to their profile page first. */
+  phone?: string | null;
 }
 
 export interface AssignableProfile {
@@ -103,10 +107,25 @@ export function AssignedTeamPanel({
               }}
             >
               <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-1)" }}>
-                {a.fullName?.trim() || "Name not set"}{" "}
+                {displayName(a.fullName)}{" "}
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-3)", textTransform: "uppercase" }}>
                   {a.role}
                 </span>
+                {a.phone && (
+                  <a
+                    href={`tel:${a.phone.replace(/\s+/g, "")}`}
+                    style={{
+                      display: "block",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      color: "var(--accent)",
+                      marginTop: 3,
+                      textDecoration: "none",
+                    }}
+                  >
+                    {a.phone}
+                  </a>
+                )}
               </span>
               <button
                 type="button"
@@ -150,7 +169,7 @@ export function AssignedTeamPanel({
           <option value="">Add a team member…</option>
           {options.map((p) => (
             <option key={p.id} value={p.id}>
-              {(p.fullName?.trim() || "Name not set") + ` (${p.role})`}
+              {`${displayName(p.fullName)} (${p.role})`}
             </option>
           ))}
         </select>
