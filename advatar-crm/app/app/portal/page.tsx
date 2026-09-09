@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/components/StatTile";
+import { Greeting } from "@/components/Greeting";
+import { firstName as firstNameOf } from "@/lib/names";
 
 // Same order as PortalNav — Documents after Content Plan.
 const JUMP_LINKS = [
@@ -53,12 +55,15 @@ export default async function PortalOverviewPage() {
     messageCount = count ?? 0;
   }
 
-  const displayName = profile.full_name || client?.name || "there";
+  const who = firstNameOf(profile.full_name, client?.name ?? "there");
+  const serverHour = new Date().getHours();
 
   return (
     <main className="page">
       <header style={{ marginBottom: 40 }}>
-        <h1 className="page-title page-title-accent">Welcome back, {displayName}</h1>
+        <h1 className="page-title page-title-accent">
+          <Greeting name={who} serverHour={serverHour} />
+        </h1>
         {client?.service && (
           <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-3)", margin: "14px 0 0" }}>
             {client.service}

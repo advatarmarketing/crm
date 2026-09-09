@@ -7,6 +7,8 @@ import { ResourcesPanel, type ResourceEntry } from "@/components/ResourcesPanel"
 import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { loadSubmissions } from "@/lib/submissions";
 import type { ProfileRole } from "@/lib/supabase/types";
+import { displayName } from "@/lib/names";
+import { ProfilePanel, type EditableProfile } from "@/components/ProfilePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -44,11 +46,13 @@ export default async function VideographerDetailPage({ params }: { params: { id:
 
   const { data: person } = await supabase
     .from("profiles")
-    .select("id, full_name, role, avatar_url")
+    .select("id, full_name, role, avatar_url, phone")
     .eq("id", params.id)
     .maybeSingle();
 
-  const videographer = person as { id: string; full_name: string | null; role: string } | null;
+  const videographer = person as
+    | { id: string; full_name: string; role: string; avatar_url: string | null; phone: string | null }
+    | null;
 
   if (!videographer || videographer.role !== "videographer") {
     notFound();
@@ -136,7 +140,7 @@ export default async function VideographerDetailPage({ params }: { params: { id:
     steps: stepsByResource.get(r.id) ?? [],
   }));
 
-  const name = videographer.full_name?.trim() || "Name not set";
+  const name = displayName(videographer.full_name);
 
   return (
     <main className="page">
@@ -161,6 +165,17 @@ export default async function VideographerDetailPage({ params }: { params: { id:
         Videographer
         {assignedClients.length > 0 && ` · ${assignedClients.map((c) => c.name).join(", ")}`}
       </p>
+
+      {/* Their details, editable here: 0022 lets management update any
+          profile, so the CEO can add a photo or phone number on
+          somebody's behalf rather than waiting for them to do it. */}
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head">
+          <h2 className="section-title">Details</h2>
+          <p className="section-sub">Name, phone and photo</p>
+        </div>
+        <ProfilePanel profile={videographer as unknown as EditableProfile} />
+      </section>
 
       <section className="section" style={{ maxWidth: 780 }}>
         <div className="section-head">

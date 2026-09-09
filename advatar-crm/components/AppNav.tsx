@@ -198,6 +198,24 @@ export function AppNav({ role }: { role: ProfileRole }) {
               it doesn't take space from the pages people actually
               navigate between. */}
           <Link
+            href="/app/settings/profile"
+            className="nav-links"
+            title="Your name, phone and photo"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: isActive("/app/settings/profile") ? "var(--text-1)" : "var(--text-3)",
+              textDecoration: "none",
+              padding: "8px 4px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Profile
+          </Link>
+
+          <Link
             href="/app/settings/password"
             className="nav-links"
             title="Change your password"
@@ -292,6 +310,25 @@ export function AppNav({ role }: { role: ProfileRole }) {
               {link.href === "/app/messages" && <MessagesNavBadge />}
             </Link>
           ))}
+
+          <Link
+            href="/app/settings/profile"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              fontFamily: "var(--font-mono)",
+              fontSize: 13,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: isActive("/app/settings/profile") ? "var(--text-1)" : "var(--text-2)",
+              textDecoration: "none",
+              padding: "14px 4px",
+              minHeight: 48,
+              borderBottom: "1px solid var(--border)",
+            }}
+          >
+            Profile
+          </Link>
 
           <Link
             href="/app/settings/password"

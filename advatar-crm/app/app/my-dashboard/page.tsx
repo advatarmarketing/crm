@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { SchedulePanel, type ScheduleEntry, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { StatTile } from "@/components/StatTile";
+import { Greeting } from "@/components/Greeting";
+import { firstName as firstNameOf } from "@/lib/names";
 import { startOfToday, isPast } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -113,7 +115,10 @@ export default async function MyDashboardPage() {
     unreadCount = count ?? 0;
   }
 
-  const firstName = (profile as { full_name?: string | null } | null)?.full_name?.trim()?.split(/\s+/)[0];
+  const who = firstNameOf((profile as { full_name?: string | null } | null)?.full_name);
+  // The server's hour seeds the first paint; Greeting corrects it to
+  // the reader's own clock on mount.
+  const serverHour = new Date().getHours();
 
   const notifications: { id: string; text: string; href: string; severity: "bad" | "warn" | "ok" }[] = [];
 
@@ -154,7 +159,7 @@ export default async function MyDashboardPage() {
     <main className="page">
       <header style={{ marginBottom: 40 }}>
         <h1 className="page-title page-title-accent">
-          {firstName ? `Morning, ${firstName}` : "Your day"}
+          <Greeting name={who} serverHour={serverHour} />
         </h1>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-3)", margin: "14px 0 0" }}>
           {today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}

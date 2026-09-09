@@ -82,10 +82,10 @@ export function ClientsBrowser({
     const stageOrder: Record<string, number> = { active: 0, proposal: 1, lead: 2 };
 
     return [...filtered].sort((a, b) => {
-      if (sort === "name") return a.name.localeCompare(b.name);
+      if (sort === "name") return (a.name ?? "").localeCompare(b.name ?? "");
       if (sort === "stage") {
         const diff = (stageOrder[a.stage] ?? 9) - (stageOrder[b.stage] ?? 9);
-        return diff !== 0 ? diff : a.name.localeCompare(b.name);
+        return diff !== 0 ? diff : (a.name ?? "").localeCompare(b.name ?? "");
       }
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });

@@ -4,6 +4,7 @@ import { ChatShell, type ChatThreadSeed } from "@/components/ChatShell";
 import { MessagesTabs } from "@/components/MessagesTabs";
 import { TeamDirectMessages, type Teammate } from "@/components/TeamDirectMessages";
 import { ClientThreadPicker, type PickableClient } from "@/components/ClientThreadPicker";
+import { displayName } from "@/lib/names";
 
 // Phase 10: staff/ceo/videographer chat. Every query below is sent
 // as-is and rendered from whatever comes back — no `if (role ===
@@ -108,7 +109,7 @@ export default async function MessagesPage() {
     role: string;
   }[]).map((p) => ({
     id: p.id,
-    name: p.full_name?.trim() || "Name not set",
+    name: displayName(p.full_name),
     role: p.role,
     unread: unreadBySender.get(p.id) ?? 0,
   }));

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { ProfileRole } from "@/lib/supabase/types";
+import { displayName, initials as initialsOf } from "@/lib/names";
 
 export const dynamic = "force-dynamic";
 
@@ -118,12 +119,12 @@ export default async function VideographersPage() {
                       flexShrink: 0,
                     }}
                   >
-                    {initials(v.full_name)}
+                    {initialsOf(v.full_name)}
                   </span>
 
                   <span style={{ minWidth: 0, flex: 1 }}>
                     <span style={{ display: "block", fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, color: "var(--text-1)" }}>
-                      {v.full_name?.trim() || "Name not set"}
+                      {displayName(v.full_name)}
                     </span>
                     <span style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>
                       {clientCount.get(v.id) ?? 0} client{(clientCount.get(v.id) ?? 0) === 1 ? "" : "s"}
@@ -150,12 +151,3 @@ export default async function VideographersPage() {
   );
 }
 
-function initials(name: string | null) {
-  if (!name?.trim()) return "?";
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("");
-}

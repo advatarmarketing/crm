@@ -12,9 +12,9 @@ export function ClientCard({
   hrefBase = "/app/clients",
 }: {
   id: string;
-  name: string;
+  name: string | null;
   service: string | null;
-  stage: string;
+  stage: string | null;
   nextAction: string | null;
   avatarUrl: string | null;
   /**
@@ -33,7 +33,10 @@ export function ClientCard({
    */
   hrefBase?: string;
 }) {
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  // Defensive: a null name here is a server-side crash that takes
+  // the whole page down (see the note in app/app/my-clients/page.tsx).
+  const safeName = name?.trim() || "Untitled client";
+  const initial = safeName.charAt(0).toUpperCase() || "?";
 
   return (
     <Link href={`${hrefBase}/${id}`} className="card card-link card-pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -70,7 +73,7 @@ export function ClientCard({
               textOverflow: "ellipsis",
             }}
           >
-            {name}
+            {safeName}
           </div>
           {service && (
             <div
@@ -91,7 +94,7 @@ export function ClientCard({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <StatusChip stage={stage} />
+        <StatusChip stage={stage ?? "lead"} />
         {typeof monthlyValue === "number" && (
           <span
             style={{

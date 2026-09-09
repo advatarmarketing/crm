@@ -43,24 +43,29 @@ export interface Database {
         Row: {
           id: string;
           role: ProfileRole;
-          full_name: string | null;
+          // NOT NULL as of 0022 — every login has a real name.
+          full_name: string;
           avatar_url: string | null;
+          // Phase 23 — 0022_profiles_names_phone_photos.sql
+          phone: string | null;
           client_id: string | null;
           created_at: string;
         };
         Insert: {
           id: string;
           role?: ProfileRole;
-          full_name?: string | null;
+          full_name: string;
           avatar_url?: string | null;
+          phone?: string | null;
           client_id?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           role?: ProfileRole;
-          full_name?: string | null;
+          full_name?: string;
           avatar_url?: string | null;
+          phone?: string | null;
           client_id?: string | null;
           created_at?: string;
         };

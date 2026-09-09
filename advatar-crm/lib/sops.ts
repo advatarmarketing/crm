@@ -9,6 +9,13 @@ type QueryableClient = { from: (table: string) => any };
  * Loads the SOPs a person can see, each with its checklist steps and
  * that person's own tick state merged in.
  *
+ * Phase 23: the library is shared. Every videographer sees the same
+ * set — it is a standards library, not a per-person or per-client
+ * assignment, and two people editing to different checklists is the
+ * problem SOPs exist to prevent. The `assigned_to` column stays on
+ * `resources` for the odd genuinely personal note, but it no longer
+ * hides anything from anyone else.
+ *
  * Progress rows only exist for steps somebody has actually touched,
  * so a missing row means "not done" — the merge below treats it that
  * way rather than assuming every step has a row.
@@ -25,6 +32,7 @@ export async function loadSopsWithChecklists(
     .select("id, title, kind, url, body, audience_role, assigned_to")
     .in("audience_role", [audienceRole, "all"])
     .order("position");
+  // No `assigned_to` filter: the library is shared (0023).
 
   const sops = (resourceRows ?? []) as {
     id: string;
