@@ -1,0 +1,1 @@
+drop policy if exists "resources: read own audience" on resources; create policy "resources: read own audience" on resources for select using ( public.current_role() in ('staff', 'videographer', 'operations_manager') and (audience_role = 'all' or audience_role = public.current_role()) );
