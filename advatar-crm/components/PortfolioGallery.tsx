@@ -11,6 +11,9 @@ export interface PortfolioItem {
   version: number;
   completedAt: string;
   revisions: number;
+  /** Where it came from — an approved submission, or added by hand. */
+  source: "submission" | "manual";
+  notes?: string | null;
 }
 
 type GroupBy = "client" | "date";
@@ -31,8 +34,8 @@ export function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
   if (items.length === 0) {
     return (
       <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--text-3)" }}>
-        Nothing here yet. Once a video you&rsquo;ve submitted is approved, it
-        lands here automatically.
+        Nothing here yet. A video lands here automatically once it&rsquo;s
+        approved &mdash; or add older work by hand below.
       </p>
     );
   }
@@ -119,8 +122,32 @@ export function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
                       gap: 8,
                     }}
                   >
-                    <span style={{ fontFamily: "var(--font-body)", fontSize: 14.5, fontWeight: 600, color: "var(--text-1)" }}>
-                      {item.title}
+                    <span style={{ display: "flex", alignItems: "flex-start", gap: 8, justifyContent: "space-between" }}>
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 14.5, fontWeight: 600, color: "var(--text-1)" }}>
+                        {item.title}
+                      </span>
+                      {/* Said plainly rather than hinted at with a
+                          colour: work added by hand never went through
+                          review, and anyone reading the portfolio
+                          should be able to tell. */}
+                      {item.source === "manual" && (
+                        <span
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 9.5,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            color: "var(--text-3)",
+                            border: "1px solid var(--border)",
+                            borderRadius: "var(--radius-pill)",
+                            padding: "2px 8px",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                          }}
+                        >
+                          Added
+                        </span>
+                      )}
                     </span>
 
                     <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-3)", lineHeight: 1.6 }}>
@@ -132,7 +159,9 @@ export function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
                           })
                         : item.clientName ?? "No client"}
                       <br />
-                      {item.revisions} version{item.revisions === 1 ? "" : "s"}
+                      {item.source === "manual"
+                        ? item.notes || "Added by hand"
+                        : `${item.revisions} version${item.revisions === 1 ? "" : "s"}`}
                     </span>
 
                     {item.url && (

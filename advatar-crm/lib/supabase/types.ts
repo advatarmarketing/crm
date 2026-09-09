@@ -33,6 +33,9 @@ export type PlannerStatus = "draft" | "published";
 // order the workflow moves in, and SUBMISSION_STATUSES below relies
 // on that.
 export type SubmissionStatus = "submitted" | "in_review" | "changes_requested" | "approved";
+// Phase 24 — 0025. "team_and_client" makes a submission official: the
+// client can see it, and it is matched against their content plan.
+export type SubmissionVisibility = "team_only" | "team_and_client";
 export type ResourceKind = "sop" | "tutorial" | "template" | "other";
 export type ResourceAudience = "all" | "staff" | "videographer" | "operations_manager";
 
@@ -467,6 +470,109 @@ export interface Database {
         };
       };
 
+      // Phase 24 — 0025_calendars_notifications_submissions.sql
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          kind: string;
+          title: string;
+          body: string | null;
+          href: string | null;
+          read: boolean;
+          email_pending: boolean;
+          email_sent_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          kind: string;
+          title: string;
+          body?: string | null;
+          href?: string | null;
+          read?: boolean;
+          email_pending?: boolean;
+          email_sent_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          kind?: string;
+          title?: string;
+          body?: string | null;
+          href?: string | null;
+          read?: boolean;
+          email_pending?: boolean;
+          email_sent_at?: string | null;
+          created_at?: string;
+        };
+      };
+
+      portfolio_items: {
+        Row: {
+          id: string;
+          owner_id: string;
+          title: string;
+          url: string | null;
+          client_id: string | null;
+          client_label: string | null;
+          completed_on: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          title: string;
+          url?: string | null;
+          client_id?: string | null;
+          client_label?: string | null;
+          completed_on?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          title?: string;
+          url?: string | null;
+          client_id?: string | null;
+          client_label?: string | null;
+          completed_on?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
+      team_channel_messages: {
+        Row: {
+          id: string;
+          channel: string;
+          author_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          channel?: string;
+          author_id: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          channel?: string;
+          author_id?: string;
+          body?: string;
+          created_at?: string;
+        };
+      };
+
       // Phase 22 — 0021_team_messages_sop_checklists.sql
       direct_messages: {
         Row: {
@@ -548,6 +654,8 @@ export interface Database {
           title: string;
           brief: string | null;
           status: SubmissionStatus;
+          visibility: SubmissionVisibility;
+          planner_slot_id: string | null;
           current_version: number;
           created_by: string | null;
           created_at: string;
@@ -559,6 +667,8 @@ export interface Database {
           title: string;
           brief?: string | null;
           status?: SubmissionStatus;
+          visibility?: SubmissionVisibility;
+          planner_slot_id?: string | null;
           current_version?: number;
           created_by?: string | null;
           created_at?: string;
@@ -570,6 +680,8 @@ export interface Database {
           title?: string;
           brief?: string | null;
           status?: SubmissionStatus;
+          visibility?: SubmissionVisibility;
+          planner_slot_id?: string | null;
           current_version?: number;
           created_by?: string | null;
           created_at?: string;

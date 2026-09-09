@@ -26,11 +26,14 @@ export function MonthCalendar({
   events,
   categories,
   initialMonth,
+  showPerson = false,
 }: {
   events: ScheduleEntry[];
   categories: EventCategory[];
   /** ISO date for the month to open on. Defaults to this month. */
   initialMonth?: string;
+  /** Whose entry it is — only meaningful on a whole-team calendar. */
+  showPerson?: boolean;
 }) {
   const today = startOfDay(new Date());
   const opening = initialMonth ? new Date(initialMonth) : today;
@@ -234,7 +237,9 @@ export function MonthCalendar({
                 <span style={{ minWidth: 0 }}>
                   <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-1)" }}>{e.title}</span>
                   <span style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-3)", marginTop: 2 }}>
-                    {[nameFor(e.category_id), e.clientName, e.location].filter(Boolean).join(" · ")}
+                    {[nameFor(e.category_id), showPerson ? e.personName : null, e.clientName, e.location]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </span>
               </li>

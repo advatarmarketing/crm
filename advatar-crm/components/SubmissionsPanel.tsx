@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { SubmissionStatus } from "@/lib/supabase/types";
+import type { SubmissionStatus, SubmissionVisibility } from "@/lib/supabase/types";
 import type { ClientChoice } from "./SchedulePanel";
+import { submitWorkAction, shareWithClientAction } from "@/app/app/my-work/actions";
 
 export interface SubmissionVersion {
   id: string;
@@ -27,6 +28,7 @@ export interface SubmissionEntry {
   title: string;
   brief: string | null;
   status: SubmissionStatus;
+  visibility: SubmissionVisibility;
   current_version: number;
   client_id: string | null;
   created_by: string | null;
@@ -108,59 +110,48 @@ export function SubmissionsPanel({
   const [busy, setBusy] = useState(false);
 
   const [title, setTitle] = useState("");
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(clients.length === 1 ? clients[0].id : "");
   const [url, setUrl] = useState("");
   const [notes, setNotes] = useState("");
+  const [visibility, setVisibility] = useState<SubmissionVisibility>("team_only");
+  const [note, setNote] = useState<string | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
 
+  /**
+   * Submitting runs through a server action rather than an insert from
+   * here, because sharing a video with a client also fills in their
+   * content plan and notifies them — neither of which a videographer's
+   * own session is allowed to do. See app/app/my-work/actions.ts.
+   */
   async function createSubmission() {
-    if (!title.trim()) return setError("Give it a title.");
-    if (!url.trim()) return setError("Paste the link to the video.");
-    if (!/^https?:\/\//i.test(url.trim())) {
-      return setError("The link should start with http:// or https://");
-    }
-
     setBusy(true);
     setError(null);
+    setNote(null);
 
-    const { data: created, error: createError } = await supabase
-      .from("submissions")
-      .insert({
-        title: title.trim(),
-        client_id: clientId || null,
-        created_by: currentUserId,
-        status: "submitted",
-      })
-      .select("id, title, brief, status, current_version, client_id, created_by, created_at")
-      .single();
-
-    if (createError || !created) {
-      setBusy(false);
-      return setError(createError?.message ?? "Could not create that.");
-    }
-
-    // The trigger on this insert sets current_version and status.
-    const { error: versionError } = await supabase.from("submission_versions").insert({
-      submission_id: (created as { id: string }).id,
-      version: 1,
-      url: url.trim(),
-      notes: notes.trim() || null,
-      submitted_by: currentUserId,
+    const result = await submitWorkAction({
+      title,
+      clientId,
+      url,
+      notes,
+      visibility,
     });
 
     setBusy(false);
 
-    if (versionError) {
-      return setError(`Saved, but the link didn't attach: ${versionError.message}`);
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
 
     setTitle("");
-    setClientId("");
+    setClientId(clients.length === 1 ? clients[0].id : "");
     setUrl("");
     setNotes("");
+    setVisibility("team_only");
     setCreating(false);
+    setNote(result.note);
     router.refresh();
   }
 
@@ -201,6 +192,26 @@ export function SubmissionsPanel({
 
       {error && <p style={{ color: "var(--status-closed)", fontSize: 12.5, margin: "0 0 10px" }}>{error}</p>}
 
+      {/* What happened to the content plan. Worth saying out loud: the
+          videographer can't see the plan from here, so otherwise this
+          is an invisible side effect. */}
+      {note && (
+        <p
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 12.5,
+            color: "var(--ok-fg)",
+            background: "var(--ok-bg)",
+            border: "1px solid var(--ok-border)",
+            borderRadius: "var(--radius-sm)",
+            padding: "9px 12px",
+            margin: "0 0 12px",
+          }}
+        >
+          {note}
+        </p>
+      )}
+
       {canSubmit &&
         (creating ? (
           <div
@@ -218,16 +229,22 @@ export function SubmissionsPanel({
                 placeholder="What is it? e.g. Bright Co — March Reel"
                 style={{ ...field, flex: "2 1 220px" }}
               />
-              {clients.length > 0 && (
-                <select value={clientId} onChange={(e) => setClientId(e.target.value)} style={{ ...field, flex: "1 1 160px" }}>
-                  <option value="">No client</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              {/* Required, as of prompt 11: every piece of work belongs
+                  to exactly one client. Without it there is nothing to
+                  match against a content plan and nobody to show it to. */}
+              <select
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                aria-label="Which client is this for?"
+                style={{ ...field, flex: "1 1 160px" }}
+              >
+                <option value="">Which client?</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <input
@@ -244,6 +261,63 @@ export function SubmissionsPanel({
               placeholder="Anything the reviewer should know (optional)"
               style={{ ...field, width: "100%", resize: "vertical", marginBottom: 12 }}
             />
+
+            {/* Who sees it. Two radio cards rather than a dropdown,
+                because this is the one choice on the form with a
+                consequence the client will notice — sharing puts the
+                video on their content plan and tells them about it. */}
+            <fieldset style={{ border: "none", margin: "0 0 14px", padding: 0 }}>
+              <legend style={{ ...subheading, padding: 0 }}>Who can see it</legend>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {(
+                  [
+                    {
+                      value: "team_only" as const,
+                      label: "Team only",
+                      hint: "For review. The client sees nothing.",
+                    },
+                    {
+                      value: "team_and_client" as const,
+                      label: "Team and client",
+                      hint: "Goes on their content plan and they're told.",
+                    },
+                  ]
+                ).map((option) => {
+                  const chosen = visibility === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      style={{
+                        flex: "1 1 200px",
+                        display: "block",
+                        padding: "10px 12px",
+                        borderRadius: "var(--radius-sm)",
+                        border: `1px solid ${chosen ? "var(--accent)" : "var(--border)"}`,
+                        boxShadow: chosen ? "0 0 0 2px var(--accent-ring)" : "none",
+                        background: "var(--surface)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input
+                          type="radio"
+                          name="visibility"
+                          checked={chosen}
+                          onChange={() => setVisibility(option.value)}
+                          style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+                        />
+                        <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, fontWeight: 600, color: "var(--text-1)" }}>
+                          {option.label}
+                        </span>
+                      </span>
+                      <span style={{ display: "block", fontFamily: "var(--font-body)", fontSize: 12, color: "var(--text-2)", marginTop: 4, marginLeft: 24 }}>
+                        {option.hint}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
 
             <div style={{ display: "flex", gap: 8 }}>
               <button type="button" onClick={createSubmission} disabled={busy} className="btn btn-primary">
@@ -292,11 +366,27 @@ function SubmissionCard({
   const [addingVersion, setAddingVersion] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareNote, setShareNote] = useState<string | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
 
   const latest = submission.versions[0];
+
+  async function share() {
+    setBusy(true);
+    setError(null);
+    setShareNote(null);
+
+    const result = await shareWithClientAction(submission.id);
+
+    setBusy(false);
+
+    if (!result.ok) return setError(result.error);
+
+    setShareNote(result.note ?? "Shared. The client has been told.");
+    router.refresh();
+  }
 
   async function leaveFeedback() {
     if (!feedbackText.trim()) return;
@@ -373,6 +463,7 @@ function SubmissionCard({
             >
               {[
                 `v${submission.current_version}`,
+                submission.visibility === "team_and_client" ? "shared with client" : "team only",
                 showPerson ? submission.personName : null,
                 submission.clientName,
                 new Date(submission.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
@@ -422,7 +513,33 @@ function SubmissionCard({
             {open ? "Hide" : "History & feedback"}
             {submission.feedback.length > 0 ? ` (${submission.feedback.length})` : ""}
           </button>
+
+          {/* The usual path: handed in team-only, reviewed, then let
+              the client see it. Sharing fills in their content plan
+              and tells them, so it says so before you press it. */}
+          {canReview && submission.visibility === "team_only" && (
+            <button type="button" onClick={share} disabled={busy} className="btn">
+              {busy ? "Sharing…" : "Share with the client"}
+            </button>
+          )}
         </div>
+
+        {shareNote && (
+          <p
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 12.5,
+              color: "var(--ok-fg)",
+              background: "var(--ok-bg)",
+              border: "1px solid var(--ok-border)",
+              borderRadius: "var(--radius-sm)",
+              padding: "9px 12px",
+              margin: "10px 0 0",
+            }}
+          >
+            {shareNote}
+          </p>
+        )}
 
         {/* Reviewer controls. A videographer never sees these, and
             couldn't use them if they did — no update policy. */}

@@ -46,6 +46,45 @@ export default async function PortalOverviewPage() {
     supabase.from("message_threads").select("id").eq("client_id", clientId).maybeSingle(),
   ]);
 
+  // Videos the team has deliberately shared (0025). A team-only
+  // submission never appears here — RLS won't return it, so there is
+  // no filter to forget.
+  const { data: sharedVideos } = await supabase
+    .from("submissions")
+    .select("id, title, status, current_version, created_at")
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  const videoRows = (sharedVideos ?? []) as unknown as {
+    id: string;
+    title: string;
+    status: string;
+    current_version: number;
+    created_at: string;
+  }[];
+
+  const { data: videoVersions } = videoRows.length
+    ? await supabase
+        .from("submission_versions")
+        .select("submission_id, version, url")
+        .in(
+          "submission_id",
+          videoRows.map((v) => v.id)
+        )
+        .order("version", { ascending: false })
+    : { data: null };
+
+  const latestUrlBySubmission = new Map<string, string>();
+  for (const v of (videoVersions ?? []) as unknown as {
+    submission_id: string;
+    version: number;
+    url: string | null;
+  }[]) {
+    if (v.url && !latestUrlBySubmission.has(v.submission_id)) {
+      latestUrlBySubmission.set(v.submission_id, v.url);
+    }
+  }
+
   let messageCount = 0;
   if (thread) {
     const { count } = await supabase
@@ -118,6 +157,55 @@ export default async function PortalOverviewPage() {
           <span style={{ fontFamily: "var(--font-body)", fontSize: 15.5, color: "var(--text-1)", lineHeight: 1.55 }}>
             {client.next_action}
           </span>
+        </section>
+      )}
+
+      {videoRows.length > 0 && (
+        <section className="section">
+          <div className="section-head">
+            <h2 className="section-title">Your videos</h2>
+            <p className="section-sub">Newest first</p>
+          </div>
+
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+            {videoRows.map((v) => {
+              const url = latestUrlBySubmission.get(v.id);
+              return (
+                <li
+                  key={v.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 14,
+                    flexWrap: "wrap",
+                    padding: "14px 16px",
+                    border: "1px solid var(--border)",
+                    borderLeft: `3px solid ${v.status === "approved" ? "var(--ok-fg)" : "var(--border-2)"}`,
+                    borderRadius: "var(--radius-sm)",
+                    background: "var(--surface)",
+                    boxShadow: "var(--shadow-sm)",
+                  }}
+                >
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--text-1)" }}>
+                      {v.title}
+                    </span>
+                    <span style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-3)", marginTop: 3 }}>
+                      {v.status === "approved" ? "signed off" : "with your team"} ·{" "}
+                      {new Date(v.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                    </span>
+                  </span>
+
+                  {url && (
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="btn" style={{ textDecoration: "none", flexShrink: 0 }}>
+                      Watch ↗
+                    </a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
 

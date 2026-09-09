@@ -6,6 +6,7 @@ import { AttentionList, type AttentionItem } from "@/components/AttentionList";
 import { RevenueChart, type PaidInvoice } from "@/components/RevenueChart";
 import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
+import { MonthCalendar } from "@/components/MonthCalendar";
 import { BarChart } from "@/components/BarChart";
 import { EmptyState } from "@/components/EmptyState";
 import { formatMoney, daysSince, isPast, startOfToday } from "@/lib/format";
@@ -44,6 +45,13 @@ export default async function DashboardPage() {
   const weekEnd = new Date(today);
   weekEnd.setDate(weekEnd.getDate() + 14);
 
+  // Phase 24: the month grid below the widgets needs more than a
+  // fortnight, and the six-week grid can reach into the month either
+  // side — so one query covers last month through next, and the list
+  // widget filters that down rather than fetching twice.
+  const calendarFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const calendarTo = new Date(today.getFullYear(), today.getMonth() + 2, 1);
+
   const [
     { data: clients },
     { data: invoices },
@@ -71,8 +79,8 @@ export default async function DashboardPage() {
     supabase
       .from("schedule_events")
       .select("id, title, starts_at, ends_at, all_day, location, category_id, client_id, assigned_to")
-      .gte("starts_at", today.toISOString())
-      .lt("starts_at", weekEnd.toISOString())
+      .gte("starts_at", calendarFrom.toISOString())
+      .lt("starts_at", calendarTo.toISOString())
       .order("starts_at"),
     supabase.from("profiles").select("id, full_name"),
     supabase.from("event_categories").select("id, name, colour").order("position"),
@@ -261,6 +269,13 @@ export default async function DashboardPage() {
     personName: e.assigned_to ? nameById.get(e.assigned_to) ?? null : null,
   }));
 
+  // The list widget is "what's coming"; the grid below is "the shape
+  // of the month". Same rows, two questions.
+  const fortnightEntries = scheduleEntries.filter((e) => {
+    const at = new Date(e.starts_at);
+    return at >= today && at < weekEnd;
+  });
+
   const todoEntries: TodoEntry[] = openTasks.map((t) => ({
     id: t.id,
     text: t.text,
@@ -308,7 +323,7 @@ export default async function DashboardPage() {
               </p>
             </div>
             <SchedulePanel
-              initialEvents={scheduleEntries}
+              initialEvents={fortnightEntries}
               editable
               defaultAssignee={user?.id ?? null}
               clients={clientChoices}
@@ -337,6 +352,24 @@ export default async function DashboardPage() {
             />
           </div>
         </div>
+      </section>
+
+      {/* Phase 24: the month at a glance. The two widgets above answer
+          "what's next"; this answers "how busy is the month", which is
+          the question a list can't. Read-only here on purpose —
+          booking happens on the Calendar tab, where you choose whose
+          diary the entry lands on. */}
+      <section className="section">
+        <div className="section-head">
+          <h2 className="section-title">The month</h2>
+          <p className="section-sub">
+            Everyone&rsquo;s bookings ·{" "}
+            <Link href="/app/calendar" style={{ color: "var(--accent)" }}>
+              open the calendar
+            </Link>
+          </p>
+        </div>
+        <MonthCalendar events={scheduleEntries} categories={eventCategories} showPerson />
       </section>
 
       {/* Money. Renders only because rows came back — a staff session

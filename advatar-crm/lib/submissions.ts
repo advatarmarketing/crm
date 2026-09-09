@@ -31,7 +31,7 @@ export async function loadSubmissions(
 ): Promise<SubmissionEntry[]> {
   let query = supabase
     .from("submissions")
-    .select("id, title, brief, status, current_version, client_id, created_by, created_at")
+    .select("id, title, brief, status, visibility, current_version, client_id, created_by, created_at")
     .order("created_at", { ascending: false });
 
   if (filter?.createdBy) query = query.eq("created_by", filter.createdBy);

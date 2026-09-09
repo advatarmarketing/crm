@@ -9,6 +9,7 @@ import { MessagesNavBadge } from "@/components/MessagesNavBadge";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { QuickSearch } from "@/components/QuickSearch";
+import { NotificationBell, type AppNotification } from "@/components/NotificationBell";
 
 /**
  * Phase 7: the nav's content per role is a presentation choice layered
@@ -25,6 +26,8 @@ import { QuickSearch } from "@/components/QuickSearch";
 const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   ceo: [
     { href: "/app/dashboard", label: "Dashboard" },
+    { href: "/app/calendar", label: "Calendar" },
+    { href: "/app/todo", label: "To-do" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/videographers", label: "Videographers" },
     { href: "/app/leads", label: "Leads" },
@@ -49,6 +52,8 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   // settings/logins/actions.ts, not here.
   operations_manager: [
     { href: "/app/dashboard", label: "Dashboard" },
+    { href: "/app/calendar", label: "Calendar" },
+    { href: "/app/todo", label: "To-do" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/videographers", label: "Videographers" },
     { href: "/app/leads", label: "Leads" },
@@ -67,6 +72,8 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   // management-only in that same migration.
   staff: [
     { href: "/app/dashboard", label: "Dashboard" },
+    { href: "/app/calendar", label: "Calendar" },
+    { href: "/app/todo", label: "To-do" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/leads", label: "Leads" },
     { href: "/app/guidelines", label: "Guidelines" },
@@ -78,7 +85,8 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   // beside it.
   videographer: [
     { href: "/app/my-dashboard", label: "Dashboard" },
-    { href: "/app/my-calendar", label: "Calendar" },
+    { href: "/app/calendar", label: "Calendar" },
+    { href: "/app/todo", label: "To-do" },
     { href: "/app/my-work", label: "My Work" },
     { href: "/app/my-clients", label: "My Clients" },
     { href: "/app/guidelines", label: "Guidelines" },
@@ -86,7 +94,10 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },
   ],
-  client: [{ href: "/app/portal", label: "Your Project" }],
+  client: [
+    { href: "/app/portal", label: "Your Project" },
+    { href: "/app/calendar", label: "Calendar" },
+  ],
 };
 
 /**
@@ -100,7 +111,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
  * which is supported — the function isn't bundled to the browser, only
  * a reference to it is, and it still executes on the server.
  */
-export function AppNav({ role }: { role: ProfileRole }) {
+export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifications?: AppNotification[] }) {
   const links = NAV_BY_ROLE[role];
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -190,6 +201,11 @@ export function AppNav({ role }: { role: ProfileRole }) {
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {role !== "client" && <QuickSearch />}
+          {/* Every role gets the bell: clients are told when work is
+              shared with them, staff when they are given a client or a
+              task. It sits outside .nav-links so it stays visible on a
+              phone, where the link row collapses into the burger. */}
+          <NotificationBell initial={notifications} />
           <ThemeToggle />
 
           {/* Every role, including videographer and client: logins are

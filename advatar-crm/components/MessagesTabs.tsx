@@ -2,47 +2,62 @@
 
 import { useState, type ReactNode } from "react";
 
+export interface MessagesTab {
+  key: string;
+  label: string;
+  badge?: number;
+  /** Shown under the tab row — says who can read what's in here. */
+  blurb?: string;
+  content: ReactNode;
+}
+
 /**
- * Two sections on the Messages page: the client-by-client threads,
- * and one-to-one team messaging.
+ * The sections of the Messages page.
  *
- * A plain client-side tab switch rather than routes, so moving
- * between them doesn't re-fetch either side.
+ * Generalised from a fixed Clients/Team pair (prompt 13): a
+ * videographer now gets Work Chat and Admin, where management still
+ * gets clients, team messages and the crew channel. The set of tabs is
+ * decided by the page, which knows the role; this only renders them.
+ *
+ * A plain client-side tab switch rather than routes, and every pane
+ * stays mounted, so moving between them doesn't re-fetch a
+ * conversation or throw away a half-typed message.
  */
-export function MessagesTabs({
-  clientsLabel,
-  clients,
-  team,
-  clientsBadge = 0,
-  teamBadge = 0,
-}: {
-  clientsLabel: string;
-  clients: ReactNode;
-  team: ReactNode;
-  clientsBadge?: number;
-  teamBadge?: number;
-}) {
-  const [tab, setTab] = useState<"clients" | "team">("clients");
+export function MessagesTabs({ tabs }: { tabs: MessagesTab[] }) {
+  const [active, setActive] = useState(tabs[0]?.key ?? "");
+  const current = tabs.find((t) => t.key === active) ?? tabs[0];
 
   return (
     <div>
       <div
         role="tablist"
-        style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: "1px solid var(--border)" }}
+        style={{ display: "flex", gap: 8, marginBottom: 16, borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}
       >
-        <TabButton
-          active={tab === "clients"}
-          badge={clientsBadge}
-          onClick={() => setTab("clients")}
-          label={clientsLabel}
-        />
-        <TabButton active={tab === "team"} badge={teamBadge} onClick={() => setTab("team")} label="Team" />
+        {tabs.map((tab) => (
+          <TabButton
+            key={tab.key}
+            active={tab.key === active}
+            badge={tab.badge ?? 0}
+            onClick={() => setActive(tab.key)}
+            label={tab.label}
+          />
+        ))}
       </div>
 
-      {/* Both stay mounted: switching tabs shouldn't throw away an
-          open conversation or a half-typed message. */}
-      <div hidden={tab !== "clients"}>{clients}</div>
-      <div hidden={tab !== "team"}>{team}</div>
+      {/* Who can read this. Worth a permanent line rather than a
+          tooltip: the cost of guessing wrong about which of these a
+          client can see is somebody's working relationship. */}
+      {current?.blurb && (
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--text-3)", margin: "0 0 20px", maxWidth: "62ch" }}>
+          {current.blurb}
+        </p>
+      )}
+
+      {tabs.map((tab) => (
+        <div key={tab.key} hidden={tab.key !== active}>
+          {tab.content}
+        </div>
+      ))}
     </div>
   );
 }

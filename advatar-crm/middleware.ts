@@ -35,6 +35,8 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
   staff: ["/app"],
   videographer: [
     "/app/my-dashboard",
+    "/app/calendar",
+    "/app/todo",
     "/app/my-calendar",
     "/app/my-work",
     "/app/my-clients",
@@ -45,7 +47,10 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
     "/app/settings/password",
     "/app/settings/profile",
   ],
-  client: ["/app/portal", "/app/settings/password", "/app/settings/profile"],
+  // Phase 24: a client gets the Calendar tab too — shoot dates are the
+  // thing they most want to look up — but no To-do tab: they have no
+  // jobs in this system, only the agency does.
+  client: ["/app/portal", "/app/calendar", "/app/settings/password", "/app/settings/profile"],
 };
 
 function isAllowed(role: ProfileRole, pathname: string) {
