@@ -20,6 +20,16 @@ export interface AssignableProfile {
   role: string;
 }
 
+const ROLE_LABEL: Record<string, string> = {
+  ceo: "CEO",
+  operations_manager: "Operations",
+  staff: "Staff",
+  videographer: "Videographer",
+};
+
+// Most-often-assigned first, so the dropdown opens on the useful part.
+const ROLE_ORDER = ["videographer", "staff", "operations_manager", "ceo"];
+
 /**
  * ceo/staff only — but this isn't enforced by a role check in this
  * component. It's enforced structurally: `app/app/clients/[id]/page.tsx`
@@ -34,10 +44,18 @@ export function AssignedTeamPanel({
   clientId,
   initialAssignments,
   assignableProfiles,
+  canAssign = true,
 }: {
   clientId: string;
   initialAssignments: AssignedTeamMember[];
   assignableProfiles: AssignableProfile[];
+  /**
+   * 0024 narrowed `client_staff` writes to the CEO, so that an
+   * operations manager cannot quietly hand themselves a client. This
+   * only decides whether the controls are drawn — the database is what
+   * refuses the write either way.
+   */
+  canAssign?: boolean;
 }) {
   const [assignments, setAssignments] = useState(initialAssignments);
   const [selected, setSelected] = useState("");
@@ -46,6 +64,14 @@ export function AssignedTeamPanel({
 
   const assignedIds = new Set(assignments.map((a) => a.staffId));
   const options = assignableProfiles.filter((p) => !assignedIds.has(p.id));
+
+  // Grouped by role. Four roles in one flat list is a wall of names
+  // where you have to read every bracketed suffix to find the one you
+  // want.
+  const grouped = ROLE_ORDER.map((role) => ({
+    role,
+    people: options.filter((p) => p.role === role),
+  })).filter((group) => group.people.length > 0);
 
   async function addAssignment() {
     if (!selected) return;
@@ -109,7 +135,7 @@ export function AssignedTeamPanel({
               <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-1)" }}>
                 {displayName(a.fullName)}{" "}
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-3)", textTransform: "uppercase" }}>
-                  {a.role}
+                  {ROLE_LABEL[a.role] ?? a.role}
                 </span>
                 {a.phone && (
                   <a
@@ -127,6 +153,7 @@ export function AssignedTeamPanel({
                   </a>
                 )}
               </span>
+              {canAssign && (
               <button
                 type="button"
                 onClick={() => removeAssignment(a.staffId)}
@@ -146,11 +173,17 @@ export function AssignedTeamPanel({
               >
                 ×
               </button>
+              )}
             </li>
           ))}
         </ul>
       )}
 
+      {!canAssign ? (
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--text-3)", margin: 0 }}>
+          Only the CEO can change who&rsquo;s on a client.
+        </p>
+      ) : (
       <div style={{ display: "flex", gap: 8 }}>
         <select
           value={selected}
@@ -167,10 +200,14 @@ export function AssignedTeamPanel({
           }}
         >
           <option value="">Add a team member…</option>
-          {options.map((p) => (
-            <option key={p.id} value={p.id}>
-              {`${displayName(p.fullName)} (${p.role})`}
-            </option>
+          {grouped.map((group) => (
+            <optgroup key={group.role} label={ROLE_LABEL[group.role] ?? group.role}>
+              {group.people.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {displayName(p.fullName)}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <button
@@ -194,6 +231,7 @@ export function AssignedTeamPanel({
           Add
         </button>
       </div>
+      )}
       {error && (
         <span style={{ display: "block", fontSize: 11, color: "var(--status-closed)", marginTop: 6 }}>
           {error}

@@ -37,6 +37,7 @@ export function ClientDetailTabs({
   initialTab = "info",
   teamMembers,
   assignableProfiles,
+  canAssign = false,
   invoices = [],
   meetings = [],
   activity = [],
@@ -54,6 +55,8 @@ export function ClientDetailTabs({
   initialTab?: TabId;
   teamMembers: AssignedTeamMember[];
   assignableProfiles: AssignableProfile[];
+  /** Only the CEO may change who is on a client (0024). */
+  canAssign?: boolean;
   /**
    * Phase 14. Empty for anyone whose RLS can't read `invoices`
    * (staff, videographer) — the Finance section below is simply not
@@ -179,7 +182,12 @@ export function ClientDetailTabs({
               separate role check gating this section. */}
           <section>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Assigned Team</h2>
-            <AssignedTeamPanel clientId={client.id} initialAssignments={teamMembers} assignableProfiles={assignableProfiles} />
+            <AssignedTeamPanel
+              clientId={client.id}
+              initialAssignments={teamMembers}
+              assignableProfiles={assignableProfiles}
+              canAssign={canAssign}
+            />
           </section>
 
           {/* Phase 21: what the videographer reads before a shoot.
