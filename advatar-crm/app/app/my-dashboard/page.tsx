@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SchedulePanel, type ScheduleEntry, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { StatTile } from "@/components/StatTile";
+import { UpcomingStrip } from "@/components/UpcomingStrip";
 import { Greeting } from "@/components/Greeting";
 import { firstName as firstNameOf } from "@/lib/names";
 import { startOfToday, isPast } from "@/lib/format";
@@ -41,6 +42,13 @@ export default async function MyDashboardPage() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
+  // The "coming up" strip looks past the seven-day window the rest of
+  // this page uses — a shoot ten days out is exactly the thing you
+  // want warning of, and it would otherwise appear from nowhere on the
+  // Monday it becomes "this week".
+  const horizon = new Date(today);
+  horizon.setDate(horizon.getDate() + 30);
+
   const [{ data: profile }, { data: events }, { data: tasks }, { data: categories }, { data: threads }] =
     await Promise.all([
       supabase.from("profiles").select("full_name").eq("id", user.id).single(),
@@ -48,7 +56,7 @@ export default async function MyDashboardPage() {
         .from("schedule_events")
         .select("id, title, starts_at, ends_at, all_day, location, category_id, client_id, assigned_to")
         .gte("starts_at", today.toISOString())
-        .lt("starts_at", weekEnd.toISOString())
+        .lt("starts_at", horizon.toISOString())
         .order("starts_at"),
       supabase
         .from("tasks")
@@ -63,7 +71,8 @@ export default async function MyDashboardPage() {
   const categoryName = new Map(eventCategories.map((c) => [c.id, c.name]));
 
   type EventRow = ScheduleEntry;
-  const weekEvents = (events ?? []) as unknown as EventRow[];
+  const upcomingEvents = (events ?? []) as unknown as EventRow[];
+  const weekEvents = upcomingEvents.filter((e) => new Date(e.starts_at) < weekEnd);
 
   // Today's entries, split out from the rest of the week.
   const todays = weekEvents.filter((e) => {
@@ -114,6 +123,20 @@ export default async function MyDashboardPage() {
       .neq("sender_id", user.id);
     unreadCount = count ?? 0;
   }
+
+  // Client names for the strip's cards. The list is already narrowed
+  // by RLS to the clients this videographer is on.
+  const { data: clientRows } = await supabase.from("clients").select("id, name");
+  const clientNameById = new Map(
+    ((clientRows ?? []) as unknown as { id: string; name: string | null }[]).map((c) => [
+      c.id,
+      c.name?.trim() || "Untitled client",
+    ])
+  );
+  const upcomingWithClients: EventRow[] = upcomingEvents.map((e) => ({
+    ...e,
+    clientName: e.client_id ? clientNameById.get(e.client_id) ?? null : null,
+  }));
 
   const who = firstNameOf((profile as { full_name?: string | null } | null)?.full_name);
   // The server's hour seeds the first paint; Greeting corrects it to
@@ -241,6 +264,26 @@ export default async function MyDashboardPage() {
         </section>
       )}
 
+      {/* Prompt 8: the compact "coming up" view. Deliberately not the
+          month grid — that lives on the Calendar tab, and a whole
+          month is not what you open a dashboard to find out. */}
+      <section className="section">
+        <div className="section-head">
+          <h2 className="section-title">Coming up</h2>
+          <p className="section-sub">
+            The next month ·{" "}
+            <Link href="/app/calendar" style={{ color: "var(--accent)" }}>
+              full calendar
+            </Link>
+          </p>
+        </div>
+        <UpcomingStrip
+          events={upcomingWithClients}
+          categories={eventCategories}
+          emptyMessage="Nothing booked in over the next month."
+        />
+      </section>
+
       <section id="today" className="section" style={{ maxWidth: 780, scrollMarginTop: 90 }}>
         <div className="section-head">
           <h2 className="section-title">Today</h2>
@@ -264,7 +307,7 @@ export default async function MyDashboardPage() {
           emptyMessage="Nothing booked in this week."
         />
         <Link
-          href="/app/my-calendar"
+          href="/app/calendar"
           className="btn"
           style={{ textDecoration: "none", display: "inline-block", marginTop: 12 }}
         >

@@ -17,6 +17,8 @@ export interface SopWithChecklist {
   kind: string;
   url: string | null;
   body: string | null;
+  /** Who it's aimed at. Only management ever sees a mixed list. */
+  audience_role?: string;
   steps: ChecklistStep[];
 }
 

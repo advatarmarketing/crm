@@ -27,6 +27,22 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "Advatar",
   description: "Advatar CRM",
+  manifest: "/manifest.webmanifest",
+  // app/icon.png and app/apple-icon.png are picked up by filename, so
+  // the tab icon and the iOS home-screen icon need no entry here.
+  // This is the rest of what iOS reads when someone taps "Add to Home
+  // Screen": without it the CRM opens in a Safari tab with the address
+  // bar sitting on top of the nav, rather than as an app.
+  appleWebApp: {
+    capable: true,
+    title: "Advatar",
+    // "default", not "black-translucent": translucent draws the page
+    // UNDER the status bar, which would put the clock on top of the
+    // nav. This reserves the space and fills it from `themeColor`.
+    statusBarStyle: "default",
+  },
+  applicationName: "Advatar",
+  formatDetection: { telephone: false },
 };
 
 // Without this every page renders at desktop width on a phone and then
@@ -36,6 +52,16 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Matches each theme's own page background, so the notch area and
+  // the pull-to-refresh overscroll don't flash the opposite colour on
+  // a phone.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f5f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0e0e" },
+  ],
+  // Keeps the app's own background under the home indicator instead of
+  // a white band, now that it can be installed to the home screen.
+  viewportFit: "cover",
 };
 
 /**

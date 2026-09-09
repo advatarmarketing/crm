@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 
-export interface MessagesTab {
+export interface SectionTab {
   key: string;
   label: string;
   badge?: number;
@@ -12,18 +12,18 @@ export interface MessagesTab {
 }
 
 /**
- * The sections of the Messages page.
+ * A row of tabs over panes that are all rendered up front.
  *
- * Generalised from a fixed Clients/Team pair (prompt 13): a
- * videographer now gets Work Chat and Admin, where management still
- * gets clients, team messages and the crew channel. The set of tabs is
- * decided by the page, which knows the role; this only renders them.
+ * Started life on the Messages page as a fixed Clients/Team pair, then
+ * had to vary by role (Work Chat and Admin for a videographer), and is
+ * now also the Guidelines/Resources switch on Tools. The set of tabs
+ * is decided by the page, which knows the role; this only renders it.
  *
- * A plain client-side tab switch rather than routes, and every pane
- * stays mounted, so moving between them doesn't re-fetch a
- * conversation or throw away a half-typed message.
+ * A plain client-side switch rather than routes, and every pane stays
+ * mounted, so moving between them doesn't re-fetch a conversation or
+ * throw away a half-typed message.
  */
-export function MessagesTabs({ tabs }: { tabs: MessagesTab[] }) {
+export function SectionTabs({ tabs }: { tabs: SectionTab[] }) {
   const [active, setActive] = useState(tabs[0]?.key ?? "");
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
 

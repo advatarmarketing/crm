@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { SchedulePanel, type ScheduleEntry, type EventCategory, type ClientChoice } from "@/components/SchedulePanel";
 import { PersonPicker, type Person } from "@/components/PersonPicker";
+import { AvailabilityPanel } from "@/components/AvailabilityPanel";
 import { displayName } from "@/lib/names";
 import type { ProfileRole } from "@/lib/supabase/types";
 
@@ -41,11 +42,13 @@ export default async function CalendarPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, full_name")
+    .select("role, full_name, availability")
     .eq("id", user.id)
     .single();
 
-  const me = profile as { role?: ProfileRole; full_name?: string | null } | null;
+  const me = profile as
+    | { role?: ProfileRole; full_name?: string | null; availability?: string | null }
+    | null;
   const role = me?.role;
 
   if (!role) redirect("/login");
@@ -173,6 +176,28 @@ export default async function CalendarPage({
           </p>
         )}
       </section>
+
+      {/* Prompt 9: when this person is free, in their own words. Sits
+          under the calendar because it is the other half of the same
+          question — the grid says what is booked, this says what could
+          be. Management reads it on their Videographers page when
+          deciding who to put on a job.
+
+          Clients don't get this: their availability isn't something
+          the agency books against. */}
+      {role !== "client" && (
+        <section className="section" style={{ maxWidth: 780 }}>
+          <div className="section-head">
+            <h2 className="section-title">Your availability</h2>
+            <p className="section-sub">The office sees this when they book you in</p>
+          </div>
+          <AvailabilityPanel
+            profileId={user.id}
+            initialValue={me?.availability ?? null}
+            emptyMessage="You haven't written anything down yet. Whoever books your work has nothing to go on until you do."
+          />
+        </section>
+      )}
     </main>
   );
 }

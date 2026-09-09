@@ -340,6 +340,20 @@ textarea:focus-visible {
   margin: 0 auto;
 }
 
+/* Added to the home screen, the app runs edge to edge (viewportFit:
+   "cover" in app/layout.tsx), so on a notched phone held sideways the
+   rounded corner and the camera cut-out overlap the page's own
+   padding. env() is 0 everywhere else, so this costs nothing in a
+   browser tab. */
+@supports (padding: max(0px)) {
+  .page,
+  .page-narrow {
+    padding-left: max(var(--space-6), env(safe-area-inset-left));
+    padding-right: max(var(--space-6), env(safe-area-inset-right));
+    padding-bottom: max(var(--space-8), env(safe-area-inset-bottom));
+  }
+}
+
 .page-narrow {
   padding: var(--space-7) var(--space-5) var(--space-8);
   max-width: 480px;

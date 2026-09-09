@@ -48,13 +48,34 @@ export function DocumentsList({
   // an await runs outside the click's user-gesture window, which
   // Safari (and iOS in particular) blocks as a popup — that silently
   // did nothing, which is exactly what "the document doesn't open"
-  // looked like for clients viewing the portal on a phone. If the tab
-  // is blocked anyway, fall back to navigating this one.
+  // looked like for clients viewing the portal on a phone.
+  //
+  // Two Apple-specific corrections on top of that:
+  //
+  //   * `noopener` used to be passed in the features string. Per spec
+  //     that makes window.open return NULL rather than a handle, so
+  //     the "point the tab at the file" step could never run and every
+  //     open fell through to replacing the current page. The opener is
+  //     severed on the handle instead, which gets the same protection
+  //     and keeps the tab.
+  //
+  //   * Installed to the home screen (the manifest added in prompt 1),
+  //     iOS runs the app standalone, where window.open either does
+  //     nothing or bounces the file into a separate Safari instance
+  //     with no session — so a blank page either way. There, navigate
+  //     this window: the download-disposition URL from the server
+  //     hands off to the share sheet and the app is still behind it.
   async function openDocument(id: string) {
     setBusyId(id);
     setError(null);
 
-    const tab = window.open("", "_blank", "noopener,noreferrer");
+    const standalone =
+      typeof window !== "undefined" &&
+      ((window.navigator as Navigator & { standalone?: boolean }).standalone === true ||
+        window.matchMedia?.("(display-mode: standalone)").matches === true);
+
+    const tab = standalone ? null : window.open("", "_blank");
+    if (tab) tab.opener = null;
 
     const { url, error } = await getDocumentDownloadUrl(id);
     setBusyId(null);

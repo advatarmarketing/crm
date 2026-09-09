@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { ResourcesPanel, type ResourceEntry } from "@/components/ResourcesPanel";
+import { AvailabilityPanel } from "@/components/AvailabilityPanel";
 import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { loadSubmissions } from "@/lib/submissions";
 import type { ProfileRole } from "@/lib/supabase/types";
@@ -46,12 +47,19 @@ export default async function VideographerDetailPage({ params }: { params: { id:
 
   const { data: person } = await supabase
     .from("profiles")
-    .select("id, full_name, role, avatar_url, phone")
+    .select("id, full_name, role, avatar_url, phone, availability")
     .eq("id", params.id)
     .maybeSingle();
 
   const videographer = person as
-    | { id: string; full_name: string; role: string; avatar_url: string | null; phone: string | null }
+    | {
+        id: string;
+        full_name: string;
+        role: string;
+        avatar_url: string | null;
+        phone: string | null;
+        availability: string | null;
+      }
     | null;
 
   if (!videographer || videographer.role !== "videographer") {
@@ -175,6 +183,24 @@ export default async function VideographerDetailPage({ params }: { params: { id:
           <p className="section-sub">Name, phone and photo</p>
         </div>
         <ProfilePanel profile={videographer as unknown as EditableProfile} />
+      </section>
+
+      {/* Prompt 9: what they've written about their own availability,
+          placed immediately above the schedule because the two are read
+          together — when they're free, then what's already booked.
+          Editable here as well as by them: 0022 lets management update
+          any profile, so a note taken over the phone doesn't have to
+          wait for them to type it in. */}
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head">
+          <h2 className="section-title">Availability</h2>
+          <p className="section-sub">In their words — they edit this from their own Calendar tab</p>
+        </div>
+        <AvailabilityPanel
+          profileId={videographer.id}
+          initialValue={videographer.availability}
+          emptyMessage={`${name} hasn't written down their availability yet. You can add it here, or ask them to fill it in on their Calendar tab.`}
+        />
       </section>
 
       <section className="section" style={{ maxWidth: 780 }}>

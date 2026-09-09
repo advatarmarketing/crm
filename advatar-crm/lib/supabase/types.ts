@@ -51,6 +51,9 @@ export interface Database {
           avatar_url: string | null;
           // Phase 23 — 0022_profiles_names_phone_photos.sql
           phone: string | null;
+          // Phase 24 — 0026_availability.sql. Free text: "weekdays
+          // after 4, all day Saturday, away 12–19 Aug".
+          availability: string | null;
           client_id: string | null;
           created_at: string;
         };
@@ -60,6 +63,7 @@ export interface Database {
           full_name: string;
           avatar_url?: string | null;
           phone?: string | null;
+          availability?: string | null;
           client_id?: string | null;
           created_at?: string;
         };
@@ -68,6 +72,7 @@ export interface Database {
           role?: ProfileRole;
           full_name?: string;
           avatar_url?: string | null;
+          availability?: string | null;
           phone?: string | null;
           client_id?: string | null;
           created_at?: string;

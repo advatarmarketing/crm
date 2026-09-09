@@ -34,6 +34,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
     { href: "/app/prospects", label: "Prospects" },
     { href: "/app/finance", label: "Finance" },
     { href: "/app/summary", label: "This week" },
+    { href: "/app/tools", label: "Tools" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/payments", label: "Payments" },
     { href: "/app/settings/logins", label: "Logins" },
@@ -60,6 +61,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
     { href: "/app/prospects", label: "Prospects" },
     { href: "/app/finance", label: "Finance" },
     { href: "/app/summary", label: "This week" },
+    { href: "/app/tools", label: "Tools" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/settings/logins", label: "Logins" },
   ],
@@ -76,7 +78,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
     { href: "/app/todo", label: "To-do" },
     { href: "/app/clients", label: "Clients" },
     { href: "/app/leads", label: "Leads" },
-    { href: "/app/guidelines", label: "Guidelines" },
+    { href: "/app/tools", label: "Tools" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },
   ],
@@ -89,15 +91,17 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
     { href: "/app/todo", label: "To-do" },
     { href: "/app/my-work", label: "My Work" },
     { href: "/app/my-clients", label: "My Clients" },
-    { href: "/app/guidelines", label: "Guidelines" },
+    { href: "/app/tools", label: "Tools" },
     { href: "/app/my-portfolio", label: "Portfolio" },
     { href: "/app/messages", label: "Messages" },
     { href: "/app/my-payments", label: "My Payments" },
   ],
-  client: [
-    { href: "/app/portal", label: "Your Project" },
-    { href: "/app/calendar", label: "Calendar" },
-  ],
+  // The client's tabs live in PortalNav instead — Overview, Content
+  // Hub, Content Plan, Documents, Calendar, To-do, Messages — so this
+  // is only what the burger menu needs on a phone. The strip below is
+  // hidden for them rather than repeating a single "Your Project"
+  // above the portal's own row.
+  client: [{ href: "/app/portal", label: "Your Project" }],
 };
 
 /**
@@ -154,52 +158,7 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
           <Logo />
         </Link>
 
-        {/* Desktop links. Hidden under 900px, where the button below
-            takes over — the breakpoint is where this row starts
-            colliding with the sign-out control on the CEO's seven-item
-            nav, not an arbitrary device width. */}
-        {/* overflowX: the CEO's nav is ten items now, which between
-            900px and roughly 1400px is wider than the space left
-            beside the sign-out controls. Scrolling here keeps every
-            link reachable instead of pushing the last ones off the
-            edge. */}
-        <div
-          className="nav-links"
-          style={{
-            alignItems: "center",
-            gap: 2,
-            flex: 1,
-            minWidth: 0,
-            overflowX: "auto",
-            scrollbarWidth: "none",
-          }}
-        >
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                color: isActive(link.href) ? "var(--text-1)" : "var(--text-2)",
-                textDecoration: "none",
-                padding: "18px 11px",
-                whiteSpace: "nowrap",
-                // Accent, not ink: the active tab is the one thing in
-                // the chrome that should be findable at a glance.
-                borderBottom: isActive(link.href) ? "2px solid var(--accent)" : "2px solid transparent",
-                transition: "color 0.15s ease, border-color 0.15s ease",
-              }}
-            >
-              {link.label}
-              {link.href === "/app/messages" && <MessagesNavBadge />}
-            </Link>
-          ))}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: "auto" }}>
           {role !== "client" && <QuickSearch />}
           {/* Every role gets the bell: clients are told when work is
               shared with them, staff when they are given a client or a
@@ -294,6 +253,65 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
           </button>
         </div>
       </div>
+
+      {/* The tab strip, on its own row — the same shape the client
+          portal has always had (components/PortalNav.tsx), now used by
+          every staff-side login too.
+
+          Giving the tabs a row of their own is most of what made the
+          portal feel more finished: before this they were wedged
+          between the logo and the sign-out controls, so on the CEO's
+          twelve-item nav they scrolled inside a few hundred pixels and
+          the active tab was often off-screen. A full-width row fits
+          them, and the underline lines up with the bar's own bottom
+          edge instead of floating inside it.
+
+          Still `.nav-links`, so it disappears under 900px exactly as
+          before and the burger takes over unchanged. */}
+      {role !== "client" && (
+      <div
+        className="nav-links"
+        style={{
+          gap: 4,
+          padding: "0 16px",
+          borderTop: "1px solid var(--border)",
+          marginBottom: -1,
+          overflowX: "auto",
+          scrollbarWidth: "none",
+        }}
+      >
+        {links.map((link) => {
+          const active = isActive(link.href);
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={active ? "page" : undefined}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                // Inactive tabs drop to --text-3 rather than --text-2:
+                // the portal's contrast step is what makes the current
+                // tab read as selected at a glance.
+                color: active ? "var(--text-1)" : "var(--text-3)",
+                borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
+                padding: "15px 13px",
+                transition: "color 0.15s ease, border-color 0.15s ease",
+              }}
+            >
+              {link.label}
+              {link.href === "/app/messages" && <MessagesNavBadge />}
+            </Link>
+          );
+        })}
+      </div>
+      )}
 
       {menuOpen && (
         <div

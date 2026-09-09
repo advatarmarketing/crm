@@ -40,6 +40,7 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
     "/app/my-calendar",
     "/app/my-work",
     "/app/my-clients",
+    "/app/tools",
     "/app/guidelines",
     "/app/my-portfolio",
     "/app/messages",
@@ -47,10 +48,11 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
     "/app/settings/password",
     "/app/settings/profile",
   ],
-  // Phase 24: a client gets the Calendar tab too — shoot dates are the
-  // thing they most want to look up — but no To-do tab: they have no
-  // jobs in this system, only the agency does.
-  client: ["/app/portal", "/app/calendar", "/app/settings/password", "/app/settings/profile"],
+  // Phase 24: a client's Calendar and To-do live under /app/portal, in
+  // the portal's own tab row, rather than on the shared /app/calendar
+  // and /app/todo pages the team uses — so the prefix list is
+  // unchanged and there is one way in rather than two.
+  client: ["/app/portal", "/app/settings/password", "/app/settings/profile"],
 };
 
 function isAllowed(role: ProfileRole, pathname: string) {

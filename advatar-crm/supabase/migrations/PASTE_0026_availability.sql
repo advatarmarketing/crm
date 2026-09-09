@@ -1,0 +1,1 @@
+alter table profiles add column if not exists availability text; drop policy if exists "profiles: update own" on profiles; create policy "profiles: update own" on profiles for update using (auth.uid() = id) with check ( auth.uid() = id and role = public.current_role() and client_id is not distinct from public.current_client_id() );

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChatShell, type ChatThreadSeed } from "@/components/ChatShell";
-import { MessagesTabs, type MessagesTab } from "@/components/MessagesTabs";
+import { SectionTabs, type SectionTab } from "@/components/SectionTabs";
 import { WorkChat } from "@/components/WorkChat";
 import { TeamDirectMessages, type Teammate } from "@/components/TeamDirectMessages";
 import { ClientThreadPicker, type PickableClient } from "@/components/ClientThreadPicker";
@@ -158,7 +158,7 @@ export default async function MessagesPage() {
   // videographers wouldn't be an admin tab.
   const adminContacts = teammates.filter((t) => t.role !== "videographer");
 
-  const tabs: MessagesTab[] = isVideographer
+  const tabs: SectionTab[] = isVideographer
     ? [
         {
           key: "work",
@@ -236,7 +236,7 @@ export default async function MessagesPage() {
       <h1 className="page-title page-title-accent" style={{ marginBottom: 20 }}>
         Messages
       </h1>
-      <MessagesTabs tabs={tabs} />
+      <SectionTabs tabs={tabs} />
     </main>
   );
 }
