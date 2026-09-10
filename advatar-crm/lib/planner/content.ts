@@ -69,6 +69,32 @@ export interface PlannerSlot {
   description: string;
   pillar: string;
   link: string;
+
+  /**
+   * The shooting brief, as one preset shape per video rather than a
+   * paragraph somebody has to remember the structure of. Every slot
+   * asks the same five questions, so a videographer reading the plan
+   * always finds the answers in the same places.
+   *
+   * All optional: plans written before this existed have slots without
+   * them, and those must keep opening rather than breaking. Everything
+   * reading these treats a missing field as an empty one.
+   */
+  hook?: string;
+  body?: string;
+  cta?: string;
+  /** Kept as the initials the team already uses. */
+  wms?: string;
+  /** "i/a" — indoor or outdoor, in the team's own shorthand. */
+  scenery?: string;
+
+  /**
+   * Which shoot this video belongs to. Videos are filmed in batches,
+   * so the plan groups by this and the calendar entry for the day
+   * reads "Video Set 1 — shoot day". Free text, because the sets are
+   * named by whoever plans the month.
+   */
+  set?: string;
 }
 
 export interface PlannerTimelineItem {
@@ -513,13 +539,19 @@ export const DEFAULT_PLANNER_CONTENT: PlannerContent = {
   slots: {
     tag: "Monthly output",
     heading: "Video slot planner",
-    desc: "Set how many finished videos you're committing to this month. Each slot gets a content pillar assignment and a spot for the link once it's done.",
+    desc: "Set how many finished videos you're committing to this month. Each slot carries its own brief — hook, body, CTA, WMS and scenery — plus the shoot it belongs to and a spot for the link once it's done.",
     items: Array.from({ length: 12 }, (_, i) => ({
       id: id("slot"),
       title: `Video ${String(i + 1).padStart(2, "0")}`,
       description: "What this video covers, in a line or two.",
       pillar: "",
       link: "",
+      hook: "",
+      body: "",
+      cta: "",
+      wms: "",
+      scenery: "",
+      set: "",
     })),
   },
 

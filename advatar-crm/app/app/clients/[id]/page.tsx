@@ -170,13 +170,27 @@ export default async function ClientDetailPage({
     role: p.role,
   }));
 
-  // Who may change the assignments. 0024 narrowed `client_staff`
-  // writes to the CEO, so that an operations manager cannot hand
-  // themselves a client. Rendering the control for anyone else would
-  // just produce a row-level-security error on the first click.
+  // Who may change the assignments, and over whom.
+  //
+  // 0024 narrowed `client_staff` writes to the CEO so an operations
+  // manager could not hand themselves a client. 0027 gives them back
+  // the everyday half of the job: they may add and remove staff and
+  // videographers on a client they already run, but not themselves,
+  // another manager, or the CEO.
+  //
+  // This mirrors that split rather than enforcing it — the database
+  // refuses the write either way. Rendering a name they cannot assign
+  // would just produce a row-level-security error on the first click.
   const callerRole = ((allProfiles ?? []) as unknown as { id: string; role?: string }[]).find(
     (p) => p.id === user?.id
   )?.role;
+
+  const canAssign = callerRole === "ceo" || callerRole === "operations_manager";
+
+  const assignableHere =
+    callerRole === "ceo"
+      ? assignable
+      : assignable.filter((p) => p.id !== user?.id && (p.role === "staff" || p.role === "videographer"));
 
   return (
     <main className="page">
@@ -188,8 +202,9 @@ export default async function ClientDetailPage({
         finance={finance ?? undefined}
         initialTab={searchParams?.tab === "plan" ? "plan" : "info"}
         teamMembers={teamMembers}
-        assignableProfiles={assignable}
-        canAssign={callerRole === "ceo"}
+        assignableProfiles={assignableHere}
+        canAssign={canAssign}
+        assignScope={callerRole === "ceo" ? "everyone" : "workers"}
         invoices={invoices ?? []}
         meetings={(meetings ?? []) as any}
         activity={activityEntries}

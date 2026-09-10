@@ -38,6 +38,7 @@ export function ClientDetailTabs({
   teamMembers,
   assignableProfiles,
   canAssign = false,
+  assignScope = "everyone",
   invoices = [],
   meetings = [],
   activity = [],
@@ -55,8 +56,10 @@ export function ClientDetailTabs({
   initialTab?: TabId;
   teamMembers: AssignedTeamMember[];
   assignableProfiles: AssignableProfile[];
-  /** Only the CEO may change who is on a client (0024). */
+  /** CEO, or an operations manager on their own client (0024/0027). */
   canAssign?: boolean;
+  /** "workers" narrows the wording to what a manager may actually do. */
+  assignScope?: "everyone" | "workers";
   /**
    * Phase 14. Empty for anyone whose RLS can't read `invoices`
    * (staff, videographer) — the Finance section below is simply not
@@ -187,6 +190,7 @@ export function ClientDetailTabs({
               initialAssignments={teamMembers}
               assignableProfiles={assignableProfiles}
               canAssign={canAssign}
+              assignScope={assignScope}
             />
           </section>
 

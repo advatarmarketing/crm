@@ -430,14 +430,65 @@ export const PLANNER_CSS = `
   border-radius:20px;cursor:pointer;transition:.15s;
 }
 .planner-doc .slot-generate-btn:hover{background:var(--red);border-color:var(--red);}
-.planner-doc .slot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-@media (max-width:900px){.planner-doc .slot-grid{grid-template-columns:repeat(3,1fr);}}
-@media (max-width:680px){.planner-doc .slot-grid{grid-template-columns:repeat(2,1fr);}}
-@media (max-width:460px){.planner-doc .slot-grid{grid-template-columns:1fr;}}
+/* Two across, not four. Each slot now carries a full brief — hook,
+   body, CTA, WMS, scenery, set — and a quarter-width column turns
+   every one of those lines into two or three wrapped words. */
+.planner-doc .slot-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+@media (max-width:820px){.planner-doc .slot-grid{grid-template-columns:1fr;}}
+
+/* Videos are shot in batches, so the plan reads in batches. The
+   heading is the same name the calendar entry uses — "Video Set 1 —
+   shoot day" — so the two line up without anyone cross-referencing. */
+.planner-doc .slot-set{margin-bottom:26px;}
+.planner-doc .slot-set-head{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding-bottom:8px;margin-bottom:14px;border-bottom:1px solid var(--line);
+}
+.planner-doc .slot-set-name{
+  font-family:var(--display);font-weight:400;font-size:19px;letter-spacing:.01em;color:var(--ink);
+}
+.planner-doc .slot-set-count{
+  font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+}
 .planner-doc .slot-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:var(--shadow-sm);}
 .planner-doc .slot-num{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px;}
 .planner-doc .slot-title{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.01em;line-height:1.15;margin-bottom:6px;}
 .planner-doc .slot-desc{font-family:var(--body);font-size:12.5px;line-height:1.5;color:var(--body-text);margin-bottom:12px;}
+/* The preset brief. Labels stay put whether or not the line is
+   filled in — that is what makes it a template rather than a blank
+   card, and an unanswered question should look unanswered. */
+.planner-doc .slot-brief{
+  display:flex;flex-direction:column;gap:9px;
+  padding:12px 0;margin-bottom:12px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+.planner-doc .slot-brief-pair{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+@media (max-width:460px){.planner-doc .slot-brief-pair{grid-template-columns:1fr;}}
+.planner-doc .slot-field{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.planner-doc .slot-field-label{
+  font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);
+}
+.planner-doc .slot-field-value{
+  font-family:var(--body);font-size:13px;line-height:1.5;color:var(--body-text);
+  border-radius:6px;padding:3px 5px;margin:-3px -5px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.planner-doc .slot-field-tall .slot-field-value{min-height:2.6em;}
+/* An empty field shows the question's prompt, or an em dash when
+   there is nothing to prompt with. content: on ::before rather than a
+   real placeholder attribute, because these are contenteditable divs
+   rather than inputs. */
+.planner-doc .slot-field-value.is-empty{color:var(--text-3);}
+.planner-doc [contenteditable].slot-field-value.is-empty::before{
+  content:var(--placeholder, "—");color:var(--text-3);
+}
+.planner-doc [contenteditable].slot-field-value:focus::before{content:none;}
+.planner-doc [contenteditable].slot-field-value:hover{background:var(--wash-1);}
+.planner-doc [contenteditable].slot-field-value:focus{
+  outline:1px solid var(--red);background:var(--wash-2);
+}
+
 .planner-doc .slot-pillar-select{
   width:100%;font-family:var(--display);font-weight:400;font-size:15px;letter-spacing:.01em;
   padding:8px 8px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;

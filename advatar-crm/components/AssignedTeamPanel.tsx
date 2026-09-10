@@ -45,6 +45,7 @@ export function AssignedTeamPanel({
   initialAssignments,
   assignableProfiles,
   canAssign = true,
+  assignScope = "everyone",
 }: {
   clientId: string;
   initialAssignments: AssignedTeamMember[];
@@ -56,6 +57,13 @@ export function AssignedTeamPanel({
    * refuses the write either way.
    */
   canAssign?: boolean;
+  /**
+   * What this viewer is allowed to change. An operations manager may
+   * add and remove the people who do the work, but not management —
+   * so the remove button is hidden on rows they could not remove,
+   * rather than offered and then refused.
+   */
+  assignScope?: "everyone" | "workers";
 }) {
   const [assignments, setAssignments] = useState(initialAssignments);
   const [selected, setSelected] = useState("");
@@ -153,7 +161,7 @@ export function AssignedTeamPanel({
                   </a>
                 )}
               </span>
-              {canAssign && (
+              {canAssign && (assignScope === "everyone" || a.role === "staff" || a.role === "videographer") && (
               <button
                 type="button"
                 onClick={() => removeAssignment(a.staffId)}
@@ -181,7 +189,8 @@ export function AssignedTeamPanel({
 
       {!canAssign ? (
         <p style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--text-3)", margin: 0 }}>
-          Only the CEO can change who&rsquo;s on a client.
+          Only the CEO and the operations manager running this client can
+          change who&rsquo;s on it.
         </p>
       ) : (
       <div style={{ display: "flex", gap: 8 }}>
@@ -231,6 +240,13 @@ export function AssignedTeamPanel({
           Add
         </button>
       </div>
+      )}
+
+      {canAssign && assignScope === "workers" && (
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--text-3)", margin: "8px 0 0" }}>
+          You can add and remove staff and videographers here. Changing who
+          manages this client is the CEO&rsquo;s.
+        </p>
       )}
       {error && (
         <span style={{ display: "block", fontSize: 11, color: "var(--status-closed)", marginTop: 6 }}>
