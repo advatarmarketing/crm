@@ -23,8 +23,40 @@ export const PLANNER_CSS = `
   --paper:var(--bg);
   --paper-dim:var(--surface-2);
   --card:var(--surface);
-  --hero-bg:#111111;
-  --hero-fg:#f5f5f3;
+
+  /* Panels that are deliberately dark in BOTH themes — the hero, the
+     format stats, the guarantee block, the floating toolbar. They read
+     as title cards, and inverting them would put a floodlight in the
+     middle of a dark page.
+
+     They need their own foreground colours precisely because they do
+     not flip. The guarantee block used to paint itself with --ink and
+     --paper, which DO flip: in dark mode that turned it into a white
+     panel, still carrying its hard-coded near-white body text. A whole
+     section of the plan was white on white. */
+  --panel-bg:#111111;
+  --panel-fg:#f5f5f3;
+  --panel-fg-dim:#b9b9b6;
+  --panel-line:#333333;
+  /* The light theme's accent (#8a6a1f) is far too dark to sit on
+     #111. These panels use the dark theme's gold in both. */
+  --panel-accent:#d4af6a;
+
+  /* The hero was here first and the CSS still refers to it by name.
+     Same two colours, one definition. */
+  --hero-bg:var(--panel-bg);
+  --hero-fg:var(--panel-fg);
+
+  /* Body copy inside cards. Was hard-coded #2a2a2a, which is near-black
+     — fine on white paper, invisible on a dark card. */
+  --body-text:var(--text-1);
+
+  /* Hover and focus washes. Hard-coded rgba(26,26,26,…) inks darkened
+     an already-dark surface, so on the dark theme nothing appeared to
+     respond to the pointer at all. */
+  --wash-1:rgba(17,17,17,0.04);
+  --wash-2:rgba(17,17,17,0.07);
+  --wash-edge:rgba(17,17,17,0.45);
   --red:var(--accent);
   --red-deep:var(--chart-3);
   --gold:var(--chart-2);
@@ -98,7 +130,7 @@ export const PLANNER_CSS = `
 .planner-doc .eyebrow-row{
   display:flex;flex-wrap:wrap;gap:10px 22px;
   font-family:var(--mono);font-size:11px;letter-spacing:.06em;
-  color:var(--gold);margin-bottom:22px;text-transform:uppercase;
+  color:var(--panel-accent);margin-bottom:22px;text-transform:uppercase;
 }
 .planner-doc .eyebrow-row span b{color:var(--hero-fg);font-weight:700;}
 .planner-doc h1.brand{
@@ -108,10 +140,28 @@ export const PLANNER_CSS = `
   font-size:clamp(38px,7vw,64px);line-height:.95;
   letter-spacing:.01em;margin:0 0 10px;color:var(--hero-fg);
 }
-.planner-doc h1.brand em{font-style:normal;color:var(--red);}
+.planner-doc h1.brand em{font-style:normal;color:var(--panel-accent);}
 .planner-doc .hero-sub{
   font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase;
-  color:#9a9a9a;margin:0;
+  color:var(--panel-fg-dim);margin:0;
+}
+
+/* The washes are the only tokens above that need a per-theme value:
+   everything else resolves through the app's own variables, which
+   already switch. Written in the three-state form the rest of this
+   codebase uses — system preference, then an explicit choice either
+   way — so the toggle wins in both directions. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .planner-doc{
+    --wash-1:rgba(245,245,243,0.05);
+    --wash-2:rgba(245,245,243,0.09);
+    --wash-edge:rgba(245,245,243,0.40);
+  }
+}
+:root[data-theme="dark"] .planner-doc{
+  --wash-1:rgba(245,245,243,0.05);
+  --wash-2:rgba(245,245,243,0.09);
+  --wash-edge:rgba(245,245,243,0.40);
 }
 
 /* ---------- THESIS ---------- */
@@ -165,7 +215,7 @@ export const PLANNER_CSS = `
   color:var(--muted);transition:border-color .15s, color .15s, background-color .15s;
 }
 .planner-doc .add-pillar-btn:hover, .planner-doc .add-link-btn:hover, .planner-doc .add-brand-btn:hover, .planner-doc .add-timeline-btn:hover{
-  border-color:var(--red);color:var(--red);background:rgba(26,26,26,0.04);
+  border-color:var(--red);color:var(--red);background:var(--wash-1);
 }
 .planner-doc .pillar-card .top-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
 .planner-doc .pillar-card h3{font-family:var(--display);font-weight:400;font-size:22px;margin:0;letter-spacing:.01em;}
@@ -173,7 +223,7 @@ export const PLANNER_CSS = `
 .planner-doc .pillar-card .role{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px;display:block;}
 .planner-doc .bar-track{height:6px;background:var(--paper-dim);border-radius:3px;overflow:hidden;margin-bottom:14px;}
 .planner-doc .bar-fill{height:100%;border-radius:3px;}
-.planner-doc .pillar-card p{font-size:14px;line-height:1.55;color:#2a2a2a;margin:0 0 14px;}
+.planner-doc .pillar-card p{font-size:14px;line-height:1.55;color:var(--body-text);margin:0 0 14px;}
 .planner-doc .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
 .planner-doc .chip{
   display:inline-flex;align-items:center;gap:6px;
@@ -181,8 +231,8 @@ export const PLANNER_CSS = `
   border-radius:20px;color:var(--muted);
 }
 .planner-doc .chip-text{cursor:text;border-radius:10px;outline:1px dashed transparent;outline-offset:2px;}
-.planner-doc .chip-text:hover{outline-color:rgba(26,26,26,0.45);}
-.planner-doc .chip-text:focus{outline:1px solid var(--red);background-color:rgba(26,26,26,0.06);}
+.planner-doc .chip-text:hover{outline-color:var(--wash-edge);}
+.planner-doc .chip-text:focus{outline:1px solid var(--red);background-color:var(--wash-2);}
 .planner-doc .chip-remove{
   width:15px;height:15px;border-radius:50%;border:none;background:var(--paper-dim);
   color:var(--muted);font-family:var(--mono);font-size:10px;line-height:1;
@@ -190,22 +240,22 @@ export const PLANNER_CSS = `
   opacity:0;transition:opacity .15s;
 }
 .planner-doc .chip:hover .chip-remove{opacity:1;}
-.planner-doc .chip-remove:hover{background:var(--red);color:#fff;}
+.planner-doc .chip-remove:hover{background:var(--red);color:var(--accent-fg);}
 .planner-doc .chip-add{
   font-family:var(--mono);font-size:11px;padding:4px 10px;border:1px dashed var(--line);
   border-radius:20px;background:transparent;color:var(--muted);cursor:pointer;
   transition:border-color .15s, color .15s, background-color .15s;
 }
-.planner-doc .chip-add:hover{border-color:var(--red);color:var(--red);background:rgba(26,26,26,0.04);}
+.planner-doc .chip-add:hover{border-color:var(--red);color:var(--red);background:var(--wash-1);}
 
 /* ---------- FORMAT ROW ---------- */
 .planner-doc .format-row{display:flex;gap:14px;flex-wrap:wrap;}
 .planner-doc .format-stat{
-  flex:1;min-width:140px;background:var(--ink);color:var(--paper);
+  flex:1;min-width:140px;background:var(--panel-bg);color:var(--panel-fg);
   padding:20px 18px;border-radius:10px;
 }
-.planner-doc .format-stat .num{font-family:var(--display);font-size:34px;color:var(--red);display:block;}
-.planner-doc .format-stat .lbl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9a9a9a;}
+.planner-doc .format-stat .num{font-family:var(--display);font-size:34px;color:var(--panel-accent);display:block;}
+.planner-doc .format-stat .lbl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--panel-fg-dim);}
 
 /* ---------- ACTS / TABS ---------- */
 .planner-doc .tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;}
@@ -225,7 +275,7 @@ export const PLANNER_CSS = `
 .planner-doc .week-tc{font-family:var(--mono);font-size:13px;color:var(--red);padding-top:2px;}
 .planner-doc .week-tc small{display:block;color:var(--muted);font-size:10px;margin-top:3px;}
 .planner-doc .week-body h4{margin:0 0 6px;font-size:16px;font-family:var(--body);font-weight:700;}
-.planner-doc .week-body p{margin:0;font-size:14px;line-height:1.55;color:#2a2a2a;}
+.planner-doc .week-body p{margin:0;font-size:14px;line-height:1.55;color:var(--body-text);}
 
 /* ---------- WORKFLOW ---------- */
 .planner-doc .workflow{display:flex;gap:0;flex-wrap:wrap;counter-reset:step;}
@@ -255,12 +305,12 @@ export const PLANNER_CSS = `
   cursor:text;
 }
 .planner-doc [contenteditable="true"]:hover{
-  outline-color:rgba(26,26,26,0.45);
-  background-color:rgba(26,26,26,0.04);
+  outline-color:var(--wash-edge);
+  background-color:var(--wash-1);
 }
 .planner-doc [contenteditable="true"]:focus{
   outline:2px solid var(--red);
-  background-color:rgba(26,26,26,0.06);
+  background-color:var(--wash-2);
 }
 
 .planner-doc .toolbar{
@@ -274,8 +324,8 @@ export const PLANNER_CSS = `
   background:var(--red);color:var(--hero-fg);border:none;
   padding:9px 16px;border-radius:20px;cursor:pointer;
 }
-.planner-doc .toolbar button.secondary{background:transparent;color:var(--hero-fg);border:1px solid #3a3a3a;}
-.planner-doc .toolbar .status{font-family:var(--mono);font-size:10px;color:#9a9a9a;padding-left:4px;white-space:nowrap;}
+.planner-doc .toolbar button.secondary{background:transparent;color:var(--panel-fg);border:1px solid var(--panel-line);}
+.planner-doc .toolbar .status{font-family:var(--mono);font-size:10px;color:var(--panel-fg-dim);padding-left:4px;white-space:nowrap;}
 @media (max-width:520px){
   .planner-doc .toolbar{left:12px;right:12px;bottom:12px;flex-wrap:wrap;justify-content:center;}
 }
@@ -292,7 +342,7 @@ export const PLANNER_CSS = `
   cursor:pointer;background:var(--card);position:relative;overflow:hidden;
   transition:border-color .15s, background-color .15s;
 }
-.planner-doc .logo-slot:hover{border-color:var(--red);background-color:rgba(26,26,26,0.04);}
+.planner-doc .logo-slot:hover{border-color:var(--red);background-color:var(--wash-1);}
 .planner-doc .logo-slot .logo-placeholder{
   text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);
   text-transform:uppercase;letter-spacing:.05em;line-height:1.6;padding:0 12px;
@@ -320,7 +370,7 @@ export const PLANNER_CSS = `
   font-family:var(--mono);font-size:12px;padding:9px 10px;width:100%;
   border:1px solid var(--line);border-radius:10px;background:var(--paper-dim);color:var(--ink);
 }
-.planner-doc .link-input::placeholder{color:#9a9a9a;}
+.planner-doc .link-input::placeholder{color:var(--text-2);}
 .planner-doc .link-input:focus{outline:none;border-color:var(--red);background:var(--card);}
 .planner-doc .link-open{
   width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);
@@ -329,7 +379,7 @@ export const PLANNER_CSS = `
   transition:border-color .15s, color .15s, background-color .15s;
 }
 .planner-doc .link-row.has-link .link-open{display:flex;}
-.planner-doc .link-open:hover{border-color:var(--red);color:var(--red);background:rgba(26,26,26,0.06);}
+.planner-doc .link-open:hover{border-color:var(--red);color:var(--red);background:var(--wash-2);}
 .planner-doc .link-remove{
   width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);
   color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1;
@@ -356,7 +406,7 @@ export const PLANNER_CSS = `
   font-family:var(--mono);font-weight:700;font-size:12px;text-transform:uppercase;
   letter-spacing:.04em;color:var(--ink);padding-top:2px;line-height:1.4;
 }
-.planner-doc .brand-value{font-size:14.5px;line-height:1.55;color:#2a2a2a;}
+.planner-doc .brand-value{font-size:14.5px;line-height:1.55;color:var(--body-text);}
 .planner-doc .brand-remove{
   width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);
   color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1;
@@ -387,7 +437,7 @@ export const PLANNER_CSS = `
 .planner-doc .slot-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:var(--shadow-sm);}
 .planner-doc .slot-num{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px;}
 .planner-doc .slot-title{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.01em;line-height:1.15;margin-bottom:6px;}
-.planner-doc .slot-desc{font-family:var(--body);font-size:12.5px;line-height:1.5;color:#2a2a2a;margin-bottom:12px;}
+.planner-doc .slot-desc{font-family:var(--body);font-size:12.5px;line-height:1.5;color:var(--body-text);margin-bottom:12px;}
 .planner-doc .slot-pillar-select{
   width:100%;font-family:var(--display);font-weight:400;font-size:15px;letter-spacing:.01em;
   padding:8px 8px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;
@@ -399,7 +449,7 @@ export const PLANNER_CSS = `
   width:100%;font-family:var(--mono);font-size:11px;padding:8px 30px 8px 9px;
   border:1px solid var(--line);border-radius:10px;background:var(--paper-dim);color:var(--ink);
 }
-.planner-doc .slot-link-input::placeholder{color:#9a9a9a;}
+.planner-doc .slot-link-input::placeholder{color:var(--text-2);}
 .planner-doc .slot-link-input:focus{outline:none;border-color:var(--red);background:var(--card);}
 .planner-doc .slot-link-open{
   position:absolute;top:50%;right:5px;transform:translateY(-50%);
@@ -409,7 +459,7 @@ export const PLANNER_CSS = `
   transition:border-color .15s, color .15s, background-color .15s;
 }
 .planner-doc .slot-link-wrap.has-link .slot-link-open{display:flex;}
-.planner-doc .slot-link-open:hover{border-color:var(--red);color:var(--red);background:rgba(26,26,26,0.06);}
+.planner-doc .slot-link-open:hover{border-color:var(--red);color:var(--red);background:var(--wash-2);}
 
 /* ---------- CLIENT TIMELINE ---------- */
 .planner-doc .timeline-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:720px;margin-bottom:16px;}
@@ -420,7 +470,7 @@ export const PLANNER_CSS = `
 }
 .planner-doc .timeline-status-badge.state-not-started{border-color:var(--line);color:var(--muted);}
 .planner-doc .timeline-status-badge.state-complete{border-color:var(--ink);color:var(--ink);}
-.planner-doc .timeline-status-text{font-size:14px;color:#2a2a2a;}
+.planner-doc .timeline-status-text{font-size:14px;color:var(--body-text);}
 .planner-doc .timeline-progress{display:flex;align-items:center;gap:14px;max-width:720px;margin-bottom:30px;}
 .planner-doc .timeline-progress-track{flex:1;height:6px;background:var(--paper-dim);border-radius:3px;overflow:hidden;}
 .planner-doc .timeline-progress-fill{height:100%;background:var(--red);border-radius:3px;transition:width .35s ease;}
@@ -456,7 +506,7 @@ export const PLANNER_CSS = `
   position:relative;padding:8px 28px 8px 14px;margin-left:-14px;border-radius:3px;
   transition:background-color .15s, opacity .2s;
 }
-.planner-doc .timeline-item:hover .timeline-card{background:rgba(26,26,26,0.03);}
+.planner-doc .timeline-item:hover .timeline-card{background:var(--wash-1);}
 .planner-doc .timeline-item.done .timeline-card{opacity:.62;}
 .planner-doc .timeline-remove{
   position:absolute;top:8px;right:6px;width:22px;height:22px;border-radius:50%;
@@ -475,12 +525,12 @@ export const PLANNER_CSS = `
 }
 .planner-doc .timeline-item.done .timeline-done-tag{display:inline-block;}
 .planner-doc .timeline-title{font-family:var(--display);font-weight:400;font-size:19px;margin:0 0 6px;letter-spacing:.01em;}
-.planner-doc .timeline-desc{font-size:14px;line-height:1.55;color:#2a2a2a;margin:0;max-width:600px;}
+.planner-doc .timeline-desc{font-size:14px;line-height:1.55;color:var(--body-text);margin:0;max-width:600px;}
 
 /* ---------- GUARANTEE ---------- */
 .planner-doc .guarantee-section{
   max-width:none;margin:0;padding:0 0 90px;
-  background:var(--ink);color:var(--paper);
+  background:var(--panel-bg);color:var(--panel-fg);
   position:relative;overflow:hidden;
 }
 .planner-doc .guarantee-section::after{
@@ -494,28 +544,28 @@ export const PLANNER_CSS = `
   .planner-doc .guarantee-mark{top:20px;right:18px;}
   .planner-doc .guarantee-mark svg{width:46px;height:46px;}
 }
-.planner-doc .guarantee-tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:16px;}
-.planner-doc .guarantee-h2{font-family:var(--display);font-weight:400;font-size:clamp(32px,5vw,48px);margin:0 0 20px;color:var(--paper);letter-spacing:.01em;line-height:1.05;}
-.planner-doc .guarantee-body{font-size:clamp(15.5px,1.8vw,17px);line-height:1.65;color:#e0e0de;margin:0 0 40px;max-width:600px;}
-.planner-doc .guarantee-terms{border-top:1px solid #2a2a2a;}
+.planner-doc .guarantee-tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--panel-accent);display:block;margin-bottom:16px;}
+.planner-doc .guarantee-h2{font-family:var(--display);font-weight:400;font-size:clamp(32px,5vw,48px);margin:0 0 20px;color:var(--panel-fg);letter-spacing:.01em;line-height:1.05;}
+.planner-doc .guarantee-body{font-size:clamp(15.5px,1.8vw,17px);line-height:1.65;color:var(--panel-fg-dim);margin:0 0 40px;max-width:600px;}
+.planner-doc .guarantee-terms{border-top:1px solid var(--panel-line);}
 .planner-doc .guarantee-term{
   display:grid;grid-template-columns:40px 1fr 28px;gap:14px;align-items:start;
-  padding:18px 0;border-bottom:1px solid #2a2a2a;position:relative;
+  padding:18px 0;border-bottom:1px solid var(--panel-line);position:relative;
 }
-.planner-doc .term-num{font-family:var(--mono);font-size:12px;color:var(--gold);padding-top:2px;}
-.planner-doc .term-text{font-size:14.5px;line-height:1.55;color:#f0f0ee;}
+.planner-doc .term-num{font-family:var(--mono);font-size:12px;color:var(--panel-accent);padding-top:2px;}
+.planner-doc .term-text{font-size:14.5px;line-height:1.55;color:var(--panel-fg);}
 .planner-doc .gp-remove{
-  width:20px;height:20px;border-radius:50%;border:1px solid #555555;background:transparent;
-  color:#9a9a9a;font-family:var(--mono);font-size:11px;line-height:1;
+  width:20px;height:20px;border-radius:50%;border:1px solid var(--panel-line);background:transparent;
+  color:var(--panel-fg-dim);font-family:var(--mono);font-size:11px;line-height:1;
   display:flex;align-items:center;justify-content:center;cursor:pointer;
   opacity:0;transition:opacity .15s;flex-shrink:0;margin-top:1px;
 }
 .planner-doc .guarantee-term:hover .gp-remove{opacity:1;}
-.planner-doc .gp-remove:hover{border-color:var(--red);color:var(--red);}
+.planner-doc .gp-remove:hover{border-color:var(--panel-accent);color:var(--panel-accent);}
 .planner-doc .gp-add{
   margin-top:22px;font-family:var(--mono);font-size:11px;text-transform:uppercase;
-  letter-spacing:.05em;color:#9a9a9a;background:transparent;border:1.5px dashed #555555;
+  letter-spacing:.05em;color:var(--panel-fg-dim);background:transparent;border:1.5px dashed var(--panel-line);
   border-radius:20px;padding:10px 20px;cursor:pointer;transition:.15s;
 }
-.planner-doc .gp-add:hover{border-color:var(--gold);color:var(--gold);}
+.planner-doc .gp-add:hover{border-color:var(--panel-accent);color:var(--panel-accent);}
 `;
