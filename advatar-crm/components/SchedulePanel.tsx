@@ -48,6 +48,7 @@ export function SchedulePanel({
   initialEvents,
   editable = false,
   defaultAssignee = null,
+  defaultClient = null,
   clients = [],
   categories = [],
   emptyMessage = "Nothing scheduled.",
@@ -57,6 +58,12 @@ export function SchedulePanel({
   editable?: boolean;
   /** Pre-fills whose schedule a newly added entry lands on. */
   defaultAssignee?: string | null;
+  /**
+   * Pre-fills which client a newly added entry belongs to. Set when
+   * you are looking at one client's calendar, so an entry added there
+   * lands on that client rather than needing picking twice.
+   */
+  defaultClient?: string | null;
   clients?: ClientChoice[];
   /** Event types and their colours, read from event_categories. */
   categories?: EventCategory[];
@@ -74,7 +81,7 @@ export function SchedulePanel({
   const [time, setTime] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [location, setLocation] = useState("");
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(defaultClient ?? "");
 
   const supabase = createClient();
   const router = useRouter();
@@ -85,7 +92,7 @@ export function SchedulePanel({
     setTime("");
     setCategoryId("");
     setLocation("");
-    setClientId("");
+    setClientId(defaultClient ?? "");
   }
 
   async function addEvent() {

@@ -10,6 +10,7 @@ import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { QuickSearch } from "@/components/QuickSearch";
 import { NotificationBell, type AppNotification } from "@/components/NotificationBell";
+import { NavIcon, type NavIconName } from "@/components/NavIcon";
 
 /**
  * Phase 7: the nav's content per role is a presentation choice layered
@@ -23,21 +24,21 @@ import { NotificationBell, type AppNotification } from "@/components/Notificatio
  * always 404s or bounces you elsewhere is bad UX, not a security
  * feature.
  */
-const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
+const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavIconName }[]> = {
   ceo: [
-    { href: "/app/dashboard", label: "Dashboard" },
-    { href: "/app/calendar", label: "Calendar" },
-    { href: "/app/todo", label: "To-do" },
-    { href: "/app/clients", label: "Clients" },
-    { href: "/app/videographers", label: "Videographers" },
-    { href: "/app/leads", label: "Leads" },
-    { href: "/app/prospects", label: "Prospects" },
-    { href: "/app/finance", label: "Finance" },
-    { href: "/app/summary", label: "This week" },
-    { href: "/app/tools", label: "Tools" },
-    { href: "/app/messages", label: "Messages" },
-    { href: "/app/payments", label: "Payments" },
-    { href: "/app/settings/logins", label: "Logins" },
+    { href: "/app/dashboard", label: "Dashboard", icon: "dashboard" },
+    { href: "/app/calendar", label: "Calendar", icon: "calendar" },
+    { href: "/app/todo", label: "To-do", icon: "todo" },
+    { href: "/app/clients", label: "Clients", icon: "clients" },
+    { href: "/app/videographers", label: "Videographers", icon: "videographers" },
+    { href: "/app/leads", label: "Leads", icon: "leads" },
+    { href: "/app/prospects", label: "Prospects", icon: "prospects" },
+    { href: "/app/finance", label: "Finance", icon: "finance" },
+    { href: "/app/summary", label: "This week", icon: "week" },
+    { href: "/app/tools", label: "Tools", icon: "tools" },
+    { href: "/app/messages", label: "Messages", icon: "messages" },
+    { href: "/app/payments", label: "Payments", icon: "payments" },
+    { href: "/app/settings/logins", label: "Logins", icon: "logins" },
   ],
   // Phase 12/14: runs sales and strategy alongside the CEO, so it gets
   // the CEO's nav minus "Payments" (what staff are paid) and "Team"
@@ -52,18 +53,18 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   // and clients, never another manager or a CEO. That limit lives in
   // settings/logins/actions.ts, not here.
   operations_manager: [
-    { href: "/app/dashboard", label: "Dashboard" },
-    { href: "/app/calendar", label: "Calendar" },
-    { href: "/app/todo", label: "To-do" },
-    { href: "/app/clients", label: "Clients" },
-    { href: "/app/videographers", label: "Videographers" },
-    { href: "/app/leads", label: "Leads" },
-    { href: "/app/prospects", label: "Prospects" },
-    { href: "/app/finance", label: "Finance" },
-    { href: "/app/summary", label: "This week" },
-    { href: "/app/tools", label: "Tools" },
-    { href: "/app/messages", label: "Messages" },
-    { href: "/app/settings/logins", label: "Logins" },
+    { href: "/app/dashboard", label: "Dashboard", icon: "dashboard" },
+    { href: "/app/calendar", label: "Calendar", icon: "calendar" },
+    { href: "/app/todo", label: "To-do", icon: "todo" },
+    { href: "/app/clients", label: "Clients", icon: "clients" },
+    { href: "/app/videographers", label: "Videographers", icon: "videographers" },
+    { href: "/app/leads", label: "Leads", icon: "leads" },
+    { href: "/app/prospects", label: "Prospects", icon: "prospects" },
+    { href: "/app/finance", label: "Finance", icon: "finance" },
+    { href: "/app/summary", label: "This week", icon: "week" },
+    { href: "/app/tools", label: "Tools", icon: "tools" },
+    { href: "/app/messages", label: "Messages", icon: "messages" },
+    { href: "/app/settings/logins", label: "Logins", icon: "logins" },
   ],
   // Phase 12: staff's RLS is now scoped to only its assigned clients
   // (0010_ops_manager_leads_staff_scoping.sql) — this nav is unchanged
@@ -73,35 +74,35 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string }[]> = {
   // dropped from staff's nav because fathom_calls moved to
   // management-only in that same migration.
   staff: [
-    { href: "/app/dashboard", label: "Dashboard" },
-    { href: "/app/calendar", label: "Calendar" },
-    { href: "/app/todo", label: "To-do" },
-    { href: "/app/clients", label: "Clients" },
-    { href: "/app/leads", label: "Leads" },
-    { href: "/app/tools", label: "Tools" },
-    { href: "/app/messages", label: "Messages" },
-    { href: "/app/my-payments", label: "My Payments" },
+    { href: "/app/dashboard", label: "Dashboard", icon: "dashboard" },
+    { href: "/app/calendar", label: "Calendar", icon: "calendar" },
+    { href: "/app/todo", label: "To-do", icon: "todo" },
+    { href: "/app/clients", label: "Clients", icon: "clients" },
+    { href: "/app/leads", label: "Leads", icon: "leads" },
+    { href: "/app/tools", label: "Tools", icon: "tools" },
+    { href: "/app/messages", label: "Messages", icon: "messages" },
+    { href: "/app/my-payments", label: "My Payments", icon: "payments" },
   ],
   // Phase 20: their own dashboard is now the landing page after
   // signing in (see HOME_BY_ROLE in middleware.ts), with the calendar
   // beside it.
   videographer: [
-    { href: "/app/my-dashboard", label: "Dashboard" },
-    { href: "/app/calendar", label: "Calendar" },
-    { href: "/app/todo", label: "To-do" },
-    { href: "/app/my-work", label: "My Work" },
-    { href: "/app/my-clients", label: "My Clients" },
-    { href: "/app/tools", label: "Tools" },
-    { href: "/app/my-portfolio", label: "Portfolio" },
-    { href: "/app/messages", label: "Messages" },
-    { href: "/app/my-payments", label: "My Payments" },
+    { href: "/app/my-dashboard", label: "Dashboard", icon: "dashboard" },
+    { href: "/app/calendar", label: "Calendar", icon: "calendar" },
+    { href: "/app/todo", label: "To-do", icon: "todo" },
+    { href: "/app/my-work", label: "My Work", icon: "work" },
+    { href: "/app/my-clients", label: "My Clients", icon: "clients" },
+    { href: "/app/tools", label: "Tools", icon: "tools" },
+    { href: "/app/my-portfolio", label: "Portfolio", icon: "portfolio" },
+    { href: "/app/messages", label: "Messages", icon: "messages" },
+    { href: "/app/my-payments", label: "My Payments", icon: "payments" },
   ],
   // The client's tabs live in PortalNav instead — Overview, Content
   // Hub, Content Plan, Documents, Calendar, To-do, Messages — so this
   // is only what the burger menu needs on a phone. The strip below is
   // hidden for them rather than repeating a single "Your Project"
   // above the portal's own row.
-  client: [{ href: "/app/portal", label: "Your Project" }],
+  client: [{ href: "/app/portal", label: "Your Project", icon: "portal" }],
 };
 
 /**
@@ -323,63 +324,23 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
           }}
         >
           {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                fontFamily: "var(--font-mono)",
-                fontSize: 13,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                color: isActive(link.href) ? "var(--text-1)" : "var(--text-2)",
-                textDecoration: "none",
-                padding: "14px 4px",
-                minHeight: 48,
-                borderBottom: "1px solid var(--border)",
-              }}
-            >
+            <Link key={link.href} href={link.href} style={menuRow(isActive(link.href))}>
+              {/* The icon inherits currentColor, so it dims and lifts
+                  with its label rather than sitting at a fixed grey
+                  while the text changes around it. */}
+              <NavIcon name={link.icon} />
               {link.label}
               {link.href === "/app/messages" && <MessagesNavBadge />}
             </Link>
           ))}
 
-          <Link
-            href="/app/settings/profile"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              fontFamily: "var(--font-mono)",
-              fontSize: 13,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              color: isActive("/app/settings/profile") ? "var(--text-1)" : "var(--text-2)",
-              textDecoration: "none",
-              padding: "14px 4px",
-              minHeight: 48,
-              borderBottom: "1px solid var(--border)",
-            }}
-          >
+          <Link href="/app/settings/profile" style={menuRow(isActive("/app/settings/profile"))}>
+            <NavIcon name="profile" />
             Profile
           </Link>
 
-          <Link
-            href="/app/settings/password"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              fontFamily: "var(--font-mono)",
-              fontSize: 13,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              color: isActive("/app/settings/password") ? "var(--text-1)" : "var(--text-2)",
-              textDecoration: "none",
-              padding: "14px 4px",
-              minHeight: 48,
-              borderBottom: "1px solid var(--border)",
-            }}
-          >
+          <Link href="/app/settings/password" style={menuRow(isActive("/app/settings/password"))}>
+            <NavIcon name="password" />
             Password
           </Link>
 
@@ -387,20 +348,17 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
             <button
               type="submit"
               style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 13,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
+                ...menuRow(false),
+                color: "var(--text-3)",
                 background: "none",
                 border: "none",
-                color: "var(--text-3)",
+                borderBottom: "none",
                 cursor: "pointer",
-                padding: "14px 4px",
-                minHeight: 48,
                 width: "100%",
                 textAlign: "left",
               }}
             >
+              <NavIcon name="signout" />
               Sign out
             </button>
           </form>
@@ -408,4 +366,30 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
       )}
     </nav>
   );
+}
+
+/**
+ * One row of the phone menu.
+ *
+ * Extracted because the same eleven declarations were repeated four
+ * times, and adding an icon to each meant getting the gap and the
+ * alignment right four times over. `gap` is what makes the icons line
+ * up into a column down the left of the menu rather than each sitting
+ * an arbitrary distance from its own label.
+ */
+function menuRow(active: boolean) {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 13,
+    fontFamily: "var(--font-mono)",
+    fontSize: 13,
+    letterSpacing: "0.05em",
+    textTransform: "uppercase" as const,
+    color: active ? "var(--text-1)" : "var(--text-2)",
+    textDecoration: "none",
+    padding: "14px 4px",
+    minHeight: 48,
+    borderBottom: "1px solid var(--border)",
+  };
 }
