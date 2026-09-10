@@ -5,6 +5,7 @@ import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategor
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { ResourcesPanel, type ResourceEntry } from "@/components/ResourcesPanel";
 import { AvailabilityPanel } from "@/components/AvailabilityPanel";
+import { loadAvailability } from "@/lib/availability";
 import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { loadSubmissions } from "@/lib/submissions";
 import type { ProfileRole } from "@/lib/supabase/types";
@@ -47,24 +48,22 @@ export default async function VideographerDetailPage({ params }: { params: { id:
 
   const { data: person } = await supabase
     .from("profiles")
-    .select("id, full_name, role, avatar_url, phone, availability")
+    .select("id, full_name, role, avatar_url, phone")
     .eq("id", params.id)
     .maybeSingle();
 
   const videographer = person as
-    | {
-        id: string;
-        full_name: string;
-        role: string;
-        avatar_url: string | null;
-        phone: string | null;
-        availability: string | null;
-      }
+    | { id: string; full_name: string; role: string; avatar_url: string | null; phone: string | null }
     | null;
 
   if (!videographer || videographer.role !== "videographer") {
     notFound();
   }
+
+  // Read on its own, so a database that hasn't had 0026 run cannot
+  // turn this whole page into a 404 — which is exactly what selecting
+  // it alongside the columns above used to do. See lib/availability.ts.
+  const availability = await loadAvailability(supabase, params.id);
 
   const [
     { data: events },
@@ -196,11 +195,18 @@ export default async function VideographerDetailPage({ params }: { params: { id:
           <h2 className="section-title">Availability</h2>
           <p className="section-sub">In their words — they edit this from their own Calendar tab</p>
         </div>
-        <AvailabilityPanel
-          profileId={videographer.id}
-          initialValue={videographer.availability}
-          emptyMessage={`${name} hasn't written down their availability yet. You can add it here, or ask them to fill it in on their Calendar tab.`}
-        />
+        {availability.columnMissing ? (
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)", margin: 0 }}>
+            Availability isn&rsquo;t switched on yet — migration 0026 still needs
+            running. The rest of this page works as normal.
+          </p>
+        ) : (
+          <AvailabilityPanel
+            profileId={videographer.id}
+            initialValue={availability.value}
+            emptyMessage={`${name} hasn't written down their availability yet. You can add it here, or ask them to fill it in on their Calendar tab.`}
+          />
+        )}
       </section>
 
       <section className="section" style={{ maxWidth: 780 }}>

@@ -5,6 +5,7 @@ import { SchedulePanel, type ScheduleEntry, type EventCategory, type ClientChoic
 import { PersonPicker, type Person } from "@/components/PersonPicker";
 import { AvailabilityPanel } from "@/components/AvailabilityPanel";
 import { displayName } from "@/lib/names";
+import { loadAvailability } from "@/lib/availability";
 import type { ProfileRole } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -40,18 +41,48 @@ export default async function CalendarPage({
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
+  // Only the columns this page cannot work without. `availability` is
+  // read separately below: selecting it here once took the whole page
+  // down on a database where 0026 hadn't been run, because PostgREST
+  // fails the entire query over one unknown column.
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role, full_name, availability")
+    .select("role, full_name")
     .eq("id", user.id)
     .single();
 
-  const me = profile as
-    | { role?: ProfileRole; full_name?: string | null; availability?: string | null }
-    | null;
+  const me = profile as { role?: ProfileRole; full_name?: string | null } | null;
   const role = me?.role;
 
-  if (!role) redirect("/login");
+  // A failed query is not the same as being signed out, and must not
+  // look like it. middleware.ts has already read this profile's role
+  // to let the request through, so if the read fails here it is a
+  // database problem — say so, rather than bouncing to a login screen
+  // the person is already past.
+  if (!role) {
+    return (
+      <main className="page">
+        <h1 className="page-title page-title-accent">Calendar</h1>
+        <p
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 14,
+            color: "var(--danger-fg)",
+            background: "var(--danger-bg)",
+            border: "1px solid var(--danger-border)",
+            borderRadius: "var(--radius-sm)",
+            padding: "14px 16px",
+            maxWidth: "62ch",
+            lineHeight: 1.6,
+          }}
+        >
+          Your profile couldn&rsquo;t be loaded, so this page doesn&rsquo;t know
+          which calendar to show you.
+          {profileError?.message ? ` The database said: ${profileError.message}` : ""}
+        </p>
+      </main>
+    );
+  }
 
   const isManagement = MANAGEMENT.includes(role);
   const selectedPerson = isManagement ? searchParams.person ?? "" : user.id;
@@ -83,6 +114,9 @@ export default async function CalendarPage({
         ? supabase.from("profiles").select("id, full_name, role").neq("role", "client").order("full_name")
         : Promise.resolve({ data: [] as unknown }),
     ]);
+
+  // Separate, and its failure is survivable — see lib/availability.ts.
+  const availability = role === "client" ? { value: null, columnMissing: false } : await loadAvailability(supabase, user.id);
 
   const clientRows = (clients ?? []) as unknown as { id: string; name: string | null }[];
   const clientNameById = new Map(clientRows.map((c) => [c.id, c.name?.trim() || "Untitled client"]));
@@ -191,11 +225,18 @@ export default async function CalendarPage({
             <h2 className="section-title">Your availability</h2>
             <p className="section-sub">The office sees this when they book you in</p>
           </div>
-          <AvailabilityPanel
-            profileId={user.id}
-            initialValue={me?.availability ?? null}
-            emptyMessage="You haven't written anything down yet. Whoever books your work has nothing to go on until you do."
-          />
+          {availability.columnMissing ? (
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)", margin: 0 }}>
+              Availability isn&rsquo;t switched on yet — migration 0026 still
+              needs running. Everything else on this page works as normal.
+            </p>
+          ) : (
+            <AvailabilityPanel
+              profileId={user.id}
+              initialValue={availability.value}
+              emptyMessage="You haven't written anything down yet. Whoever books your work has nothing to go on until you do."
+            />
+          )}
         </section>
       )}
     </main>
