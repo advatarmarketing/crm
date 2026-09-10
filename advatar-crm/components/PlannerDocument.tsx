@@ -325,32 +325,50 @@ export function PlannerDocument({
 
       <div className="slate-stripes" id={sid("top")}></div>
       <div className="hero">
+        {/* Depth rather than a flat slab: a soft warm glow off the top
+            corner and a faint vertical rule pattern, both drawn in CSS
+            so there is no image to load or theme. */}
+        <div className="hero-glow" aria-hidden="true" />
+        <div className="hero-rules" aria-hidden="true" />
+
         <div className="hero-inner">
-          {/* The film-slate metadata (SCENE / TAKE / DIRECTOR / ROLL)
-              is set dressing, and it was the first thing a client saw
-              on the page. It now shows only while editing, so the
-              values stay reachable and editable for staff without
-              being the opening line of the client's plan. */}
-          {editable && (
-            <div className="eyebrow-row">
-              <span>
-                SCENE:{" "}
-                <Editable as="b" editable={editable} value={content.hero.scene} onCommit={(v) => update(["hero", "scene"], v)} />
-              </span>
-              <span>
-                TAKE:{" "}
-                <Editable as="b" editable={editable} value={content.hero.take} onCommit={(v) => update(["hero", "take"], v)} />
-              </span>
-              <span>
-                DIRECTOR:{" "}
-                <Editable as="b" editable={editable} value={content.hero.director} onCommit={(v) => update(["hero", "director"], v)} />
-              </span>
-              <span>
-                ROLL:{" "}
-                <Editable as="b" editable={editable} value={content.hero.roll} onCommit={(v) => update(["hero", "roll"], v)} />
-              </span>
-            </div>
-          )}
+          <div className="hero-top">
+            {/* The client's logo, in the masthead where it belongs.
+                It used to sit in a large dashed box on the page BELOW
+                the hero, which read as an upload widget somebody had
+                left behind rather than as part of the document. */}
+            {editable ? (
+              <LogoSlot logoUrl={content.logoUrl} onChange={(url) => update(["logoUrl"], url)} />
+            ) : (
+              content.logoUrl && (
+                <div className="hero-logo has-image">
+                  <img src={content.logoUrl} alt="Business logo" />
+                </div>
+              )
+            )}
+
+            {/* The production metadata, as one quiet line along the top
+                rather than a clapperboard strip. Still editor-only:
+                it is set dressing, and it should not be the first
+                thing a client reads. */}
+            {editable && (
+              <div className="hero-meta">
+                <span>
+                  Scene <Editable as="b" editable={editable} value={content.hero.scene} onCommit={(v) => update(["hero", "scene"], v)} />
+                </span>
+                <span>
+                  Take <Editable as="b" editable={editable} value={content.hero.take} onCommit={(v) => update(["hero", "take"], v)} />
+                </span>
+                <span>
+                  Director <Editable as="b" editable={editable} value={content.hero.director} onCommit={(v) => update(["hero", "director"], v)} />
+                </span>
+                <span>
+                  Roll <Editable as="b" editable={editable} value={content.hero.roll} onCommit={(v) => update(["hero", "roll"], v)} />
+                </span>
+              </div>
+            )}
+          </div>
+
           <Editable
             as="h1"
             className="brand"
@@ -358,6 +376,9 @@ export function PlannerDocument({
             value={content.hero.brand}
             onCommit={(v) => update(["hero", "brand"], v)}
           />
+
+          <span className="hero-rule" aria-hidden="true" />
+
           <Editable
             as="p"
             className="hero-sub"
@@ -367,15 +388,6 @@ export function PlannerDocument({
           />
         </div>
       </div>
-
-      {editable && <LogoSlot logoUrl={content.logoUrl} onChange={(url) => update(["logoUrl"], url)} />}
-      {!editable && content.logoUrl && (
-        <div className="logo-slot-wrap">
-          <div className="logo-slot has-image">
-            <img src={content.logoUrl} alt="Business logo" />
-          </div>
-        </div>
-      )}
 
       <div className="thesis">
         <p>
@@ -902,34 +914,26 @@ function LogoSlot({ logoUrl, onChange }: { logoUrl: string | null; onChange: (ur
   }
 
   return (
-    <div className="logo-slot-wrap">
-      <div>
-        <label className={"logo-slot" + (logoUrl ? " has-image" : "")}>
-          {!logoUrl && (
-            <span className="logo-placeholder">
-              +<br />
-              Add logo
-            </span>
-          )}
-          {logoUrl && <img src={logoUrl} alt="Business logo" />}
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
-              e.target.value = "";
-            }}
-          />
-        </label>
-        {logoUrl && (
-          <div className="logo-remove" onClick={() => onChange(null)}>
-            Remove logo
-          </div>
-        )}
-      </div>
+    <div className="hero-logo-wrap">
+      <label className={"hero-logo" + (logoUrl ? " has-image" : " is-empty")}>
+        {logoUrl ? <img src={logoUrl} alt="Business logo" /> : <span className="hero-logo-hint">Add logo</span>}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFile(file);
+            e.target.value = "";
+          }}
+        />
+      </label>
+      {logoUrl && (
+        <button type="button" className="hero-logo-remove" onClick={() => onChange(null)}>
+          Remove
+        </button>
+      )}
     </div>
   );
 }

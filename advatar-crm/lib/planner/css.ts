@@ -121,47 +121,115 @@ export const PLANNER_CSS = `
    display:none — a display:none element can't be scrolled to. */
 .planner-doc .slate-stripes{height:0;width:100%;background:none;}
 .planner-doc .hero{
-  background:var(--hero-bg);color:var(--hero-fg);
-  padding:52px 24px 44px;
+  background:var(--panel-bg);color:var(--panel-fg);
+  padding:64px 24px 60px;
   position:relative;
   overflow:hidden;
-}
-.planner-doc .hero-inner{max-width:920px;margin:0 auto;position:relative;}
-.planner-doc .eyebrow-row{
-  display:flex;flex-wrap:wrap;gap:10px 22px;
-  font-family:var(--mono);font-size:11px;letter-spacing:.06em;
-  color:var(--panel-accent);margin-bottom:22px;text-transform:uppercase;
-}
-.planner-doc .eyebrow-row span b{color:var(--hero-fg);font-weight:700;}
-.planner-doc h1.brand{
-  font-family:var(--display);font-weight:400;
-  /* Was clamp(48px,10vw,96px) — 96px of display type above the fold
-     left no room for anything else on a laptop. */
-  font-size:clamp(38px,7vw,64px);line-height:.95;
-  letter-spacing:.01em;margin:0 0 10px;color:var(--hero-fg);
-}
-.planner-doc h1.brand em{font-style:normal;color:var(--panel-accent);}
-.planner-doc .hero-sub{
-  font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--panel-fg-dim);margin:0;
+  isolation:isolate;
 }
 
-/* The washes are the only tokens above that need a per-theme value:
-   everything else resolves through the app's own variables, which
-   already switch. Written in the three-state form the rest of this
-   codebase uses — system preference, then an explicit choice either
-   way — so the toggle wins in both directions. */
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]) .planner-doc{
-    --wash-1:rgba(245,245,243,0.05);
-    --wash-2:rgba(245,245,243,0.09);
-    --wash-edge:rgba(245,245,243,0.40);
-  }
+/* A warm glow off the top-right corner. The old hero was one flat
+   rectangle of #111, which at full width read as a gap in the page
+   rather than a title card. */
+.planner-doc .hero-glow{
+  position:absolute;top:-38%;right:-12%;width:62%;height:150%;
+  background:radial-gradient(closest-side, rgba(212,175,106,0.26), rgba(212,175,106,0) 70%);
+  pointer-events:none;z-index:-1;
 }
-:root[data-theme="dark"] .planner-doc{
-  --wash-1:rgba(245,245,243,0.05);
-  --wash-2:rgba(245,245,243,0.09);
-  --wash-edge:rgba(245,245,243,0.40);
+
+/* Fine vertical rules, like the edge of a film strip. Low enough to
+   read as texture rather than as lines you might try to align to. */
+.planner-doc .hero-rules{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,
+    rgba(245,245,243,0.075) 0 1px, transparent 1px 38px);
+  mask-image:linear-gradient(180deg, rgba(0,0,0,0.8), transparent 85%);
+  -webkit-mask-image:linear-gradient(180deg, rgba(0,0,0,0.8), transparent 85%);
+  pointer-events:none;z-index:-1;
+}
+
+.planner-doc .hero-inner{max-width:920px;margin:0 auto;position:relative;}
+
+/* Logo on the left, production meta on the right, on one line above
+   the title. */
+.planner-doc .hero-top{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:20px;flex-wrap:wrap;
+  min-height:48px;margin-bottom:38px;
+}
+
+.planner-doc .hero-logo-wrap{display:flex;align-items:center;gap:10px;}
+
+/* The logo sits on a faint plate rather than straight on the black:
+   most client logos are dark-on-transparent and would otherwise
+   vanish into the hero. */
+.planner-doc .hero-logo{
+  display:inline-flex;align-items:center;justify-content:center;
+  height:56px;min-width:112px;padding:8px 16px;
+  border-radius:12px;
+  background:rgba(245,245,243,0.92);
+  border:1px solid rgba(245,245,243,0.14);
+  overflow:hidden;
+}
+.planner-doc .hero-logo img{max-height:40px;max-width:190px;width:auto;display:block;object-fit:contain;}
+
+/* Empty, and only ever while editing: a modest outline in its final
+   position, not a page-width dashed panel below the hero. */
+.planner-doc label.hero-logo.is-empty{
+  background:rgba(245,245,243,0.04);
+  border:1px dashed rgba(212,175,106,0.55);
+  cursor:pointer;transition:border-color .15s, background-color .15s;
+}
+.planner-doc label.hero-logo.is-empty:hover{
+  border-color:var(--panel-accent);background:rgba(245,245,243,0.08);
+}
+.planner-doc .hero-logo-hint{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--panel-accent);
+}
+.planner-doc .hero-logo-remove{
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  background:none;border:none;padding:4px;cursor:pointer;
+  color:var(--panel-fg-dim);
+}
+.planner-doc .hero-logo-remove:hover{color:var(--panel-accent);}
+
+/* One quiet line, not a clapperboard strip. The labels sit dim and
+   the values bright, so it reads as data rather than decoration. */
+.planner-doc .hero-meta{
+  display:flex;flex-wrap:wrap;gap:6px 20px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:rgba(245,245,243,0.45);
+  text-align:right;
+}
+.planner-doc .hero-meta span{white-space:nowrap;}
+.planner-doc .hero-meta b{color:var(--panel-fg);font-weight:400;margin-left:6px;}
+
+.planner-doc h1.brand{
+  font-family:var(--display);font-weight:400;
+  font-size:clamp(44px,8.5vw,82px);line-height:.9;
+  letter-spacing:.005em;margin:0;color:var(--panel-fg);
+}
+.planner-doc h1.brand em{font-style:normal;color:var(--panel-accent);}
+
+/* A short gold rule between the name and what the document is. Does
+   the job the old eyebrow row was doing — separating the two — with
+   one line instead of four labels. */
+.planner-doc .hero-rule{
+  display:block;width:64px;height:3px;border-radius:2px;
+  background:var(--panel-accent);
+  margin:26px 0 20px;
+}
+
+.planner-doc .hero-sub{
+  font-family:var(--mono);font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--panel-fg-dim);margin:0;max-width:56ch;line-height:1.7;
+}
+
+@media (max-width:640px){
+  .planner-doc .hero{padding:40px 20px 42px;}
+  .planner-doc .hero-top{margin-bottom:28px;}
+  .planner-doc .hero-meta{text-align:left;}
 }
 
 /* ---------- THESIS ---------- */
@@ -328,29 +396,6 @@ export const PLANNER_CSS = `
 .planner-doc .toolbar .status{font-family:var(--mono);font-size:10px;color:var(--panel-fg-dim);padding-left:4px;white-space:nowrap;}
 @media (max-width:520px){
   .planner-doc .toolbar{left:12px;right:12px;bottom:12px;flex-wrap:wrap;justify-content:center;}
-}
-
-/* ---------- LOGO SLOT ---------- */
-.planner-doc .logo-slot-wrap{
-  max-width:760px;margin:40px auto 0;padding:0 24px;
-  display:flex;justify-content:center;
-}
-.planner-doc .logo-slot{
-  width:220px;height:120px;
-  border:1.5px dashed var(--line);border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;background:var(--card);position:relative;overflow:hidden;
-  transition:border-color .15s, background-color .15s;
-}
-.planner-doc .logo-slot:hover{border-color:var(--red);background-color:var(--wash-1);}
-.planner-doc .logo-slot .logo-placeholder{
-  text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);
-  text-transform:uppercase;letter-spacing:.05em;line-height:1.6;padding:0 12px;
-}
-.planner-doc .logo-slot img{max-width:100%;max-height:100%;object-fit:contain;display:block;}
-.planner-doc .logo-remove{
-  font-family:var(--mono);font-size:10px;color:var(--muted);
-  text-align:center;margin-top:8px;cursor:pointer;text-decoration:underline;
 }
 
 /* ---------- LINK LIST ---------- */

@@ -223,7 +223,7 @@ export const DEFAULT_PLANNER_CONTENT: PlannerContent = {
     director: "Rayyan",
     roll: "2 Years of Footage",
     brand: "ADVATAR.",
-    sub: "90-day production schedule — Instagram relaunch",
+    sub: "Content plan — the month ahead",
   },
 
   thesis: {
