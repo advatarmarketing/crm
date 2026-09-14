@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { SubmissionStatus, SubmissionVisibility } from "@/lib/supabase/types";
 import type { ClientChoice } from "./SchedulePanel";
-import { submitWorkAction, shareWithClientAction } from "@/app/app/my-work/actions";
+import { submitWorkAction, shareWithClientAction } from "@/app/app/uploads/actions";
 
 export interface SubmissionVersion {
   id: string;

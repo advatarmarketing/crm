@@ -33,6 +33,7 @@ export type NavIconName =
   | "payments"
   | "logins"
   | "work"
+  | "uploads"
   | "portfolio"
   | "portal"
   | "profile"
@@ -40,6 +41,14 @@ export type NavIconName =
   | "signout";
 
 const PATHS: Record<NavIconName, JSX.Element> = {
+  // A frame with an arrow rising out of it — handing a cut over,
+  // rather than the generic cloud that means "files" everywhere else.
+  uploads: (
+    <>
+      <rect x="3" y="4" width="18" height="13" rx="2" />
+      <path d="M12 14V8M9 10.5L12 7.5l3 3M8 21h8" />
+    </>
+  ),
   // Four panes — the shape of a summary screen.
   dashboard: (
     <>

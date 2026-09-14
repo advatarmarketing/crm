@@ -1,24 +1,28 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
-import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { StatTile } from "@/components/StatTile";
 import { EmptyState } from "@/components/EmptyState";
 import { loadSubmissions } from "@/lib/submissions";
-import type { ClientChoice } from "@/components/SchedulePanel";
 import { startOfToday, isPast } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The videographer's workspace: what they owe, when it's due, and the
- * work they've handed in for review.
+ * The videographer's workspace: what they owe and when it's due.
  *
- * Submissions are link-based rather than file uploads — Supabase
- * storage isn't built for video, and the finished cuts already live
- * in Drive or Frame.io. What this tracks is the review round: which
- * version is current, where it sits in the workflow, and what the
- * reviewer said about it.
+ * Handing work in used to happen here too. It moved to its own tab
+ * (/app/uploads) because a submission stopped being a link with a
+ * status: it now carries two comment threads, a checklist built from
+ * the feedback, and the footage it was cut from. That does not belong
+ * wedged between a deadline list and a to-do list, and squeezing it
+ * in was making both harder to read.
+ *
+ * The submission figures stay on this page as tiles — "what is with
+ * the reviewer" is genuinely part of what you owe — but each one is a
+ * link to the tab that can act on it rather than a panel that
+ * half-can.
  */
 export default async function MyWorkPage() {
   const supabase = createClient();
@@ -33,13 +37,12 @@ export default async function MyWorkPage() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [{ data: tasks }, { data: clients }, submissions] = await Promise.all([
+  const [{ data: tasks }, submissions] = await Promise.all([
     supabase
       .from("tasks")
       .select("id, text, due_date, done, client_id, assigned_to, clients(name)")
       .eq("assigned_to", user.id)
       .order("due_date", { nullsFirst: false }),
-    supabase.from("clients").select("id, name").order("name"),
     loadSubmissions(supabase, { createdBy: user.id }),
   ]);
 
@@ -84,13 +87,6 @@ export default async function MyWorkPage() {
   const awaitingReview = submissions.filter((s) => s.status === "submitted" || s.status === "in_review");
   const needsChanges = submissions.filter((s) => s.status === "changes_requested");
 
-  // Only clients this videographer is actually on — RLS has already
-  // narrowed this, so the dropdown can't offer someone else's client.
-  const clientChoices: ClientChoice[] = ((clients ?? []) as unknown as { id: string; name: string }[]).map((c) => ({
-    id: c.id,
-    name: c.name,
-  }));
-
   return (
     <main className="page">
       <h1 className="page-title page-title-accent">My Work</h1>
@@ -119,16 +115,17 @@ export default async function MyWorkPage() {
 
       <section className="section" style={{ maxWidth: 820 }}>
         <div className="section-head">
-          <h2 className="section-title">Video submissions</h2>
-          <p className="section-sub">Submitted → in review → changes requested → approved</p>
+          <h2 className="section-title">Uploads</h2>
+          <p className="section-sub">Cuts, feedback and the footage behind them</p>
         </div>
-        <SubmissionsPanel
-          initialSubmissions={submissions}
-          canSubmit
-          currentUserId={user.id}
-          clients={clientChoices}
-          emptyMessage="You haven't submitted any work yet."
-        />
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 12px", maxWidth: "60ch", lineHeight: 1.6 }}>
+          Handing work in, replying to feedback and working through the checklist all
+          live on the Uploads tab now — along with the raw footage for each client.
+        </p>
+        <Link href="/app/uploads" className="btn btn-primary" style={{ textDecoration: "none" }}>
+          Go to Uploads
+          {needsChanges.length > 0 ? ` — ${needsChanges.length} needing changes` : ""}
+        </Link>
       </section>
 
       <section className="section" style={{ maxWidth: 780 }}>

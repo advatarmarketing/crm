@@ -39,6 +39,7 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
     "/app/todo",
     "/app/my-calendar",
     "/app/my-work",
+    "/app/uploads",
     "/app/my-clients",
     "/app/tools",
     "/app/guidelines",
@@ -52,6 +53,9 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
   // the portal's own tab row, rather than on the shared /app/calendar
   // and /app/todo pages the team uses — so the prefix list is
   // unchanged and there is one way in rather than two.
+  // Uploads lives at /app/portal/uploads, inside the prefix they
+  // already have, so nothing is added here — one way in rather than
+  // two, same reasoning as Calendar and To-do in Phase 24.
   client: ["/app/portal", "/app/settings/password", "/app/settings/profile"],
 };
 

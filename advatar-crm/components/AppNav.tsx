@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { QuickSearch } from "@/components/QuickSearch";
 import { NotificationBell, type AppNotification } from "@/components/NotificationBell";
 import { NavIcon, type NavIconName } from "@/components/NavIcon";
+import { NavBadge } from "@/components/NavBadge";
 
 /**
  * Phase 7: the nav's content per role is a presentation choice layered
@@ -30,6 +31,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/calendar", label: "Calendar", icon: "calendar" },
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/clients", label: "Clients", icon: "clients" },
+    { href: "/app/uploads", label: "Uploads", icon: "uploads" },
     { href: "/app/videographers", label: "Videographers", icon: "videographers" },
     { href: "/app/leads", label: "Leads", icon: "leads" },
     { href: "/app/prospects", label: "Prospects", icon: "prospects" },
@@ -57,6 +59,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/calendar", label: "Calendar", icon: "calendar" },
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/clients", label: "Clients", icon: "clients" },
+    { href: "/app/uploads", label: "Uploads", icon: "uploads" },
     { href: "/app/videographers", label: "Videographers", icon: "videographers" },
     { href: "/app/leads", label: "Leads", icon: "leads" },
     { href: "/app/prospects", label: "Prospects", icon: "prospects" },
@@ -78,6 +81,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/calendar", label: "Calendar", icon: "calendar" },
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/clients", label: "Clients", icon: "clients" },
+    { href: "/app/uploads", label: "Uploads", icon: "uploads" },
     { href: "/app/leads", label: "Leads", icon: "leads" },
     { href: "/app/tools", label: "Tools", icon: "tools" },
     { href: "/app/messages", label: "Messages", icon: "messages" },
@@ -91,6 +95,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/calendar", label: "Calendar", icon: "calendar" },
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/my-work", label: "My Work", icon: "work" },
+    { href: "/app/uploads", label: "Uploads", icon: "uploads" },
     { href: "/app/my-clients", label: "My Clients", icon: "clients" },
     { href: "/app/tools", label: "Tools", icon: "tools" },
     { href: "/app/my-portfolio", label: "Portfolio", icon: "portfolio" },
@@ -268,7 +273,15 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
           edge instead of floating inside it.
 
           Still `.nav-links`, so it disappears under 900px exactly as
-          before and the burger takes over unchanged. */}
+          before and the burger takes over unchanged.
+
+          Every tab carries a NavBadge, not just Uploads. It counts
+          unread notifications pointing at that tab, so a tab with
+          nothing waiting renders nothing at all — which is why this
+          can be applied to the whole row rather than a hand-kept list
+          of "tabs that might have a number". Messages keeps its own
+          badge: it counts unread MESSAGES rather than notifications,
+          and has done since Phase 10. */}
       {role !== "client" && (
       <div
         className="nav-links"
@@ -307,7 +320,7 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
               }}
             >
               {link.label}
-              {link.href === "/app/messages" && <MessagesNavBadge />}
+              {link.href === "/app/messages" ? <MessagesNavBadge /> : <NavBadge prefix={link.href} />}
             </Link>
           );
         })}
@@ -330,7 +343,7 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
                   while the text changes around it. */}
               <NavIcon name={link.icon} />
               {link.label}
-              {link.href === "/app/messages" && <MessagesNavBadge />}
+              {link.href === "/app/messages" ? <MessagesNavBadge /> : <NavBadge prefix={link.href} />}
             </Link>
           ))}
 
