@@ -198,7 +198,7 @@ split as (
 )
 select shape,
        (select count(*) from unnest(parts) p
-        where length(btrim(regexp_replace(p, '^\s*([-*•–]|\d+[.)])\s*', ''))) >= 3) as items
+        where length(btrim(regexp_replace(p, '^\s*([-*' || chr(8226) || chr(8211) || ']|\d+[.)])\s*', ''))) >= 3) as items
 from split;
 
 -- Every policy now on the new tables, for eyeballing.

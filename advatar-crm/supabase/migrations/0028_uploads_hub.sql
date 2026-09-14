@@ -328,7 +328,17 @@ begin
 
   foreach chunk in array parts loop
     -- Strip a leading bullet, dash, or "1." numbering.
-    cleaned := btrim(regexp_replace(chunk, '^\s*([-*•–]|\d+[.)])\s*', ''));
+    cleaned := btrim(regexp_replace(
+      chunk,
+      -- Built with chr() rather than written literally so this file
+      -- stays pure ASCII. A migration is copied through clipboards,
+      -- chat windows and the Supabase editor before it ever reaches
+      -- Postgres, and a bullet or a curly quote is exactly the sort of
+      -- character one of those quietly rewrites. chr(8226) is a
+      -- bullet, chr(8211) an en dash.
+      '^\s*([-*' || chr(8226) || chr(8211) || ']|\d+[.)])\s*',
+      ''
+    ));
 
     -- One- and two-character leftovers are punctuation, not tasks.
     if length(cleaned) < 3 then
@@ -594,7 +604,7 @@ begin
         then 'New upload: ' || parent.title
         else 'New cut (v' || new.version || '): ' || parent.title
       end,
-      concat_ws(' · ', client_name, 'ready to review'),
+      concat_ws(' ' || chr(183) || ' ', client_name, 'ready to review'),
       '/app/uploads'
     );
   end loop;
@@ -642,7 +652,7 @@ begin
   select name into client_name from public.clients where id = parent.client_id;
 
   preview := case
-    when length(new.body) > 90 then left(new.body, 87) || '…'
+    when length(new.body) > 90 then left(new.body, 87) || '...'
     else new.body
   end;
 
@@ -668,7 +678,7 @@ begin
         recipient,
         'upload_client_feedback',
         'Client comment on ' || parent.title,
-        concat_ws(' · ', client_name, preview),
+        concat_ws(' ' || chr(183) || ' ', client_name, preview),
         '/app/uploads'
       );
     end loop;
@@ -717,7 +727,7 @@ begin
       recipient,
       'upload_shared',
       'New video ready to watch',
-      '“' || new.title || '” is on your Uploads tab.',
+      '"' || new.title || '" is on your Uploads tab.',
       '/app/portal/uploads'
     );
   end loop;
