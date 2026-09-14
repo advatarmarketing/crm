@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, emailIsConfigured } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +12,10 @@ export const dynamic = "force-dynamic";
  * send email — Postgres has no outbound mail. So the triggers mark a
  * row `email_pending` and this route drains the queue.
  *
- * Call it on a schedule. Two ways, either is fine:
- *
- *   - Vercel Cron. Add to vercel.json:
- *       { "crons": [{ "path": "/api/notifications/flush",
- *                     "schedule": "*\/10 * * * *" }] }
- *   - Supabase Database Webhook on `notifications` INSERT pointing
- *     here, for near-instant delivery.
+ * Called on a schedule by Vercel Cron — see vercel.json, which runs
+ * it every fifteen minutes. A Supabase Database Webhook on
+ * `notifications` INSERT pointing here would deliver in near real
+ * time instead, if that ever matters more than it does today.
  *
  * Protected by NOTIFICATIONS_CRON_SECRET when that is set. Vercel Cron
  * sends its own Authorization header, which is accepted too. With no
@@ -86,7 +84,10 @@ export async function POST(request: Request) {
       .filter(([, email]) => !!email)
   );
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  // Null when nothing knows this deployment's address. The button is
+  // then left off rather than pointing at "/app/uploads", which in an
+  // inbox is a dead link that looks like a working one.
+  const base = siteUrl();
 
   let sent = 0;
   const failures: string[] = [];
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
       to,
       subject: row.title,
       text: row.body ?? row.title,
-      actionUrl: row.href ? `${base}${row.href}` : undefined,
+      actionUrl: base && row.href ? `${base}${row.href}` : undefined,
       actionLabel: "Open in the CRM",
     });
 
