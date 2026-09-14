@@ -13,8 +13,30 @@ export interface EditableProfile {
   phone: string | null;
   avatar_url: string | null;
   role: string;
+  /** The login address. Read-only here — changing it changes how they sign in. */
   email?: string | null;
+  /** Where notifications are emailed. Blank falls back to the login address. */
+  notify_email?: string | null;
 }
+
+/**
+ * What email actually arrives, per role.
+ *
+ * Written out because "you'll get notifications" tells somebody
+ * nothing about whether to bother filling the field in. Each of these
+ * corresponds to a database trigger, not to an intention: the CEO's
+ * two lines are notify_new_version and notify_feedback (0028, 0030),
+ * the client's is the share plus a re-cut, the videographer's is any
+ * feedback on their own work.
+ */
+const EMAIL_PROMISE: Record<string, string> = {
+  ceo: "You'll be emailed when a videographer uploads a cut, and when a client comments on one.",
+  operations_manager:
+    "You'll be emailed when a videographer uploads a cut on one of your clients, and when that client comments on one.",
+  staff: "You'll be emailed about the clients you're assigned to — new cuts and client comments.",
+  videographer: "You'll be emailed whenever feedback lands on one of your videos.",
+  client: "You'll be emailed whenever a new video is ready for you to watch.",
+};
 
 /**
  * Name, phone and photo for one person.
@@ -40,6 +62,7 @@ export function ProfilePanel({
 }) {
   const [name, setName] = useState(profile.full_name ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
+  const [notifyEmail, setNotifyEmail] = useState(profile.notify_email ?? "");
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -50,7 +73,9 @@ export function ProfilePanel({
   const router = useRouter();
 
   const dirty =
-    name.trim() !== (profile.full_name ?? "").trim() || phone.trim() !== (profile.phone ?? "").trim();
+    name.trim() !== (profile.full_name ?? "").trim() ||
+    phone.trim() !== (profile.phone ?? "").trim() ||
+    notifyEmail.trim() !== (profile.notify_email ?? "").trim();
 
   function resizeToSquareJpeg(file: File): Promise<Blob> {
     return new Promise((resolve, reject) => {
@@ -127,13 +152,26 @@ export function ProfilePanel({
       return;
     }
 
+    // Checked here so a typo gets a sentence rather than a constraint
+    // violation. The database has the same rule (0030) and is what
+    // actually holds the line.
+    const mail = notifyEmail.trim();
+    if (mail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) {
+      setError("That doesn't look like an email address. Leave it blank to use the login address instead.");
+      return;
+    }
+
     setBusy(true);
     setError(null);
     setSaved(false);
 
     const { error: saveError } = await supabase
       .from("profiles")
-      .update({ full_name: trimmed, phone: phone.trim() || null })
+      .update({
+        full_name: trimmed,
+        phone: phone.trim() || null,
+        notify_email: mail || null,
+      })
       .eq("id", profile.id);
 
     setBusy(false);
@@ -215,9 +253,40 @@ export function ProfilePanel({
           />
         </label>
 
+        <label style={{ display: "block", marginBottom: 8 }}>
+          <span style={labelStyle}>Email for notifications</span>
+          <input
+            value={notifyEmail}
+            onChange={(e) => setNotifyEmail(e.target.value)}
+            disabled={!canEdit}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder={profile.email ?? "you@example.com"}
+            style={fieldStyle}
+          />
+        </label>
+
+        <p
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 12.5,
+            color: "var(--text-2)",
+            lineHeight: 1.55,
+            margin: "0 0 16px",
+          }}
+        >
+          {EMAIL_PROMISE[profile.role] ?? "You'll be emailed when something needs you."}{" "}
+          {/* Said plainly, because the two addresses look the same and
+              people reasonably assume changing one changes the other. */}
+          Leave it blank and we&rsquo;ll use the sign-in address
+          {profile.email ? ` (${profile.email})` : ""}. Changing this never changes how
+          you sign in.
+        </p>
+
         {profile.email && (
           <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)", margin: "0 0 16px" }}>
-            {profile.email} · {profile.role.replace(/_/g, " ")}
+            Signs in as {profile.email} · {profile.role.replace(/_/g, " ")}
           </p>
         )}
 

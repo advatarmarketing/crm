@@ -64,10 +64,27 @@ export async function POST(request: Request) {
 
   if (rows.length === 0) return NextResponse.json({ sent: 0 });
 
-  // One page of users covers any realistic team; emails live on
+  // Where to write to somebody, in order of preference:
+  //
+  //   1. profiles.notify_email — what they (or management on their
+  //      behalf) asked for. A login is often a shared or made-up
+  //      address; this is the one a person actually reads.
+  //   2. their login address, so email works with nothing filled in.
+  //
+  // One page of users covers any realistic team. Login emails live on
   // auth.users, which only the service-role client can read.
-  const { data: authUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const emailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? null]));
+  const [{ data: authUsers }, { data: profiles }] = await Promise.all([
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    admin.from("profiles").select("id, notify_email"),
+  ]);
+
+  const loginEmailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? null]));
+
+  const preferredById = new Map(
+    ((profiles ?? []) as { id: string; notify_email: string | null }[])
+      .map((p) => [p.id, p.notify_email?.trim() || null] as const)
+      .filter(([, email]) => !!email)
+  );
 
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -75,7 +92,7 @@ export async function POST(request: Request) {
   const failures: string[] = [];
 
   for (const row of rows) {
-    const to = emailById.get(row.user_id);
+    const to = preferredById.get(row.user_id) ?? loginEmailById.get(row.user_id);
 
     // No address, nothing to send — clear the flag so it is not
     // retried forever.

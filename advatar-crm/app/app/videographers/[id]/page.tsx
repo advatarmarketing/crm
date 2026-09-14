@@ -11,6 +11,7 @@ import { loadSubmissions } from "@/lib/submissions";
 import type { ProfileRole } from "@/lib/supabase/types";
 import { displayName } from "@/lib/names";
 import { ProfilePanel, type EditableProfile } from "@/components/ProfilePanel";
+import { loadProfileField } from "@/lib/profile-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,11 @@ export default async function VideographerDetailPage({ params }: { params: { id:
   // turn this whole page into a 404 — which is exactly what selecting
   // it alongside the columns above used to do. See lib/availability.ts.
   const availability = await loadAvailability(supabase, params.id);
+
+  // Same treatment, same reason: a CEO or operations manager filling
+  // in somebody's notification address must not be able to take this
+  // page down on a database still waiting for 0030.
+  const notifyEmail = await loadProfileField(supabase, params.id, "notify_email");
 
   const [
     { data: events },
@@ -181,7 +187,9 @@ export default async function VideographerDetailPage({ params }: { params: { id:
           <h2 className="section-title">Details</h2>
           <p className="section-sub">Name, phone and photo</p>
         </div>
-        <ProfilePanel profile={videographer as unknown as EditableProfile} />
+        <ProfilePanel
+          profile={{ ...(videographer as unknown as EditableProfile), notify_email: notifyEmail.value }}
+        />
       </section>
 
       {/* Prompt 9: what they've written about their own availability,

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProfilePanel, type EditableProfile } from "@/components/ProfilePanel";
+import { loadProfileField } from "@/lib/profile-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +30,16 @@ export default async function MyProfilePage() {
 
   if (!profile) redirect("/login");
 
+  // Fetched on its own, never alongside the columns above: this page
+  // must still load on a database where 0030 has not been run, and
+  // PostgREST fails a whole query over one unknown column. See
+  // lib/profile-fields.ts.
+  const notify = await loadProfileField(supabase, user.id, "notify_email");
+
   const editable: EditableProfile = {
-    ...(profile as unknown as Omit<EditableProfile, "email">),
+    ...(profile as unknown as Omit<EditableProfile, "email" | "notify_email">),
     email: user.email ?? null,
+    notify_email: notify.value,
   };
 
   return (
@@ -40,6 +48,8 @@ export default async function MyProfilePage() {
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 32px", lineHeight: 1.6 }}>
         Your name is what everyone else in the CRM sees you as — on client
         pages, in assignments and in chat. Your photo shows in the same places.
+        The notification address is where the CRM emails you; it is separate
+        from the address you sign in with.
       </p>
 
       <ProfilePanel profile={editable} />
