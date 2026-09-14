@@ -978,3 +978,104 @@ textarea:focus-visible {
     width: 100%;
   }
 }
+
+/* ---------------------------------------------------------------
+   Uploads: the collapsed row
+   ---------------------------------------------------------------
+   The Uploads tab is a list that gets long — a busy month is dozens
+   of cuts across every client. So a video is a single row until you
+   open it, and everything about that row is sized for scanning a
+   column of forty rather than reading one.
+
+   A button rather than a div with an onClick: it is a real control,
+   so it gets keyboard focus, Enter and Space, and a focus ring, all
+   without a line of JavaScript. */
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background 0.15s ease;
+}
+
+.upload-row:hover {
+  background: var(--surface-2);
+}
+
+.upload-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* The chevron turns instead of being swapped for a second glyph, so
+   the row reads as opening rather than as changing into something
+   else. */
+.upload-chevron {
+  flex-shrink: 0;
+  color: var(--text-3);
+  transition: transform 0.18s ease;
+}
+
+.upload-row[aria-expanded="true"] .upload-chevron {
+  transform: rotate(90deg);
+}
+
+.upload-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.upload-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* On a phone the row becomes two lines rather than one squashed one:
+   title and meta across the full width, badges underneath, chevron
+   keeping its own column so both lines stay aligned to it.
+   
+   Flex-wrap was tried first and was worse than no change at all — the
+   title block collapsed to nothing and the meta line broke one word
+   per row. A grid is the right tool because the second line needs to
+   start where the first line's text starts, not where the chevron
+   does, and only a grid can say that. */
+@media (max-width: 640px) {
+  .upload-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "chevron main"
+      ".       badges";
+    gap: 8px 10px;
+    align-items: start;
+  }
+
+  .upload-chevron {
+    grid-area: chevron;
+    margin-top: 3px;
+  }
+
+  .upload-main {
+    grid-area: main;
+  }
+
+  .upload-badges {
+    grid-area: badges;
+    flex-wrap: wrap;
+  }
+
+  /* There is room for the whole title once it has a line to itself. */
+  .upload-title {
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+}

@@ -12,6 +12,7 @@ import { submitWorkAction } from "@/app/app/uploads/actions";
 import { field, subheading, meta, errorText } from "./styles";
 
 type SubTab = "videos" | "assets";
+type StatusFilter = "all" | "open" | "changes" | "approved";
 
 /**
  * The Uploads tab, for whichever login is looking at it.
@@ -75,6 +76,34 @@ export function UploadsWorkspace({
   const waiting = uploads.filter((u) => u.status === "submitted" || u.status === "in_review").length;
   const needsChanges = uploads.filter((u) => u.status === "changes_requested").length;
   const openItems = uploads.reduce((n, u) => n + u.checklist.filter((c) => !c.done).length, 0);
+
+  // Narrowing the list, for when there are more videos than fit on a
+  // screen. Held here rather than in the URL: it is a way of looking
+  // at the page, not a place, and putting it in the address bar would
+  // mean every filter change pushed a history entry to back out of.
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [clientFilter, setClientFilter] = useState("");
+
+  const visible = uploads.filter((u) => {
+    if (statusFilter === "open" && !(u.status === "submitted" || u.status === "in_review")) return false;
+    if (statusFilter === "changes" && u.status !== "changes_requested") return false;
+    if (statusFilter === "approved" && u.status !== "approved") return false;
+    if (clientFilter && u.client_id !== clientFilter) return false;
+
+    if (query.trim()) {
+      // Title and client, because those are the two things anybody
+      // actually remembers about a cut they are looking for.
+      const haystack = `${u.title} ${u.clientName ?? ""} ${u.personName ?? ""}`.toLowerCase();
+      if (!haystack.includes(query.trim().toLowerCase())) return false;
+    }
+
+    return true;
+  });
+
+  // Below this there is nothing to narrow, and a filter bar over four
+  // rows is furniture that makes the page look busier than it is.
+  const showFilters = uploads.length > 5;
 
   return (
     <div>
@@ -146,6 +175,73 @@ export function UploadsWorkspace({
             </p>
           )}
 
+          {showFilters && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by title or client"
+                aria-label="Search uploads"
+                style={{ ...field, flex: "1 1 200px", maxWidth: 280 }}
+              />
+
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {(
+                  [
+                    { id: "all" as const, label: "All" },
+                    { id: "open" as const, label: "Awaiting review" },
+                    { id: "changes" as const, label: "Changes" },
+                    { id: "approved" as const, label: "Approved" },
+                  ]
+                ).map((chip) => {
+                  const on = statusFilter === chip.id;
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => setStatusFilter(chip.id)}
+                      aria-pressed={on}
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 10.5,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        padding: "7px 11px",
+                        borderRadius: "var(--radius-pill)",
+                        border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+                        background: on ? "var(--accent)" : "var(--surface)",
+                        color: on ? "var(--text-on-accent)" : "var(--text-3)",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Only when there is more than one client to choose
+                  between — on a videographer with two, this is a
+                  dropdown with nothing to decide. */}
+              {!isClient && clients.length > 2 && (
+                <select
+                  value={clientFilter}
+                  onChange={(e) => setClientFilter(e.target.value)}
+                  aria-label="Show one client's videos"
+                  style={{ ...field, maxWidth: 200 }}
+                >
+                  <option value="">All clients</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           {uploadsProblem ? (
             <p
               style={{
@@ -173,22 +269,34 @@ export function UploadsWorkspace({
                     : "Videos appear here as soon as a videographer uploads them."
               }
             />
+          ) : visible.length === 0 ? (
+            <EmptyState
+              title="Nothing matches"
+              body="No video here fits that search and those filters. Clear them to see everything again."
+              compact
+            />
           ) : (
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-              {uploads.map((upload) => (
-                <UploadCard
-                  key={upload.id}
-                  upload={upload}
-                  abilities={abilities}
-                  currentUserId={currentUserId}
-                  showPerson={canReview}
-                  // The one card worth opening on arrival: a single
-                  // video is not a list, and making somebody click
-                  // "details" on it is a click for its own sake.
-                  defaultOpen={uploads.length === 1}
-                />
-              ))}
-            </ul>
+            <>
+              {visible.length !== uploads.length && (
+                <p style={{ ...meta, margin: "0 0 10px" }}>
+                  Showing {visible.length} of {uploads.length}
+                </p>
+              )}
+              {/* A tighter gap than a card list would use: these are
+                  rows, and rows read as a list when they sit close
+                  together. Every one starts shut. */}
+              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                {visible.map((upload) => (
+                  <UploadCard
+                    key={upload.id}
+                    upload={upload}
+                    abilities={abilities}
+                    currentUserId={currentUserId}
+                    showPerson={canReview}
+                  />
+                ))}
+              </ul>
+            </>
           )}
 
           {canSubmit && (
