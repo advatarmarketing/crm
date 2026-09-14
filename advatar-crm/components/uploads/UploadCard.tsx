@@ -20,12 +20,24 @@ import {
 } from "./styles";
 
 export interface UploadAbilities {
-  /** Move the status on, leave internal notes, share with the client. */
+  /** Move the status on, leave feedback, share with the client. */
   canReview: boolean;
-  /** Add a new cut and tick the checklist — the videographer who made it. */
+  /** Add a new cut and work the checklist — the videographer who made it. */
   canSubmit: boolean;
-  /** Read and write the client-facing thread. */
-  canTalkToClient: boolean;
+  /**
+   * Write in the client-facing thread: a reviewer, or the client.
+   *
+   * NOT the videographer. Feedback on a video comes from the people
+   * reviewing it and from the client; the videographer reads it and
+   * answers it by re-cutting, which is what the checklist is for.
+   * The boundary is `submission_feedback`'s policies (0020, 0029),
+   * not this flag — a videographer's session has no insert policy
+   * there at all, so a composer shown to them by mistake would fail
+   * rather than post.
+   */
+  canCommentToClient: boolean;
+  /** Write in the internal review thread: reviewers only. */
+  canCommentInternal: boolean;
   /** A client login: one thread, no internal anything. */
   isClient: boolean;
 }
@@ -387,7 +399,7 @@ export function UploadCard({
           {/* The client-facing thread. The videographer is in it too:
               a question about a client's note is best answered by the
               person who shot it. */}
-          {(abilities.canTalkToClient || clientNotes.length > 0) && (
+          {(abilities.canCommentToClient || clientNotes.length > 0) && (
             <FeedbackThread
               submissionId={upload.id}
               clientId={upload.client_id}
@@ -395,12 +407,14 @@ export function UploadCard({
               audience="client"
               notes={clientNotes}
               currentUserId={currentUserId}
-              canPost={abilities.canTalkToClient}
+              canPost={abilities.canCommentToClient}
               title={abilities.isClient ? "Your comments" : "With the client"}
               hint={
                 abilities.isClient
                   ? "Your team sees these. Add a time or a screenshot if it's about one moment."
-                  : "The client can read this thread."
+                  : abilities.canCommentToClient
+                    ? "The client can read this thread."
+                    : "What the client said about this cut."
               }
               placeholder={abilities.isClient ? "What would you like changed?" : "Reply to the client…"}
             />
@@ -417,9 +431,13 @@ export function UploadCard({
               audience="team"
               notes={teamNotes}
               currentUserId={currentUserId}
-              canPost={abilities.canReview || abilities.canSubmit}
+              canPost={abilities.canCommentInternal}
               title="Internal review"
-              hint="The client cannot see this."
+              hint={
+                abilities.canCommentInternal
+                  ? "The client cannot see this."
+                  : "What the team said about this cut. The client cannot see it."
+              }
               placeholder={`Note on v${upload.current_version}…`}
             />
           )}

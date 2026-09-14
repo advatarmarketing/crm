@@ -22,7 +22,8 @@ type StatusFilter = "all" | "open" | "changes" | "approved";
  * material it was made from. What changes per role is who may do what,
  * and that is a handful of booleans rather than a different screen:
  *
- *   videographer        uploads cuts, replies, works the checklist
+ *   videographer        uploads cuts, reads the feedback, works the
+ *                       checklist — but does not write feedback
  *   operations manager  reviews, comments, shares with the client
  *   CEO                 the same, across every client
  *   staff               the same, on the clients they're assigned
@@ -33,9 +34,9 @@ type StatusFilter = "all" | "open" | "changes" | "approved";
  * ended up living in three places before this.
  *
  * Every one of these booleans is presentation only. The enforcement is
- * in Postgres (0020, 0024, 0028): a client's session cannot read a
- * team-audience note, and a videographer's cannot approve their own
- * work, whatever this component renders.
+ * in Postgres (0020, 0024, 0028, 0029): a client's session cannot read
+ * a team-audience note, a videographer's cannot approve their own work
+ * and cannot write feedback at all, whatever this component renders.
  */
 export function UploadsWorkspace({
   role,
@@ -65,11 +66,14 @@ export function UploadsWorkspace({
   const abilities: UploadAbilities = {
     canReview,
     canSubmit,
-    // Everyone who isn't a bystander can speak to the client: the
-    // reviewer because they own the relationship, the videographer
-    // because a question about a note is best answered by whoever
-    // shot it, the client because it's their video.
-    canTalkToClient: canReview || canSubmit || isClient,
+    // Feedback comes from the people reviewing the work and from the
+    // client. A videographer reads both threads and answers by
+    // re-cutting — the checklist is where they act, not the comment
+    // box. An earlier version let them reply here too, which put a
+    // composer in front of the one role whose database policies
+    // refuse the insert (0029).
+    canCommentToClient: canReview || isClient,
+    canCommentInternal: canReview,
     isClient,
   };
 
