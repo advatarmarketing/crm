@@ -5,6 +5,7 @@ import { PlannerDocument } from "@/components/PlannerDocument";
 import { DocumentsList } from "@/components/DocumentsList";
 import { BrandKitPanel, emptyBrandKit, type BrandKit } from "@/components/BrandKitPanel";
 import { ClientTeamThread, type TeamMessage } from "@/components/ClientTeamThread";
+import { loadNamesById } from "@/lib/people";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [client, documents, thread, brandKit, teamMessages, people] = await Promise.all([
+  const [client, documents, thread, brandKit, teamMessages, nameById] = await Promise.all([
     settle<{ id: string; name: string; service: string | null; next_action: string | null }>(
       supabase.from("clients").select("id, name, service, next_action").eq("id", params.id).maybeSingle()
     ),
@@ -57,7 +58,10 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         .eq("client_id", params.id)
         .order("created_at", { ascending: true })
     ),
-    settle<{ id: string; full_name: string | null }[]>(supabase.from("profiles").select("id, full_name")),
+    // team_directory, not profiles: a videographer cannot read
+    // anybody else's profile row, so every message in this thread
+    // used to be from "Someone". See lib/people.ts.
+    loadNamesById(supabase),
   ]);
 
   // Missing here means either the client doesn't exist, or (far more
@@ -81,8 +85,6 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
           .order("created_at", { ascending: true })
       )).data
     : null;
-
-  const nameById = new Map((people.data ?? []).map((p) => [p.id, p.full_name?.trim() || null]));
 
   const teamThread: TeamMessage[] = (teamMessages.data ?? []).map((m) => ({
     ...m,

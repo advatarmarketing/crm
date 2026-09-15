@@ -1,4 +1,5 @@
 import type { SubmissionStatus, SubmissionVisibility } from "@/lib/supabase/types";
+import { loadNamesById } from "@/lib/people";
 
 /**
  * Structural rather than `SupabaseClient<Database>`, for the same
@@ -124,7 +125,7 @@ export async function loadUploads(
 
   const ids = parents.map((s) => s.id);
 
-  const [versions, feedback, checklist, people, clients] = await Promise.all([
+  const [versions, feedback, checklist, nameById, clients] = await Promise.all([
     settle(
       supabase
         .from("submission_versions")
@@ -146,13 +147,14 @@ export async function loadUploads(
         .in("submission_id", ids)
         .order("created_at", { ascending: true })
     ),
-    settle(supabase.from("profiles").select("id, full_name")),
+    // Names come from team_directory, not profiles: a client reading
+    // the replies on their own video cannot select from profiles at
+    // all, and every one of those replies used to render as
+    // "Someone". See lib/people.ts.
+    loadNamesById(supabase),
     settle(supabase.from("clients").select("id, name")),
   ]);
 
-  const nameById = new Map(
-    ((people ?? []) as { id: string; full_name: string | null }[]).map((p) => [p.id, p.full_name?.trim() || null])
-  );
   const clientNameById = new Map(((clients ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]));
 
   const versionsBySubmission = groupBy(
@@ -263,14 +265,15 @@ export async function loadAssets(
 
   if (rows.length === 0) return { assets: [], problem: null };
 
-  const [people, clients] = await Promise.all([
-    settle(supabase.from("profiles").select("id, full_name")),
+  const [nameById, clients] = await Promise.all([
+    // Names come from team_directory, not profiles: a client reading
+    // the replies on their own video cannot select from profiles at
+    // all, and every one of those replies used to render as
+    // "Someone". See lib/people.ts.
+    loadNamesById(supabase),
     settle(supabase.from("clients").select("id, name")),
   ]);
 
-  const nameById = new Map(
-    ((people ?? []) as { id: string; full_name: string | null }[]).map((p) => [p.id, p.full_name?.trim() || null])
-  );
   const clientNameById = new Map(((clients ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]));
 
   const paths = rows.map((a) => a.storage_path).filter((p): p is string => !!p);

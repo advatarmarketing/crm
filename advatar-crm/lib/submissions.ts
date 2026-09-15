@@ -1,4 +1,5 @@
 import type { SubmissionEntry, SubmissionVersion, SubmissionFeedback } from "@/components/SubmissionsPanel";
+import { loadNamesById } from "@/lib/people";
 
 /**
  * Structural, rather than `SupabaseClient<Database>`.
@@ -44,7 +45,7 @@ export async function loadSubmissions(
 
   const ids = submissions.map((s) => s.id);
 
-  const [{ data: versions }, { data: feedback }, { data: people }, { data: clients }] = await Promise.all([
+  const [{ data: versions }, { data: feedback }, nameById, { data: clients }] = await Promise.all([
     supabase
       .from("submission_versions")
       .select("id, submission_id, version, url, notes, created_at")
@@ -55,16 +56,11 @@ export async function loadSubmissions(
       .select("id, submission_id, version, body, author_id, created_at")
       .in("submission_id", ids)
       .order("created_at", { ascending: false }),
-    supabase.from("profiles").select("id, full_name"),
+    // team_directory, not profiles — a videographer cannot read
+    // anybody else's profile row. See lib/people.ts.
+    loadNamesById(supabase),
     supabase.from("clients").select("id, name"),
   ]);
-
-  const nameById = new Map(
-    ((people ?? []) as unknown as { id: string; full_name: string | null }[]).map((p) => [
-      p.id,
-      p.full_name?.trim() || null,
-    ])
-  );
   const clientNameById = new Map(
     ((clients ?? []) as unknown as { id: string; name: string }[]).map((c) => [c.id, c.name])
   );

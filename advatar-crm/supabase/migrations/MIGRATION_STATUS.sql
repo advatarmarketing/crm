@@ -15,4 +15,5 @@ select thing, case when ok then 'DONE' else 'NOT RUN' end as state from (
     exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='can_manage_client')
   union all select '0030 notification email',
     exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='notify_email')
+  union all select '0031 team directory (names)', to_regclass('public.team_directory') is not null
 ) rows order by thing;
