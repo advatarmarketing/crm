@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/notifications/flush",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChatShell, type ChatThreadSeed } from "@/components/ChatShell";
-import { MessagesTabs, type MessagesTab } from "@/components/MessagesTabs";
+import { SectionTabs, type SectionTab } from "@/components/SectionTabs";
 import { WorkChat } from "@/components/WorkChat";
 import { TeamDirectMessages, type Teammate } from "@/components/TeamDirectMessages";
 import { ClientThreadPicker, type PickableClient } from "@/components/ClientThreadPicker";
 import { TeamChannel, type ChannelMessage } from "@/components/TeamChannel";
 import { displayName } from "@/lib/names";
+import { loadTeamDirectory } from "@/lib/people";
 
 export const dynamic = "force-dynamic";
 
@@ -93,16 +94,20 @@ export default async function MessagesPage() {
   });
 
   // ---------------- team messaging ----------------
-  // Everyone on the team except the viewer. `profiles` RLS already
-  // limits this to people this role may see; clients are excluded
-  // here and, more importantly, by direct_messages' own policies.
-  const [{ data: people }, { data: unreadDms }, { data: channel }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name, role")
-      .in("role", ["ceo", "operations_manager", "staff", "videographer"])
-      .neq("id", user.id)
-      .order("full_name", { nullsFirst: false }),
+  // Everyone on the team, from team_directory (0031) rather than
+  // `profiles`.
+  //
+  // This is what "The Crew" was reported broken over: `profiles` is
+  // readable by the CEO, staff and the operations manager and nobody
+  // else, so a VIDEOGRAPHER resolved no names at all and every
+  // message in their own channel rendered as "Someone". The view
+  // carries names, roles and photos and leaves phone numbers and
+  // notification addresses behind. See lib/people.ts.
+  //
+  // Clients are excluded by the view itself, and more importantly by
+  // direct_messages' own policies.
+  const [directory, { data: unreadDms }, { data: channel }] = await Promise.all([
+    loadTeamDirectory(supabase),
     supabase.from("direct_messages").select("sender_id").eq("recipient_id", user.id).eq("read", false),
     supabase
       .from("team_channel_messages")
@@ -117,11 +122,13 @@ export default async function MessagesPage() {
     unreadBySender.set(row.sender_id, (unreadBySender.get(row.sender_id) ?? 0) + 1);
   }
 
-  const teammates: Teammate[] = ((people ?? []) as unknown as {
-    id: string;
-    full_name: string | null;
-    role: string;
-  }[]).map((p) => ({
+  // Sorted here rather than in the query, because the view is read
+  // through a helper that does not take an order.
+  const people = directory
+    .filter((p) => p.id !== user.id)
+    .sort((a, b) => (a.full_name ?? "zzz").localeCompare(b.full_name ?? "zzz"));
+
+  const teammates: Teammate[] = people.map((p) => ({
     id: p.id,
     name: displayName(p.full_name),
     role: p.role,
@@ -131,7 +138,7 @@ export default async function MessagesPage() {
   const teamUnread = teammates.reduce((sum, t) => sum + t.unread, 0);
 
   const nameById: Record<string, string | null> = {};
-  for (const p of ((people ?? []) as unknown as { id: string; full_name: string | null }[])) {
+  for (const p of people) {
     nameById[p.id] = p.full_name?.trim() || null;
   }
   nameById[user.id] = "You";
@@ -158,7 +165,7 @@ export default async function MessagesPage() {
   // videographers wouldn't be an admin tab.
   const adminContacts = teammates.filter((t) => t.role !== "videographer");
 
-  const tabs: MessagesTab[] = isVideographer
+  const tabs: SectionTab[] = isVideographer
     ? [
         {
           key: "work",
@@ -236,7 +243,7 @@ export default async function MessagesPage() {
       <h1 className="page-title page-title-accent" style={{ marginBottom: 20 }}>
         Messages
       </h1>
-      <MessagesTabs tabs={tabs} />
+      <SectionTabs tabs={tabs} />
     </main>
   );
 }

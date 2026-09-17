@@ -23,16 +23,29 @@ type QueryableClient = { from: (table: string) => any };
 export async function loadSopsWithChecklists(
   supabase: QueryableClient,
   userId: string,
-  audienceRole: string
+  /**
+   * The audience to read, or null for the whole library.
+   *
+   * Null is for management on the Tools page: they are maintaining the
+   * library rather than reading their own slice of it, so hiding the
+   * videographer set from them would make it uneditable. RLS decides
+   * whether that's allowed either way.
+   */
+  audienceRole: string | null
 ): Promise<SopWithChecklist[]> {
   // RLS on `resources` (0018) already limits this to what the caller
   // may see; the audience filter narrows it to the tab being viewed.
-  const { data: resourceRows } = await supabase
+  let query = supabase
     .from("resources")
     .select("id, title, kind, url, body, audience_role, assigned_to")
-    .in("audience_role", [audienceRole, "all"])
     .order("position");
+
+  if (audienceRole) {
+    query = query.in("audience_role", [audienceRole, "all"]);
+  }
   // No `assigned_to` filter: the library is shared (0023).
+
+  const { data: resourceRows } = await query;
 
   const sops = (resourceRows ?? []) as {
     id: string;
@@ -40,6 +53,7 @@ export async function loadSopsWithChecklists(
     kind: string;
     url: string | null;
     body: string | null;
+    audience_role: string;
   }[];
 
   if (sops.length === 0) return [];

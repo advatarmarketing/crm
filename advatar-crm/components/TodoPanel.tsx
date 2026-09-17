@@ -35,6 +35,7 @@ export function TodoPanel({
   emptyMessage = "Nothing outstanding.",
   showPerson = false,
   showClientLink = true,
+  canTick = true,
 }: {
   initialTasks: TodoEntry[];
   editable?: boolean;
@@ -43,6 +44,13 @@ export function TodoPanel({
   emptyMessage?: string;
   showPerson?: boolean;
   showClientLink?: boolean;
+  /**
+   * Separate from `editable`, which only governs add and delete: a
+   * videographer may tick but not add (0019), and a client login has
+   * no update policy on `tasks` at all. Where ticking would fail, the
+   * box is disabled rather than left looking live and snapping back.
+   */
+  canTick?: boolean;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [text, setText] = useState("");
@@ -144,14 +152,21 @@ export function TodoPanel({
                 <input
                   type="checkbox"
                   checked={t.done}
+                  disabled={!canTick}
                   onChange={(e) => toggle(t.id, e.target.checked)}
-                  aria-label={t.done ? `Mark "${t.text}" as not done` : `Mark "${t.text}" as done`}
+                  aria-label={
+                    canTick
+                      ? t.done
+                        ? `Mark "${t.text}" as not done`
+                        : `Mark "${t.text}" as done`
+                      : `${t.text} — ${t.done ? "done" : "outstanding"}`
+                  }
                   style={{
                     width: 16,
                     height: 16,
                     marginTop: 2,
                     accentColor: "var(--text-1)",
-                    cursor: "pointer",
+                    cursor: canTick ? "pointer" : "default",
                     flexShrink: 0,
                   }}
                 />

@@ -76,14 +76,36 @@ export async function recordUploadedDocument(input: {
  * they can't see the row, they don't get a URL, and the storage
  * policies would refuse them anyway.
  */
+/**
+ * Types Safari will actually render in a tab.
+ *
+ * Everything else is handed over as a download instead. This is the
+ * heart of the iPhone/iPad bug: Safari, given a .docx or a file stored
+ * as application/octet-stream, renders an empty white page with no
+ * error text rather than offering to save it — which is exactly what
+ * "a blank error when a client opens a document" looks like. Chrome
+ * and Firefox fall back to downloading, which is why it only showed up
+ * on Apple devices.
+ *
+ * Asking Storage for a `download` URL sets Content-Disposition:
+ * attachment, and Safari then does the right thing: the share sheet,
+ * or straight into Files.
+ */
+const INLINE_SAFE = [/^application\/pdf$/, /^image\//, /^text\/plain$/, /^video\//, /^audio\//];
+
+function rendersInline(mimeType: string | null): boolean {
+  if (!mimeType) return false;
+  return INLINE_SAFE.some((pattern) => pattern.test(mimeType));
+}
+
 export async function getDocumentDownloadUrl(
   documentId: string
-): Promise<{ url: string | null; error: string | null }> {
+): Promise<{ url: string | null; error: string | null; inline?: boolean }> {
   const supabase = createClient();
 
   const { data: doc } = await supabase
     .from("documents")
-    .select("storage_path, url")
+    .select("storage_path, url, name, mime_type")
     .eq("id", documentId)
     .maybeSingle();
 
@@ -93,9 +115,11 @@ export async function getDocumentDownloadUrl(
   // carry a plain external URL instead of a stored file.
   if (!doc.storage_path) {
     return doc.url
-      ? { url: doc.url, error: null }
+      ? { url: doc.url, error: null, inline: true }
       : { url: null, error: "This document has no file attached." };
   }
+
+  const inline = rendersInline(doc.mime_type);
 
   // 60s was enough to hand a URL to window.open, but a phone waking a
   // backgrounded tab, or a slow connection on a large PDF, could land
@@ -104,7 +128,7 @@ export async function getDocumentDownloadUrl(
   // single-purpose and only ever reaches the person who asked for it.
   const { data, error } = await supabase.storage
     .from(DOCUMENTS_BUCKET)
-    .createSignedUrl(doc.storage_path, 300);
+    .createSignedUrl(doc.storage_path, 300, inline ? undefined : { download: doc.name ?? true });
 
   if (error || !data) {
     // Storage answers an RLS refusal the same way it answers a
@@ -129,7 +153,7 @@ export async function getDocumentDownloadUrl(
     };
   }
 
-  return { url: data.signedUrl, error: null };
+  return { url: data.signedUrl, error: null, inline };
 }
 
 export async function deleteDocument(documentId: string, clientId: string): Promise<{ error: string | null }> {

@@ -23,8 +23,40 @@ export const PLANNER_CSS = `
   --paper:var(--bg);
   --paper-dim:var(--surface-2);
   --card:var(--surface);
-  --hero-bg:#111111;
-  --hero-fg:#f5f5f3;
+
+  /* Panels that are deliberately dark in BOTH themes — the hero, the
+     format stats, the guarantee block, the floating toolbar. They read
+     as title cards, and inverting them would put a floodlight in the
+     middle of a dark page.
+
+     They need their own foreground colours precisely because they do
+     not flip. The guarantee block used to paint itself with --ink and
+     --paper, which DO flip: in dark mode that turned it into a white
+     panel, still carrying its hard-coded near-white body text. A whole
+     section of the plan was white on white. */
+  --panel-bg:#111111;
+  --panel-fg:#f5f5f3;
+  --panel-fg-dim:#b9b9b6;
+  --panel-line:#333333;
+  /* The light theme's accent (#8a6a1f) is far too dark to sit on
+     #111. These panels use the dark theme's gold in both. */
+  --panel-accent:#d4af6a;
+
+  /* The hero was here first and the CSS still refers to it by name.
+     Same two colours, one definition. */
+  --hero-bg:var(--panel-bg);
+  --hero-fg:var(--panel-fg);
+
+  /* Body copy inside cards. Was hard-coded #2a2a2a, which is near-black
+     — fine on white paper, invisible on a dark card. */
+  --body-text:var(--text-1);
+
+  /* Hover and focus washes. Hard-coded rgba(26,26,26,…) inks darkened
+     an already-dark surface, so on the dark theme nothing appeared to
+     respond to the pointer at all. */
+  --wash-1:rgba(17,17,17,0.04);
+  --wash-2:rgba(17,17,17,0.07);
+  --wash-edge:rgba(17,17,17,0.45);
   --red:var(--accent);
   --red-deep:var(--chart-3);
   --gold:var(--chart-2);
@@ -89,29 +121,115 @@ export const PLANNER_CSS = `
    display:none — a display:none element can't be scrolled to. */
 .planner-doc .slate-stripes{height:0;width:100%;background:none;}
 .planner-doc .hero{
-  background:var(--hero-bg);color:var(--hero-fg);
-  padding:52px 24px 44px;
+  background:var(--panel-bg);color:var(--panel-fg);
+  padding:64px 24px 60px;
   position:relative;
   overflow:hidden;
+  isolation:isolate;
 }
+
+/* A warm glow off the top-right corner. The old hero was one flat
+   rectangle of #111, which at full width read as a gap in the page
+   rather than a title card. */
+.planner-doc .hero-glow{
+  position:absolute;top:-38%;right:-12%;width:62%;height:150%;
+  background:radial-gradient(closest-side, rgba(212,175,106,0.26), rgba(212,175,106,0) 70%);
+  pointer-events:none;z-index:-1;
+}
+
+/* Fine vertical rules, like the edge of a film strip. Low enough to
+   read as texture rather than as lines you might try to align to. */
+.planner-doc .hero-rules{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,
+    rgba(245,245,243,0.075) 0 1px, transparent 1px 38px);
+  mask-image:linear-gradient(180deg, rgba(0,0,0,0.8), transparent 85%);
+  -webkit-mask-image:linear-gradient(180deg, rgba(0,0,0,0.8), transparent 85%);
+  pointer-events:none;z-index:-1;
+}
+
 .planner-doc .hero-inner{max-width:920px;margin:0 auto;position:relative;}
-.planner-doc .eyebrow-row{
-  display:flex;flex-wrap:wrap;gap:10px 22px;
-  font-family:var(--mono);font-size:11px;letter-spacing:.06em;
-  color:var(--gold);margin-bottom:22px;text-transform:uppercase;
+
+/* Logo on the left, production meta on the right, on one line above
+   the title. */
+.planner-doc .hero-top{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:20px;flex-wrap:wrap;
+  min-height:48px;margin-bottom:38px;
 }
-.planner-doc .eyebrow-row span b{color:var(--hero-fg);font-weight:700;}
+
+.planner-doc .hero-logo-wrap{display:flex;align-items:center;gap:10px;}
+
+/* The logo sits on a faint plate rather than straight on the black:
+   most client logos are dark-on-transparent and would otherwise
+   vanish into the hero. */
+.planner-doc .hero-logo{
+  display:inline-flex;align-items:center;justify-content:center;
+  height:56px;min-width:112px;padding:8px 16px;
+  border-radius:12px;
+  background:rgba(245,245,243,0.92);
+  border:1px solid rgba(245,245,243,0.14);
+  overflow:hidden;
+}
+.planner-doc .hero-logo img{max-height:40px;max-width:190px;width:auto;display:block;object-fit:contain;}
+
+/* Empty, and only ever while editing: a modest outline in its final
+   position, not a page-width dashed panel below the hero. */
+.planner-doc label.hero-logo.is-empty{
+  background:rgba(245,245,243,0.04);
+  border:1px dashed rgba(212,175,106,0.55);
+  cursor:pointer;transition:border-color .15s, background-color .15s;
+}
+.planner-doc label.hero-logo.is-empty:hover{
+  border-color:var(--panel-accent);background:rgba(245,245,243,0.08);
+}
+.planner-doc .hero-logo-hint{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--panel-accent);
+}
+.planner-doc .hero-logo-remove{
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  background:none;border:none;padding:4px;cursor:pointer;
+  color:var(--panel-fg-dim);
+}
+.planner-doc .hero-logo-remove:hover{color:var(--panel-accent);}
+
+/* One quiet line, not a clapperboard strip. The labels sit dim and
+   the values bright, so it reads as data rather than decoration. */
+.planner-doc .hero-meta{
+  display:flex;flex-wrap:wrap;gap:6px 20px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:rgba(245,245,243,0.45);
+  text-align:right;
+}
+.planner-doc .hero-meta span{white-space:nowrap;}
+.planner-doc .hero-meta b{color:var(--panel-fg);font-weight:400;margin-left:6px;}
+
 .planner-doc h1.brand{
   font-family:var(--display);font-weight:400;
-  /* Was clamp(48px,10vw,96px) — 96px of display type above the fold
-     left no room for anything else on a laptop. */
-  font-size:clamp(38px,7vw,64px);line-height:.95;
-  letter-spacing:.01em;margin:0 0 10px;color:var(--hero-fg);
+  font-size:clamp(44px,8.5vw,82px);line-height:.9;
+  letter-spacing:.005em;margin:0;color:var(--panel-fg);
 }
-.planner-doc h1.brand em{font-style:normal;color:var(--red);}
+.planner-doc h1.brand em{font-style:normal;color:var(--panel-accent);}
+
+/* A short gold rule between the name and what the document is. Does
+   the job the old eyebrow row was doing — separating the two — with
+   one line instead of four labels. */
+.planner-doc .hero-rule{
+  display:block;width:64px;height:3px;border-radius:2px;
+  background:var(--panel-accent);
+  margin:26px 0 20px;
+}
+
 .planner-doc .hero-sub{
-  font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase;
-  color:#9a9a9a;margin:0;
+  font-family:var(--mono);font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--panel-fg-dim);margin:0;max-width:56ch;line-height:1.7;
+}
+
+@media (max-width:640px){
+  .planner-doc .hero{padding:40px 20px 42px;}
+  .planner-doc .hero-top{margin-bottom:28px;}
+  .planner-doc .hero-meta{text-align:left;}
 }
 
 /* ---------- THESIS ---------- */
@@ -165,7 +283,7 @@ export const PLANNER_CSS = `
   color:var(--muted);transition:border-color .15s, color .15s, background-color .15s;
 }
 .planner-doc .add-pillar-btn:hover, .planner-doc .add-link-btn:hover, .planner-doc .add-brand-btn:hover, .planner-doc .add-timeline-btn:hover{
-  border-color:var(--red);color:var(--red);background:rgba(26,26,26,0.04);
+  border-color:var(--red);color:var(--red);background:var(--wash-1);
 }
 .planner-doc .pillar-card .top-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
 .planner-doc .pillar-card h3{font-family:var(--display);font-weight:400;font-size:22px;margin:0;letter-spacing:.01em;}
@@ -173,7 +291,7 @@ export const PLANNER_CSS = `
 .planner-doc .pillar-card .role{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px;display:block;}
 .planner-doc .bar-track{height:6px;background:var(--paper-dim);border-radius:3px;overflow:hidden;margin-bottom:14px;}
 .planner-doc .bar-fill{height:100%;border-radius:3px;}
-.planner-doc .pillar-card p{font-size:14px;line-height:1.55;color:#2a2a2a;margin:0 0 14px;}
+.planner-doc .pillar-card p{font-size:14px;line-height:1.55;color:var(--body-text);margin:0 0 14px;}
 .planner-doc .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
 .planner-doc .chip{
   display:inline-flex;align-items:center;gap:6px;
@@ -181,8 +299,8 @@ export const PLANNER_CSS = `
   border-radius:20px;color:var(--muted);
 }
 .planner-doc .chip-text{cursor:text;border-radius:10px;outline:1px dashed transparent;outline-offset:2px;}
-.planner-doc .chip-text:hover{outline-color:rgba(26,26,26,0.45);}
-.planner-doc .chip-text:focus{outline:1px solid var(--red);background-color:rgba(26,26,26,0.06);}
+.planner-doc .chip-text:hover{outline-color:var(--wash-edge);}
+.planner-doc .chip-text:focus{outline:1px solid var(--red);background-color:var(--wash-2);}
 .planner-doc .chip-remove{
   width:15px;height:15px;border-radius:50%;border:none;background:var(--paper-dim);
   color:var(--muted);font-family:var(--mono);font-size:10px;line-height:1;
@@ -190,22 +308,22 @@ export const PLANNER_CSS = `
   opacity:0;transition:opacity .15s;
 }
 .planner-doc .chip:hover .chip-remove{opacity:1;}
-.planner-doc .chip-remove:hover{background:var(--red);color:#fff;}
+.planner-doc .chip-remove:hover{background:var(--red);color:var(--accent-fg);}
 .planner-doc .chip-add{
   font-family:var(--mono);font-size:11px;padding:4px 10px;border:1px dashed var(--line);
   border-radius:20px;background:transparent;color:var(--muted);cursor:pointer;
   transition:border-color .15s, color .15s, background-color .15s;
 }
-.planner-doc .chip-add:hover{border-color:var(--red);color:var(--red);background:rgba(26,26,26,0.04);}
+.planner-doc .chip-add:hover{border-color:var(--red);color:var(--red);background:var(--wash-1);}
 
 /* ---------- FORMAT ROW ---------- */
 .planner-doc .format-row{display:flex;gap:14px;flex-wrap:wrap;}
 .planner-doc .format-stat{
-  flex:1;min-width:140px;background:var(--ink);color:var(--paper);
+  flex:1;min-width:140px;background:var(--panel-bg);color:var(--panel-fg);
   padding:20px 18px;border-radius:10px;
 }
-.planner-doc .format-stat .num{font-family:var(--display);font-size:34px;color:var(--red);display:block;}
-.planner-doc .format-stat .lbl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9a9a9a;}
+.planner-doc .format-stat .num{font-family:var(--display);font-size:34px;color:var(--panel-accent);display:block;}
+.planner-doc .format-stat .lbl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--panel-fg-dim);}
 
 /* ---------- ACTS / TABS ---------- */
 .planner-doc .tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;}
@@ -225,7 +343,7 @@ export const PLANNER_CSS = `
 .planner-doc .week-tc{font-family:var(--mono);font-size:13px;color:var(--red);padding-top:2px;}
 .planner-doc .week-tc small{display:block;color:var(--muted);font-size:10px;margin-top:3px;}
 .planner-doc .week-body h4{margin:0 0 6px;font-size:16px;font-family:var(--body);font-weight:700;}
-.planner-doc .week-body p{margin:0;font-size:14px;line-height:1.55;color:#2a2a2a;}
+.planner-doc .week-body p{margin:0;font-size:14px;line-height:1.55;color:var(--body-text);}
 
 /* ---------- WORKFLOW ---------- */
 .planner-doc .workflow{display:flex;gap:0;flex-wrap:wrap;counter-reset:step;}
@@ -255,12 +373,12 @@ export const PLANNER_CSS = `
   cursor:text;
 }
 .planner-doc [contenteditable="true"]:hover{
-  outline-color:rgba(26,26,26,0.45);
-  background-color:rgba(26,26,26,0.04);
+  outline-color:var(--wash-edge);
+  background-color:var(--wash-1);
 }
 .planner-doc [contenteditable="true"]:focus{
   outline:2px solid var(--red);
-  background-color:rgba(26,26,26,0.06);
+  background-color:var(--wash-2);
 }
 
 .planner-doc .toolbar{
@@ -274,33 +392,10 @@ export const PLANNER_CSS = `
   background:var(--red);color:var(--hero-fg);border:none;
   padding:9px 16px;border-radius:20px;cursor:pointer;
 }
-.planner-doc .toolbar button.secondary{background:transparent;color:var(--hero-fg);border:1px solid #3a3a3a;}
-.planner-doc .toolbar .status{font-family:var(--mono);font-size:10px;color:#9a9a9a;padding-left:4px;white-space:nowrap;}
+.planner-doc .toolbar button.secondary{background:transparent;color:var(--panel-fg);border:1px solid var(--panel-line);}
+.planner-doc .toolbar .status{font-family:var(--mono);font-size:10px;color:var(--panel-fg-dim);padding-left:4px;white-space:nowrap;}
 @media (max-width:520px){
   .planner-doc .toolbar{left:12px;right:12px;bottom:12px;flex-wrap:wrap;justify-content:center;}
-}
-
-/* ---------- LOGO SLOT ---------- */
-.planner-doc .logo-slot-wrap{
-  max-width:760px;margin:40px auto 0;padding:0 24px;
-  display:flex;justify-content:center;
-}
-.planner-doc .logo-slot{
-  width:220px;height:120px;
-  border:1.5px dashed var(--line);border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;background:var(--card);position:relative;overflow:hidden;
-  transition:border-color .15s, background-color .15s;
-}
-.planner-doc .logo-slot:hover{border-color:var(--red);background-color:rgba(26,26,26,0.04);}
-.planner-doc .logo-slot .logo-placeholder{
-  text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);
-  text-transform:uppercase;letter-spacing:.05em;line-height:1.6;padding:0 12px;
-}
-.planner-doc .logo-slot img{max-width:100%;max-height:100%;object-fit:contain;display:block;}
-.planner-doc .logo-remove{
-  font-family:var(--mono);font-size:10px;color:var(--muted);
-  text-align:center;margin-top:8px;cursor:pointer;text-decoration:underline;
 }
 
 /* ---------- LINK LIST ---------- */
@@ -320,7 +415,7 @@ export const PLANNER_CSS = `
   font-family:var(--mono);font-size:12px;padding:9px 10px;width:100%;
   border:1px solid var(--line);border-radius:10px;background:var(--paper-dim);color:var(--ink);
 }
-.planner-doc .link-input::placeholder{color:#9a9a9a;}
+.planner-doc .link-input::placeholder{color:var(--text-2);}
 .planner-doc .link-input:focus{outline:none;border-color:var(--red);background:var(--card);}
 .planner-doc .link-open{
   width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);
@@ -329,7 +424,7 @@ export const PLANNER_CSS = `
   transition:border-color .15s, color .15s, background-color .15s;
 }
 .planner-doc .link-row.has-link .link-open{display:flex;}
-.planner-doc .link-open:hover{border-color:var(--red);color:var(--red);background:rgba(26,26,26,0.06);}
+.planner-doc .link-open:hover{border-color:var(--red);color:var(--red);background:var(--wash-2);}
 .planner-doc .link-remove{
   width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);
   color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1;
@@ -356,7 +451,7 @@ export const PLANNER_CSS = `
   font-family:var(--mono);font-weight:700;font-size:12px;text-transform:uppercase;
   letter-spacing:.04em;color:var(--ink);padding-top:2px;line-height:1.4;
 }
-.planner-doc .brand-value{font-size:14.5px;line-height:1.55;color:#2a2a2a;}
+.planner-doc .brand-value{font-size:14.5px;line-height:1.55;color:var(--body-text);}
 .planner-doc .brand-remove{
   width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);
   color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1;
@@ -380,14 +475,65 @@ export const PLANNER_CSS = `
   border-radius:20px;cursor:pointer;transition:.15s;
 }
 .planner-doc .slot-generate-btn:hover{background:var(--red);border-color:var(--red);}
-.planner-doc .slot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-@media (max-width:900px){.planner-doc .slot-grid{grid-template-columns:repeat(3,1fr);}}
-@media (max-width:680px){.planner-doc .slot-grid{grid-template-columns:repeat(2,1fr);}}
-@media (max-width:460px){.planner-doc .slot-grid{grid-template-columns:1fr;}}
+/* Two across, not four. Each slot now carries a full brief — hook,
+   body, CTA, WMS, scenery, set — and a quarter-width column turns
+   every one of those lines into two or three wrapped words. */
+.planner-doc .slot-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+@media (max-width:820px){.planner-doc .slot-grid{grid-template-columns:1fr;}}
+
+/* Videos are shot in batches, so the plan reads in batches. The
+   heading is the same name the calendar entry uses — "Video Set 1 —
+   shoot day" — so the two line up without anyone cross-referencing. */
+.planner-doc .slot-set{margin-bottom:26px;}
+.planner-doc .slot-set-head{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding-bottom:8px;margin-bottom:14px;border-bottom:1px solid var(--line);
+}
+.planner-doc .slot-set-name{
+  font-family:var(--display);font-weight:400;font-size:19px;letter-spacing:.01em;color:var(--ink);
+}
+.planner-doc .slot-set-count{
+  font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+}
 .planner-doc .slot-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:var(--shadow-sm);}
 .planner-doc .slot-num{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px;}
 .planner-doc .slot-title{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.01em;line-height:1.15;margin-bottom:6px;}
-.planner-doc .slot-desc{font-family:var(--body);font-size:12.5px;line-height:1.5;color:#2a2a2a;margin-bottom:12px;}
+.planner-doc .slot-desc{font-family:var(--body);font-size:12.5px;line-height:1.5;color:var(--body-text);margin-bottom:12px;}
+/* The preset brief. Labels stay put whether or not the line is
+   filled in — that is what makes it a template rather than a blank
+   card, and an unanswered question should look unanswered. */
+.planner-doc .slot-brief{
+  display:flex;flex-direction:column;gap:9px;
+  padding:12px 0;margin-bottom:12px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+.planner-doc .slot-brief-pair{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+@media (max-width:460px){.planner-doc .slot-brief-pair{grid-template-columns:1fr;}}
+.planner-doc .slot-field{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.planner-doc .slot-field-label{
+  font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);
+}
+.planner-doc .slot-field-value{
+  font-family:var(--body);font-size:13px;line-height:1.5;color:var(--body-text);
+  border-radius:6px;padding:3px 5px;margin:-3px -5px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.planner-doc .slot-field-tall .slot-field-value{min-height:2.6em;}
+/* An empty field shows the question's prompt, or an em dash when
+   there is nothing to prompt with. content: on ::before rather than a
+   real placeholder attribute, because these are contenteditable divs
+   rather than inputs. */
+.planner-doc .slot-field-value.is-empty{color:var(--text-3);}
+.planner-doc [contenteditable].slot-field-value.is-empty::before{
+  content:var(--placeholder, "—");color:var(--text-3);
+}
+.planner-doc [contenteditable].slot-field-value:focus::before{content:none;}
+.planner-doc [contenteditable].slot-field-value:hover{background:var(--wash-1);}
+.planner-doc [contenteditable].slot-field-value:focus{
+  outline:1px solid var(--red);background:var(--wash-2);
+}
+
 .planner-doc .slot-pillar-select{
   width:100%;font-family:var(--display);font-weight:400;font-size:15px;letter-spacing:.01em;
   padding:8px 8px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;
@@ -399,7 +545,7 @@ export const PLANNER_CSS = `
   width:100%;font-family:var(--mono);font-size:11px;padding:8px 30px 8px 9px;
   border:1px solid var(--line);border-radius:10px;background:var(--paper-dim);color:var(--ink);
 }
-.planner-doc .slot-link-input::placeholder{color:#9a9a9a;}
+.planner-doc .slot-link-input::placeholder{color:var(--text-2);}
 .planner-doc .slot-link-input:focus{outline:none;border-color:var(--red);background:var(--card);}
 .planner-doc .slot-link-open{
   position:absolute;top:50%;right:5px;transform:translateY(-50%);
@@ -409,7 +555,7 @@ export const PLANNER_CSS = `
   transition:border-color .15s, color .15s, background-color .15s;
 }
 .planner-doc .slot-link-wrap.has-link .slot-link-open{display:flex;}
-.planner-doc .slot-link-open:hover{border-color:var(--red);color:var(--red);background:rgba(26,26,26,0.06);}
+.planner-doc .slot-link-open:hover{border-color:var(--red);color:var(--red);background:var(--wash-2);}
 
 /* ---------- CLIENT TIMELINE ---------- */
 .planner-doc .timeline-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:720px;margin-bottom:16px;}
@@ -420,7 +566,7 @@ export const PLANNER_CSS = `
 }
 .planner-doc .timeline-status-badge.state-not-started{border-color:var(--line);color:var(--muted);}
 .planner-doc .timeline-status-badge.state-complete{border-color:var(--ink);color:var(--ink);}
-.planner-doc .timeline-status-text{font-size:14px;color:#2a2a2a;}
+.planner-doc .timeline-status-text{font-size:14px;color:var(--body-text);}
 .planner-doc .timeline-progress{display:flex;align-items:center;gap:14px;max-width:720px;margin-bottom:30px;}
 .planner-doc .timeline-progress-track{flex:1;height:6px;background:var(--paper-dim);border-radius:3px;overflow:hidden;}
 .planner-doc .timeline-progress-fill{height:100%;background:var(--red);border-radius:3px;transition:width .35s ease;}
@@ -456,7 +602,7 @@ export const PLANNER_CSS = `
   position:relative;padding:8px 28px 8px 14px;margin-left:-14px;border-radius:3px;
   transition:background-color .15s, opacity .2s;
 }
-.planner-doc .timeline-item:hover .timeline-card{background:rgba(26,26,26,0.03);}
+.planner-doc .timeline-item:hover .timeline-card{background:var(--wash-1);}
 .planner-doc .timeline-item.done .timeline-card{opacity:.62;}
 .planner-doc .timeline-remove{
   position:absolute;top:8px;right:6px;width:22px;height:22px;border-radius:50%;
@@ -475,12 +621,12 @@ export const PLANNER_CSS = `
 }
 .planner-doc .timeline-item.done .timeline-done-tag{display:inline-block;}
 .planner-doc .timeline-title{font-family:var(--display);font-weight:400;font-size:19px;margin:0 0 6px;letter-spacing:.01em;}
-.planner-doc .timeline-desc{font-size:14px;line-height:1.55;color:#2a2a2a;margin:0;max-width:600px;}
+.planner-doc .timeline-desc{font-size:14px;line-height:1.55;color:var(--body-text);margin:0;max-width:600px;}
 
 /* ---------- GUARANTEE ---------- */
 .planner-doc .guarantee-section{
   max-width:none;margin:0;padding:0 0 90px;
-  background:var(--ink);color:var(--paper);
+  background:var(--panel-bg);color:var(--panel-fg);
   position:relative;overflow:hidden;
 }
 .planner-doc .guarantee-section::after{
@@ -494,28 +640,28 @@ export const PLANNER_CSS = `
   .planner-doc .guarantee-mark{top:20px;right:18px;}
   .planner-doc .guarantee-mark svg{width:46px;height:46px;}
 }
-.planner-doc .guarantee-tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:16px;}
-.planner-doc .guarantee-h2{font-family:var(--display);font-weight:400;font-size:clamp(32px,5vw,48px);margin:0 0 20px;color:var(--paper);letter-spacing:.01em;line-height:1.05;}
-.planner-doc .guarantee-body{font-size:clamp(15.5px,1.8vw,17px);line-height:1.65;color:#e0e0de;margin:0 0 40px;max-width:600px;}
-.planner-doc .guarantee-terms{border-top:1px solid #2a2a2a;}
+.planner-doc .guarantee-tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--panel-accent);display:block;margin-bottom:16px;}
+.planner-doc .guarantee-h2{font-family:var(--display);font-weight:400;font-size:clamp(32px,5vw,48px);margin:0 0 20px;color:var(--panel-fg);letter-spacing:.01em;line-height:1.05;}
+.planner-doc .guarantee-body{font-size:clamp(15.5px,1.8vw,17px);line-height:1.65;color:var(--panel-fg-dim);margin:0 0 40px;max-width:600px;}
+.planner-doc .guarantee-terms{border-top:1px solid var(--panel-line);}
 .planner-doc .guarantee-term{
   display:grid;grid-template-columns:40px 1fr 28px;gap:14px;align-items:start;
-  padding:18px 0;border-bottom:1px solid #2a2a2a;position:relative;
+  padding:18px 0;border-bottom:1px solid var(--panel-line);position:relative;
 }
-.planner-doc .term-num{font-family:var(--mono);font-size:12px;color:var(--gold);padding-top:2px;}
-.planner-doc .term-text{font-size:14.5px;line-height:1.55;color:#f0f0ee;}
+.planner-doc .term-num{font-family:var(--mono);font-size:12px;color:var(--panel-accent);padding-top:2px;}
+.planner-doc .term-text{font-size:14.5px;line-height:1.55;color:var(--panel-fg);}
 .planner-doc .gp-remove{
-  width:20px;height:20px;border-radius:50%;border:1px solid #555555;background:transparent;
-  color:#9a9a9a;font-family:var(--mono);font-size:11px;line-height:1;
+  width:20px;height:20px;border-radius:50%;border:1px solid var(--panel-line);background:transparent;
+  color:var(--panel-fg-dim);font-family:var(--mono);font-size:11px;line-height:1;
   display:flex;align-items:center;justify-content:center;cursor:pointer;
   opacity:0;transition:opacity .15s;flex-shrink:0;margin-top:1px;
 }
 .planner-doc .guarantee-term:hover .gp-remove{opacity:1;}
-.planner-doc .gp-remove:hover{border-color:var(--red);color:var(--red);}
+.planner-doc .gp-remove:hover{border-color:var(--panel-accent);color:var(--panel-accent);}
 .planner-doc .gp-add{
   margin-top:22px;font-family:var(--mono);font-size:11px;text-transform:uppercase;
-  letter-spacing:.05em;color:#9a9a9a;background:transparent;border:1.5px dashed #555555;
+  letter-spacing:.05em;color:var(--panel-fg-dim);background:transparent;border:1.5px dashed var(--panel-line);
   border-radius:20px;padding:10px 20px;cursor:pointer;transition:.15s;
 }
-.planner-doc .gp-add:hover{border-color:var(--gold);color:var(--gold);}
+.planner-doc .gp-add:hover{border-color:var(--panel-accent);color:var(--panel-accent);}
 `;

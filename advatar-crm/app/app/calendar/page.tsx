@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { SchedulePanel, type ScheduleEntry, type EventCategory, type ClientChoice } from "@/components/SchedulePanel";
 import { PersonPicker, type Person } from "@/components/PersonPicker";
+import { AvailabilityPanel } from "@/components/AvailabilityPanel";
 import { displayName } from "@/lib/names";
+import { loadAvailability } from "@/lib/availability";
 import type { ProfileRole } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +31,7 @@ const MANAGEMENT: ProfileRole[] = ["ceo", "operations_manager"];
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: { person?: string };
+  searchParams: { person?: string; client?: string };
 }) {
   const supabase = createClient();
 
@@ -39,7 +41,11 @@ export default async function CalendarPage({
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
+  // Only the columns this page cannot work without. `availability` is
+  // read separately below: selecting it here once took the whole page
+  // down on a database where 0026 hadn't been run, because PostgREST
+  // fails the entire query over one unknown column.
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, full_name")
     .eq("id", user.id)
@@ -48,10 +54,45 @@ export default async function CalendarPage({
   const me = profile as { role?: ProfileRole; full_name?: string | null } | null;
   const role = me?.role;
 
-  if (!role) redirect("/login");
+  // A failed query is not the same as being signed out, and must not
+  // look like it. middleware.ts has already read this profile's role
+  // to let the request through, so if the read fails here it is a
+  // database problem — say so, rather than bouncing to a login screen
+  // the person is already past.
+  if (!role) {
+    return (
+      <main className="page">
+        <h1 className="page-title page-title-accent">Calendar</h1>
+        <p
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 14,
+            color: "var(--danger-fg)",
+            background: "var(--danger-bg)",
+            border: "1px solid var(--danger-border)",
+            borderRadius: "var(--radius-sm)",
+            padding: "14px 16px",
+            maxWidth: "62ch",
+            lineHeight: 1.6,
+          }}
+        >
+          Your profile couldn&rsquo;t be loaded, so this page doesn&rsquo;t know
+          which calendar to show you.
+          {profileError?.message ? ` The database said: ${profileError.message}` : ""}
+        </p>
+      </main>
+    );
+  }
 
   const isManagement = MANAGEMENT.includes(role);
   const selectedPerson = isManagement ? searchParams.person ?? "" : user.id;
+
+  // A separate axis from "whose diary". A shoot belongs to a person
+  // AND a client, and the two questions you ask of a calendar are
+  // "what is Sam doing" and "what is booked in for Bright Co" — so
+  // they get a picker each rather than one list mixing people and
+  // clients together. Set both and they narrow to the intersection.
+  const selectedClient = isManagement ? searchParams.client ?? "" : "";
 
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() - 3, 1);
@@ -70,6 +111,9 @@ export default async function CalendarPage({
   if (isManagement && selectedPerson) {
     eventQuery = eventQuery.eq("assigned_to", selectedPerson);
   }
+  if (isManagement && selectedClient) {
+    eventQuery = eventQuery.eq("client_id", selectedClient);
+  }
 
   const [{ data: events, error: eventsError }, { data: categories }, { data: clients }, { data: people }] =
     await Promise.all([
@@ -80,6 +124,9 @@ export default async function CalendarPage({
         ? supabase.from("profiles").select("id, full_name, role").neq("role", "client").order("full_name")
         : Promise.resolve({ data: [] as unknown }),
     ]);
+
+  // Separate, and its failure is survivable — see lib/availability.ts.
+  const availability = role === "client" ? { value: null, columnMissing: false } : await loadAvailability(supabase, user.id);
 
   const clientRows = (clients ?? []) as unknown as { id: string; name: string | null }[];
   const clientNameById = new Map(clientRows.map((c) => [c.id, c.name?.trim() || "Untitled client"]));
@@ -101,15 +148,41 @@ export default async function CalendarPage({
   // Only management books; everyone else is reading the diary that is
   // run for them. Clients are read-only in the database too (0025).
   const editable = isManagement;
-  const showingEveryone = isManagement && !selectedPerson;
+  const showingEveryone = isManagement && !selectedPerson && !selectedClient;
   const whose = selectedPerson && selectedPerson !== user.id ? personNameById.get(selectedPerson) : null;
+  const whichClient = selectedClient ? clientNameById.get(selectedClient) ?? "that client" : null;
+
+  const clientChoices: Person[] = clientRows.map((c) => ({
+    id: c.id,
+    name: c.name?.trim() || "Untitled client",
+    // No role: PersonPicker then renders one flat list rather than
+    // grouping every client under a "client" heading.
+    role: "",
+  }));
+
+  // An entry needs an owner: a person, a client, or both. Only with
+  // neither would it be a booking nobody can find.
+  const canAdd = Boolean(selectedPerson || selectedClient);
 
   return (
     <main className="page">
       <div className="page-head">
         <h1 className="page-title page-title-accent">Calendar</h1>
-        {isManagement && personList.length > 0 && (
-          <PersonPicker people={personList} selected={selectedPerson} />
+        {isManagement && (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            {personList.length > 0 && (
+              <PersonPicker people={personList} selected={selectedPerson} />
+            )}
+            {clientChoices.length > 0 && (
+              <PersonPicker
+                people={clientChoices}
+                selected={selectedClient}
+                param="client"
+                label="Which client"
+                allLabel="All clients"
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -117,10 +190,14 @@ export default async function CalendarPage({
         {role === "client"
           ? "Shoot days and sessions booked in for you. Tap a day to see everything on it."
           : showingEveryone
-            ? "Everything booked across the team. Pick a name above to see one person's diary — and to add entries straight to it."
-            : whose
-              ? `${whose}'s diary. Anything you add below lands on their calendar and they'll see it on theirs.`
-              : "Your shoot days, edits, working time and joint sessions. Tap a day to see everything on it."}
+            ? "Everything booked across the team. Narrow it to one person's diary or one client's — and add entries straight to either."
+            : whose && whichClient
+              ? `${whose}'s work on ${whichClient}. Anything you add lands on both.`
+              : whichClient
+                ? `Everything booked in for ${whichClient}, whoever is on it. Add an entry below and it lands on their calendar — they can see it from their own login.`
+                : whose
+                  ? `${whose}'s diary. Anything you add below lands on their calendar and they'll see it on theirs.`
+                  : "Your shoot days, edits, working time and joint sessions. Tap a day to see everything on it."}
       </p>
 
       {eventsError && (
@@ -149,7 +226,15 @@ export default async function CalendarPage({
       <section className="section" style={{ marginTop: 36 }}>
         <div className="section-head">
           <h2 className="section-title">
-            {whose ? `Coming up for ${whose}` : showingEveryone ? "Coming up across the team" : "Coming up"}
+            {whose && whichClient
+              ? `Coming up for ${whose} on ${whichClient}`
+              : whichClient
+                ? `Coming up for ${whichClient}`
+                : whose
+                  ? `Coming up for ${whose}`
+                  : showingEveryone
+                    ? "Coming up across the team"
+                    : "Coming up"}
           </h2>
         </div>
 
@@ -159,6 +244,7 @@ export default async function CalendarPage({
           // With nobody picked an entry would have no owner, which is
           // how you end up with a shoot nobody thinks is theirs.
           defaultAssignee={isManagement ? selectedPerson || null : null}
+          defaultClient={isManagement ? selectedClient || null : null}
           clients={clientRows.map((c) => ({ id: c.id, name: c.name?.trim() || "Untitled client" })) as ClientChoice[]}
           categories={(categories ?? []) as unknown as EventCategory[]}
           showPerson={showingEveryone}
@@ -167,12 +253,42 @@ export default async function CalendarPage({
           }
         />
 
-        {editable && !selectedPerson && (
+        {editable && !canAdd && (
           <p style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--text-3)", marginTop: 10 }}>
-            Pick a name above before adding, so the entry lands on someone&rsquo;s calendar.
+            Pick a person or a client above before adding, so the entry lands on
+            a calendar somebody actually looks at.
           </p>
         )}
       </section>
+
+      {/* Prompt 9: when this person is free, in their own words. Sits
+          under the calendar because it is the other half of the same
+          question — the grid says what is booked, this says what could
+          be. Management reads it on their Videographers page when
+          deciding who to put on a job.
+
+          Clients don't get this: their availability isn't something
+          the agency books against. */}
+      {role !== "client" && (
+        <section className="section" style={{ maxWidth: 780 }}>
+          <div className="section-head">
+            <h2 className="section-title">Your availability</h2>
+            <p className="section-sub">The office sees this when they book you in</p>
+          </div>
+          {availability.columnMissing ? (
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)", margin: 0 }}>
+              Availability isn&rsquo;t switched on yet — migration 0026 still
+              needs running. Everything else on this page works as normal.
+            </p>
+          ) : (
+            <AvailabilityPanel
+              profileId={user.id}
+              initialValue={availability.value}
+              emptyMessage="You haven't written anything down yet. Whoever books your work has nothing to go on until you do."
+            />
+          )}
+        </section>
+      )}
     </main>
   );
 }

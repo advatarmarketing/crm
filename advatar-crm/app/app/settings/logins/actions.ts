@@ -257,3 +257,56 @@ export async function updateLoginName(
   revalidatePath("/app/settings/logins");
   return { error: null };
 }
+
+/**
+ * Sets where the CRM emails somebody.
+ *
+ * Management fills this in on somebody's behalf, which is the point:
+ * a client who will never open the settings page still needs to be
+ * told when their video is ready, and the person setting that up is
+ * whoever onboarded them.
+ *
+ * Deliberately NOT their sign-in address. Those are two different
+ * things — changing the login is how somebody signs in, and a login
+ * is often a shared or made-up address. This only changes where mail
+ * goes. See 0030.
+ *
+ * `requireLoginManager()` is the same gate the rest of this file
+ * uses: CEO and operations manager only, and an operations manager
+ * cannot touch a CEO's or another manager's login.
+ */
+export async function updateLoginNotifyEmail(
+  profileId: string,
+  notifyEmail: string
+): Promise<{ error: string | null }> {
+  const caller = await requireLoginManager();
+  if (caller.error) return { error: caller.error };
+
+  const trimmed = notifyEmail.trim();
+
+  // Loose on purpose, and matching the database's own constraint
+  // (0030) rather than trying to out-clever it. Blank clears it and
+  // falls back to the login address.
+  if (trimmed && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+    return { error: "That doesn't look like an email address. Leave it blank to use their sign-in address." };
+  }
+
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ notify_email: trimmed || null })
+    .eq("id", profileId);
+
+  if (error) {
+    // The likeliest cause by far, and one with a fix the reader can
+    // act on, so it is named rather than passed through raw.
+    if (error.code === "42703" || /notify_email/.test(error.message ?? "")) {
+      return { error: "Run migration 0030 first — this database has no notification-email field yet." };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/app/settings/logins");
+  return { error: null };
+}

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { DEFAULT_PLANNER_CONTENT, makeId, type PlannerContent } from "@/lib/planner/content";
+import { DEFAULT_PLANNER_CONTENT, makeId, type PlannerContent, type PlannerSlot } from "@/lib/planner/content";
 import { PLANNER_CSS } from "@/lib/planner/css";
 
 const NAV_SECTIONS: { id: string; label: string }[] = [
@@ -325,32 +325,50 @@ export function PlannerDocument({
 
       <div className="slate-stripes" id={sid("top")}></div>
       <div className="hero">
+        {/* Depth rather than a flat slab: a soft warm glow off the top
+            corner and a faint vertical rule pattern, both drawn in CSS
+            so there is no image to load or theme. */}
+        <div className="hero-glow" aria-hidden="true" />
+        <div className="hero-rules" aria-hidden="true" />
+
         <div className="hero-inner">
-          {/* The film-slate metadata (SCENE / TAKE / DIRECTOR / ROLL)
-              is set dressing, and it was the first thing a client saw
-              on the page. It now shows only while editing, so the
-              values stay reachable and editable for staff without
-              being the opening line of the client's plan. */}
-          {editable && (
-            <div className="eyebrow-row">
-              <span>
-                SCENE:{" "}
-                <Editable as="b" editable={editable} value={content.hero.scene} onCommit={(v) => update(["hero", "scene"], v)} />
-              </span>
-              <span>
-                TAKE:{" "}
-                <Editable as="b" editable={editable} value={content.hero.take} onCommit={(v) => update(["hero", "take"], v)} />
-              </span>
-              <span>
-                DIRECTOR:{" "}
-                <Editable as="b" editable={editable} value={content.hero.director} onCommit={(v) => update(["hero", "director"], v)} />
-              </span>
-              <span>
-                ROLL:{" "}
-                <Editable as="b" editable={editable} value={content.hero.roll} onCommit={(v) => update(["hero", "roll"], v)} />
-              </span>
-            </div>
-          )}
+          <div className="hero-top">
+            {/* The client's logo, in the masthead where it belongs.
+                It used to sit in a large dashed box on the page BELOW
+                the hero, which read as an upload widget somebody had
+                left behind rather than as part of the document. */}
+            {editable ? (
+              <LogoSlot logoUrl={content.logoUrl} onChange={(url) => update(["logoUrl"], url)} />
+            ) : (
+              content.logoUrl && (
+                <div className="hero-logo has-image">
+                  <img src={content.logoUrl} alt="Business logo" />
+                </div>
+              )
+            )}
+
+            {/* The production metadata, as one quiet line along the top
+                rather than a clapperboard strip. Still editor-only:
+                it is set dressing, and it should not be the first
+                thing a client reads. */}
+            {editable && (
+              <div className="hero-meta">
+                <span>
+                  Scene <Editable as="b" editable={editable} value={content.hero.scene} onCommit={(v) => update(["hero", "scene"], v)} />
+                </span>
+                <span>
+                  Take <Editable as="b" editable={editable} value={content.hero.take} onCommit={(v) => update(["hero", "take"], v)} />
+                </span>
+                <span>
+                  Director <Editable as="b" editable={editable} value={content.hero.director} onCommit={(v) => update(["hero", "director"], v)} />
+                </span>
+                <span>
+                  Roll <Editable as="b" editable={editable} value={content.hero.roll} onCommit={(v) => update(["hero", "roll"], v)} />
+                </span>
+              </div>
+            )}
+          </div>
+
           <Editable
             as="h1"
             className="brand"
@@ -358,6 +376,9 @@ export function PlannerDocument({
             value={content.hero.brand}
             onCommit={(v) => update(["hero", "brand"], v)}
           />
+
+          <span className="hero-rule" aria-hidden="true" />
+
           <Editable
             as="p"
             className="hero-sub"
@@ -367,15 +388,6 @@ export function PlannerDocument({
           />
         </div>
       </div>
-
-      {editable && <LogoSlot logoUrl={content.logoUrl} onChange={(url) => update(["logoUrl"], url)} />}
-      {!editable && content.logoUrl && (
-        <div className="logo-slot-wrap">
-          <div className="logo-slot has-image">
-            <img src={content.logoUrl} alt="Business logo" />
-          </div>
-        </div>
-      )}
 
       <div className="thesis">
         <p>
@@ -715,7 +727,7 @@ export function PlannerDocument({
           setContent((prev) => {
             if (!prev) return prev;
             const existing = prev.slots.items;
-            const items = Array.from({ length: count }, (_, i) => existing[i] ?? { id: makeId("slot"), title: `Video ${String(i + 1).padStart(2, "0")}`, description: "What this video covers, in a line or two.", pillar: "", link: "" });
+            const items = Array.from({ length: count }, (_, i) => existing[i] ?? { id: makeId("slot"), title: `Video ${String(i + 1).padStart(2, "0")}`, description: "What this video covers, in a line or two.", pillar: "", link: "", hook: "", body: "", cta: "", wms: "", scenery: "", set: "" });
             const next = { ...prev, slots: { ...prev.slots, items } };
             scheduleSave(next);
             return next;
@@ -902,34 +914,26 @@ function LogoSlot({ logoUrl, onChange }: { logoUrl: string | null; onChange: (ur
   }
 
   return (
-    <div className="logo-slot-wrap">
-      <div>
-        <label className={"logo-slot" + (logoUrl ? " has-image" : "")}>
-          {!logoUrl && (
-            <span className="logo-placeholder">
-              +<br />
-              Add logo
-            </span>
-          )}
-          {logoUrl && <img src={logoUrl} alt="Business logo" />}
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
-              e.target.value = "";
-            }}
-          />
-        </label>
-        {logoUrl && (
-          <div className="logo-remove" onClick={() => onChange(null)}>
-            Remove logo
-          </div>
-        )}
-      </div>
+    <div className="hero-logo-wrap">
+      <label className={"hero-logo" + (logoUrl ? " has-image" : " is-empty")}>
+        {logoUrl ? <img src={logoUrl} alt="Business logo" /> : <span className="hero-logo-hint">Add logo</span>}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFile(file);
+            e.target.value = "";
+          }}
+        />
+      </label>
+      {logoUrl && (
+        <button type="button" className="hero-logo-remove" onClick={() => onChange(null)}>
+          Remove
+        </button>
+      )}
     </div>
   );
 }
@@ -1000,10 +1004,10 @@ function SlotPlannerSection({
 }: {
   id: string;
   editable: boolean;
-  section: { tag: string; heading: string; desc: string; items: { id: string; title: string; description: string; pillar: string; link: string }[] };
+  section: { tag: string; heading: string; desc: string; items: PlannerSlot[] };
   pillarNames: string[];
   onHeadCommit: (field: "tag" | "heading" | "desc", value: string) => void;
-  onSlotChange: (index: number, field: "title" | "description" | "pillar" | "link", value: string) => void;
+  onSlotChange: (index: number, field: SlotFieldName, value: string) => void;
   onGenerate: (count: number) => void;
 }) {
   const [countInput, setCountInput] = useState(String(section.items.length));
@@ -1047,8 +1051,21 @@ function SlotPlannerSection({
           </button>
         </div>
       )}
-      <div className="slot-grid">
-        {section.items.map((slot, i) => {
+      {groupSlotsBySet(section.items).map((group) => (
+        <div className="slot-set" key={group.name || "__unset"}>
+          {/* Only shown once a set has been named. Before that the
+              plan is just a list of videos, and a heading reading
+              "Unassigned" over every card would be noise. */}
+          {group.name && (
+            <div className="slot-set-head">
+              <span className="slot-set-name">{group.name}</span>
+              <span className="slot-set-count">
+                {group.entries.length} video{group.entries.length === 1 ? "" : "s"} · one shoot day
+              </span>
+            </div>
+          )}
+          <div className="slot-grid">
+        {group.entries.map(({ slot, i }) => {
           const hasLink = isValidHttpUrl(slot.link);
           return (
             <div className="slot-card" key={slot.id}>
@@ -1067,6 +1084,22 @@ function SlotPlannerSection({
               ) : (
                 slot.pillar && <div className="slot-pillar-select">{slot.pillar}</div>
               )}
+              {/* The preset brief. Every slot asks the same questions in
+                  the same order, so a videographer reading the plan on
+                  a shoot day always finds the answer in the same
+                  place — and nobody has to remember the structure to
+                  fill one in. */}
+              <div className="slot-brief">
+                <SlotField label="Hook" value={slot.hook} editable={editable} onCommit={(v) => onSlotChange(i, "hook", v)} placeholder="The first line — what stops the scroll" />
+                <SlotField label="The body" value={slot.body} editable={editable} onCommit={(v) => onSlotChange(i, "body", v)} placeholder="What it actually says" multiline />
+                <SlotField label="CTA" value={slot.cta} editable={editable} onCommit={(v) => onSlotChange(i, "cta", v)} placeholder="What they should do next" />
+                <div className="slot-brief-pair">
+                  <SlotField label="WMS" value={slot.wms} editable={editable} onCommit={(v) => onSlotChange(i, "wms", v)} />
+                  <SlotField label="Scenery (i/a)" value={slot.scenery} editable={editable} onCommit={(v) => onSlotChange(i, "scenery", v)} />
+                </div>
+                <SlotField label="Video Set" value={slot.set} editable={editable} onCommit={(v) => onSlotChange(i, "set", v)} placeholder="Which shoot day this is filmed on" />
+              </div>
+
               <div className={"slot-link-wrap" + (hasLink ? " has-link" : "")}>
                 {editable ? (
                   <input
@@ -1086,8 +1119,99 @@ function SlotPlannerSection({
             </div>
           );
         })}
-      </div>
+          </div>
+        </div>
+      ))}
     </section>
+  );
+}
+
+/**
+ * Slots in the order they were written, gathered under their shoot.
+ *
+ * Order is preserved rather than sorted: the sets appear in the order
+ * their first video does, which is the order somebody planning the
+ * month laid them out. Anything without a set yet falls to the end, so
+ * naming a set pulls those videos up into it rather than shuffling the
+ * whole page.
+ *
+ * The original index rides along because that is what edits are keyed
+ * on — the slot's position in the saved document, not its position on
+ * screen after grouping.
+ */
+function groupSlotsBySet(items: PlannerSlot[]) {
+  const groups: { name: string; entries: { slot: PlannerSlot; i: number }[] }[] = [];
+  const byName = new Map<string, { name: string; entries: { slot: PlannerSlot; i: number }[] }>();
+
+  items.forEach((slot, i) => {
+    const name = (slot.set ?? "").trim();
+    let group = byName.get(name);
+    if (!group) {
+      group = { name, entries: [] };
+      byName.set(name, group);
+      groups.push(group);
+    }
+    group.entries.push({ slot, i });
+  });
+
+  // Un-set videos last, whatever order they were found in.
+  return groups.sort((a, b) => (a.name ? 0 : 1) - (b.name ? 0 : 1));
+}
+
+/** Which parts of a slot are editable text. */
+type SlotFieldName =
+  | "title"
+  | "description"
+  | "pillar"
+  | "link"
+  | "hook"
+  | "body"
+  | "cta"
+  | "wms"
+  | "scenery"
+  | "set";
+
+/**
+ * One labelled line of a slot's brief.
+ *
+ * The label is always rendered, filled in or not — that is what makes
+ * this a template rather than a blank box. An empty field reads as
+ * "Hook: —", which tells you the question was asked and not yet
+ * answered; hiding it would just look like the brief was shorter.
+ */
+function SlotField({
+  label,
+  value,
+  editable,
+  onCommit,
+  placeholder,
+  multiline = false,
+}: {
+  label: string;
+  value?: string;
+  editable: boolean;
+  onCommit: (next: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+}) {
+  const filled = Boolean(value && value.trim());
+
+  return (
+    <div className={"slot-field" + (multiline ? " slot-field-tall" : "")}>
+      <span className="slot-field-label">{label}</span>
+      {editable ? (
+        <Editable
+          as="div"
+          className={"slot-field-value" + (filled ? "" : " is-empty")}
+          editable
+          value={value ?? ""}
+          onCommit={onCommit}
+          style={placeholder && !filled ? ({ "--placeholder": `"${placeholder}"` } as React.CSSProperties) : undefined}
+        />
+      ) : (
+        <span className={"slot-field-value" + (filled ? "" : " is-empty")}>{filled ? value : "—"}</span>
+      )}
+    </div>
   );
 }
 

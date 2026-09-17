@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, emailIsConfigured } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +12,10 @@ export const dynamic = "force-dynamic";
  * send email — Postgres has no outbound mail. So the triggers mark a
  * row `email_pending` and this route drains the queue.
  *
- * Call it on a schedule. Two ways, either is fine:
- *
- *   - Vercel Cron. Add to vercel.json:
- *       { "crons": [{ "path": "/api/notifications/flush",
- *                     "schedule": "*\/10 * * * *" }] }
- *   - Supabase Database Webhook on `notifications` INSERT pointing
- *     here, for near-instant delivery.
+ * Called on a schedule by Vercel Cron — see vercel.json, which runs
+ * it every fifteen minutes. A Supabase Database Webhook on
+ * `notifications` INSERT pointing here would deliver in near real
+ * time instead, if that ever matters more than it does today.
  *
  * Protected by NOTIFICATIONS_CRON_SECRET when that is set. Vercel Cron
  * sends its own Authorization header, which is accepted too. With no
@@ -64,18 +62,38 @@ export async function POST(request: Request) {
 
   if (rows.length === 0) return NextResponse.json({ sent: 0 });
 
-  // One page of users covers any realistic team; emails live on
+  // Where to write to somebody, in order of preference:
+  //
+  //   1. profiles.notify_email — what they (or management on their
+  //      behalf) asked for. A login is often a shared or made-up
+  //      address; this is the one a person actually reads.
+  //   2. their login address, so email works with nothing filled in.
+  //
+  // One page of users covers any realistic team. Login emails live on
   // auth.users, which only the service-role client can read.
-  const { data: authUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const emailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? null]));
+  const [{ data: authUsers }, { data: profiles }] = await Promise.all([
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    admin.from("profiles").select("id, notify_email"),
+  ]);
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const loginEmailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? null]));
+
+  const preferredById = new Map(
+    ((profiles ?? []) as { id: string; notify_email: string | null }[])
+      .map((p) => [p.id, p.notify_email?.trim() || null] as const)
+      .filter(([, email]) => !!email)
+  );
+
+  // Null when nothing knows this deployment's address. The button is
+  // then left off rather than pointing at "/app/uploads", which in an
+  // inbox is a dead link that looks like a working one.
+  const base = siteUrl();
 
   let sent = 0;
   const failures: string[] = [];
 
   for (const row of rows) {
-    const to = emailById.get(row.user_id);
+    const to = preferredById.get(row.user_id) ?? loginEmailById.get(row.user_id);
 
     // No address, nothing to send — clear the flag so it is not
     // retried forever.
@@ -88,7 +106,7 @@ export async function POST(request: Request) {
       to,
       subject: row.title,
       text: row.body ?? row.title,
-      actionUrl: row.href ? `${base}${row.href}` : undefined,
+      actionUrl: base && row.href ? `${base}${row.href}` : undefined,
       actionLabel: "Open in the CRM",
     });
 

@@ -59,10 +59,18 @@ export default async function ClientDetailPage({
         .from("client_staff")
         .select("staff_id, role_on_client, profiles(full_name, role, phone)")
         .eq("client_id", params.id),
+      // Everyone on the team, not just staff and videographers.
+      // Operations managers were missing, which mattered more than it
+      // looks: since 0024 an operations manager only sees the clients
+      // they are ON, so leaving them out of this list meant there was
+      // no way to give one a client at all. CEOs are here too, so the
+      // account lead can be recorded — their access doesn't depend on
+      // it (is_ceo_role() in 0024 sees everything regardless), but who
+      // owns the relationship is worth writing down.
       supabase
         .from("profiles")
         .select("id, full_name, role")
-        .in("role", ["staff", "videographer"])
+        .in("role", ["ceo", "operations_manager", "staff", "videographer"])
         .order("full_name"),
       // Phase 14. "invoices: management full access"
       // (0011_invoices_finance.sql) means this comes back empty for
@@ -108,7 +116,7 @@ export default async function ClientDetailPage({
       // Names for the team thread. assignableProfiles above is only
       // staff and videographers, and a CEO or ops manager posting here
       // would otherwise show as "Someone".
-      supabase.from("profiles").select("id, full_name"),
+      supabase.from("profiles").select("id, full_name, role"),
     ]);
 
   // A missing client here means either it doesn't exist, or RLS
@@ -162,6 +170,28 @@ export default async function ClientDetailPage({
     role: p.role,
   }));
 
+  // Who may change the assignments, and over whom.
+  //
+  // 0024 narrowed `client_staff` writes to the CEO so an operations
+  // manager could not hand themselves a client. 0027 gives them back
+  // the everyday half of the job: they may add and remove staff and
+  // videographers on a client they already run, but not themselves,
+  // another manager, or the CEO.
+  //
+  // This mirrors that split rather than enforcing it — the database
+  // refuses the write either way. Rendering a name they cannot assign
+  // would just produce a row-level-security error on the first click.
+  const callerRole = ((allProfiles ?? []) as unknown as { id: string; role?: string }[]).find(
+    (p) => p.id === user?.id
+  )?.role;
+
+  const canAssign = callerRole === "ceo" || callerRole === "operations_manager";
+
+  const assignableHere =
+    callerRole === "ceo"
+      ? assignable
+      : assignable.filter((p) => p.id !== user?.id && (p.role === "staff" || p.role === "videographer"));
+
   return (
     <main className="page">
       <ClientDetailTabs
@@ -172,7 +202,9 @@ export default async function ClientDetailPage({
         finance={finance ?? undefined}
         initialTab={searchParams?.tab === "plan" ? "plan" : "info"}
         teamMembers={teamMembers}
-        assignableProfiles={assignable}
+        assignableProfiles={assignableHere}
+        canAssign={canAssign}
+        assignScope={callerRole === "ceo" ? "everyone" : "workers"}
         invoices={invoices ?? []}
         meetings={(meetings ?? []) as any}
         activity={activityEntries}

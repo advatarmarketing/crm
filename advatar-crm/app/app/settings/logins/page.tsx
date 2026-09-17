@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadProfileFieldMany } from "@/lib/profile-fields";
 import { CreateLoginForm, type ClientOption } from "./create-login-form";
 import { LoginsList, type LoginRow } from "./logins-list";
 import type { ProfileRole } from "@/lib/supabase/types";
@@ -57,6 +58,16 @@ export default async function LoginsPage() {
     admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
 
+  // Fetched separately from the query above, and allowed to come back
+  // empty: this page is how logins get fixed, so it has to load on a
+  // database that is behind the code. One unknown column in the query
+  // above would have failed the whole thing. See lib/profile-fields.ts.
+  const notifyEmailById = await loadProfileFieldMany(
+    admin,
+    ((profileRows ?? []) as { id: string }[]).map((p) => p.id),
+    "notify_email"
+  );
+
   const authById = new Map(
     (authUsers?.users ?? []).map((u) => [u.id, { email: u.email ?? null, lastSignInAt: u.last_sign_in_at ?? null }])
   );
@@ -80,6 +91,7 @@ export default async function LoginsPage() {
         role: p.role,
         email: auth?.email ?? null,
         clientName: p.client_id ? clientNameById.get(p.client_id) ?? null : null,
+        notifyEmail: notifyEmailById.get(p.id) ?? null,
         lastSignInAt: auth?.lastSignInAt ?? null,
         manageable: creatableRoles.includes(p.role as ProfileRole),
       };
@@ -99,7 +111,9 @@ export default async function LoginsPage() {
       </div>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 32px", lineHeight: 1.6 }}>
         Create and manage every login here — staff, videographers and client
-        portal accounts. Nothing needs doing in Supabase.
+        portal accounts. Nothing needs doing in Supabase. You can also set
+        where each person&rsquo;s notification emails go, which is worth doing
+        for clients who will never open their own settings.
       </p>
 
       <section style={{ marginBottom: 44 }}>

@@ -46,9 +46,16 @@ export function DocumentUpload({ clientId }: { clientId: string }) {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
       const path = `${clientId}/${crypto.randomUUID()}-${safeName}`;
 
+      // iOS hands over an empty `file.type` for plenty of things
+      // picked out of Files, and Storage then records the object as
+      // application/octet-stream. Safari renders that as a blank page
+      // rather than downloading it, so the type is worked out from the
+      // extension when the browser won't say.
+      const contentType = file.type || guessMimeType(file.name);
+
       const { error: uploadError } = await supabase.storage
         .from("client-documents")
-        .upload(path, file, { cacheControl: "3600", upsert: false });
+        .upload(path, file, { cacheControl: "3600", upsert: false, contentType });
 
       if (uploadError) {
         setError(uploadError.message);
@@ -59,7 +66,7 @@ export function DocumentUpload({ clientId }: { clientId: string }) {
         clientId,
         storagePath: path,
         name: file.name,
-        mimeType: file.type || null,
+        mimeType: contentType,
         sizeBytes: file.size,
       });
 
@@ -102,4 +109,40 @@ export function DocumentUpload({ clientId }: { clientId: string }) {
       )}
     </div>
   );
+}
+
+/**
+ * A content type for a file the browser wouldn't name.
+ *
+ * Only the formats this agency actually shares. Anything unrecognised
+ * stays octet-stream, which the server then serves as a download —
+ * safe, if less pretty than an inline preview.
+ */
+const MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  heic: "image/heic",
+  webp: "image/webp",
+  gif: "image/gif",
+  svg: "image/svg+xml",
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  txt: "text/plain",
+  csv: "text/csv",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  zip: "application/zip",
+};
+
+function guessMimeType(filename: string): string {
+  const extension = filename.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_BY_EXTENSION[extension] ?? "application/octet-stream";
 }

@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 export interface Person {
   id: string;
   name: string;
+  /** Empty groups everything under one list — used for clients. */
   role: string;
 }
 
@@ -31,6 +32,7 @@ export function PersonPicker({
   label = "Whose calendar",
   allLabel = "Everyone",
   allValue = "",
+  param = "person",
 }: {
   people: Person[];
   /** The person's id, or `allValue` for everyone. */
@@ -43,6 +45,12 @@ export function PersonPicker({
    * a sentinel like "all" so the two states stay distinguishable.
    */
   allValue?: string;
+  /**
+   * Which query parameter this picker owns. The Calendar tab carries
+   * two — one for whose diary, one for which client — and they filter
+   * independently, so they cannot share a parameter.
+   */
+  param?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -50,14 +58,17 @@ export function PersonPicker({
 
   function choose(id: string) {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
-    if (id) params.set("person", id);
-    else params.delete("person");
+    if (id) params.set(param, id);
+    else params.delete(param);
     const query = params.toString();
     router.push(query ? `${pathname}?${query}` : pathname ?? "");
   }
 
   // Grouped so a team of twenty doesn't become one undifferentiated
   // list — you nearly always know the role of the person you want.
+  // Entries with no role (clients) fall into a single ungrouped list,
+  // since "client" is the only thing they could be.
+  const grouped = people.some((p) => p.role);
   const byRole = new Map<string, Person[]>();
   for (const p of people) {
     if (!byRole.has(p.role)) byRole.set(p.role, []);
@@ -92,15 +103,21 @@ export function PersonPicker({
         }}
       >
         <option value={allValue}>{allLabel}</option>
-        {Array.from(byRole.entries()).map(([role, group]) => (
-          <optgroup key={role} label={ROLE_LABEL[role] ?? role}>
-            {group.map((p) => (
+        {grouped
+          ? Array.from(byRole.entries()).map(([role, group]) => (
+              <optgroup key={role} label={ROLE_LABEL[role] ?? role}>
+                {group.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))
+          : people.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
-          </optgroup>
-        ))}
       </select>
     </label>
   );

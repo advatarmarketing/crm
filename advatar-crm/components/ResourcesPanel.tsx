@@ -16,6 +16,12 @@ export interface ResourceEntry {
   assigned_to: string | null;
   /** Phase 22: the checklist steps people tick through. */
   steps?: EditableStep[];
+  position?: number;
+}
+
+export interface AudienceChoice {
+  value: string;
+  label: string;
 }
 
 const KINDS: ResourceKind[] = ["sop", "tutorial", "template", "other"];
@@ -25,6 +31,13 @@ const KIND_LABEL: Record<string, string> = {
   tutorial: "Tutorial",
   template: "Template",
   other: "Other",
+};
+
+const AUDIENCE_LABEL: Record<string, string> = {
+  all: "Everyone",
+  staff: "Staff",
+  videographer: "Videographers",
+  operations_manager: "Ops managers",
 };
 
 /**
@@ -46,6 +59,10 @@ export function ResourcesPanel({
   personId = null,
   personName = null,
   emptyMessage = "Nothing here yet.",
+  audienceChoices,
+  defaultKind = "sop",
+  withChecklists = true,
+  addLabel = "+ Add SOP or tutorial",
 }: {
   initialResources: ResourceEntry[];
   editable?: boolean;
@@ -54,6 +71,17 @@ export function ResourcesPanel({
   personId?: string | null;
   personName?: string | null;
   emptyMessage?: string;
+  /**
+   * Offered on the Tools page, where management is writing for the
+   * whole team and has to say who each item is for. Left out on a
+   * single videographer's page, where `audienceRole` already answers
+   * that.
+   */
+  audienceChoices?: AudienceChoice[];
+  defaultKind?: ResourceKind;
+  /** The Resources half is reference material, so it has no steps. */
+  withChecklists?: boolean;
+  addLabel?: string;
 }) {
   const [resources, setResources] = useState(initialResources);
   const [adding, setAdding] = useState(false);
@@ -65,19 +93,24 @@ export function ResourcesPanel({
   const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
-  const [kind, setKind] = useState<ResourceKind>("sop");
+  const [kind, setKind] = useState<ResourceKind>(defaultKind);
   const [url, setUrl] = useState("");
   const [body, setBody] = useState("");
+  const [audience, setAudience] = useState(audienceChoices?.[0]?.value ?? audienceRole);
   const [justThisPerson, setJustThisPerson] = useState(false);
+
+  // The row currently open for editing, if any.
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
 
   function reset() {
     setTitle("");
-    setKind("sop");
+    setKind(defaultKind);
     setUrl("");
     setBody("");
+    setAudience(audienceChoices?.[0]?.value ?? audienceRole);
     setJustThisPerson(false);
   }
 
@@ -105,11 +138,11 @@ export function ResourcesPanel({
         kind,
         url: url.trim() || null,
         body: body.trim() || null,
-        audience_role: audienceRole,
+        audience_role: audienceChoices ? audience : audienceRole,
         assigned_to: justThisPerson ? personId : null,
         position: resources.length,
       })
-      .select("id, title, kind, url, body, audience_role, assigned_to")
+      .select("id, title, kind, url, body, audience_role, assigned_to, position")
       .single();
 
     setBusy(false);
@@ -123,6 +156,61 @@ export function ResourcesPanel({
     setJustCreatedId((data as { id: string }).id);
     reset();
     setAdding(false);
+    router.refresh();
+  }
+
+  /**
+   * Moves an entry one place up or down.
+   *
+   * Two rows swap `position`, which is what the lists are ordered by.
+   * Buttons rather than drag-and-drop: this is edited from a phone as
+   * often as a laptop, and dragging a list item on touch fights the
+   * page's own scrolling.
+   */
+  async function move(id: string, direction: -1 | 1) {
+    const index = resources.findIndex((r) => r.id === id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= resources.length) return;
+
+    const reordered = [...resources];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    setResources(reordered); // optimistic
+
+    const writes = reordered.map((r, i) =>
+      supabase.from("resources").update({ position: i }).eq("id", r.id)
+    );
+    const results = await Promise.all(writes);
+    const failed = results.find((r) => r.error);
+
+    if (failed?.error) {
+      setResources(resources);
+      setError(failed.error.message);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function saveEdit(id: string, patch: Partial<ResourceEntry>) {
+    const prev = resources;
+    setResources((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r))); // optimistic
+
+    const { error: updateError } = await supabase
+      .from("resources")
+      .update({
+        title: patch.title,
+        kind: patch.kind,
+        url: patch.url,
+        body: patch.body,
+        audience_role: patch.audience_role,
+      })
+      .eq("id", id);
+
+    if (updateError) {
+      setResources(prev);
+      setError(updateError.message);
+      return;
+    }
+    setEditingId(null);
     router.refresh();
   }
 
@@ -146,7 +234,7 @@ export function ResourcesPanel({
         </p>
       ) : (
         <ul style={{ listStyle: "none", margin: "0 0 14px", padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-          {resources.map((r) => (
+          {resources.map((r, index) => (
             <li
               key={r.id}
               style={{
@@ -194,6 +282,24 @@ export function ResourcesPanel({
                       {KIND_LABEL[r.kind] ?? r.kind}
                     </span>
 
+                    {audienceChoices && (
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 10,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          color: "var(--text-2)",
+                          background: "var(--surface-2)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 20,
+                          padding: "2px 8px",
+                        }}
+                      >
+                        {AUDIENCE_LABEL[r.audience_role] ?? r.audience_role}
+                      </span>
+                    )}
+
                     {r.assigned_to && personName && (
                       <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-3)" }}>
                         {personName} only
@@ -218,32 +324,70 @@ export function ResourcesPanel({
                 </span>
 
                 {editable && (
-                  <button
-                    type="button"
-                    onClick={() => remove(r.id)}
-                    aria-label={`Delete ${r.title}`}
-                    title="Delete"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--text-3)",
-                      cursor: "pointer",
-                      padding: 4,
-                      lineHeight: 0,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </button>
+                  <span style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => move(r.id, -1)}
+                      disabled={index === 0}
+                      aria-label={`Move ${r.title} up`}
+                      title="Move up"
+                      style={{ ...iconButton, opacity: index === 0 ? 0.3 : 1 }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 19V5M5 12l7-7 7 7" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(r.id, 1)}
+                      disabled={index === resources.length - 1}
+                      aria-label={`Move ${r.title} down`}
+                      title="Move down"
+                      style={{ ...iconButton, opacity: index === resources.length - 1 ? 0.3 : 1 }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 5v14M19 12l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(editingId === r.id ? null : r.id)}
+                      aria-label={`Edit ${r.title}`}
+                      title="Edit"
+                      style={iconButton}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(r.id)}
+                      aria-label={`Delete ${r.title}`}
+                      title="Delete"
+                      style={iconButton}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
                 )}
               </div>
+
+              {editable && editingId === r.id && (
+                <EditForm
+                  resource={r}
+                  audienceChoices={audienceChoices}
+                  onCancel={() => setEditingId(null)}
+                  onSave={(patch) => saveEdit(r.id, patch)}
+                />
+              )}
 
               {/* Phase 22: the checklist attached to this SOP.
                   Management writes the steps here; videographers tick
                   their own copy on the Guidelines page. */}
-              {editable && (
+              {editable && withChecklists && editingId !== r.id && (
                 <ResourceChecklistEditor
                   resourceId={r.id}
                   initialSteps={r.steps ?? []}
@@ -282,6 +426,21 @@ export function ResourcesPanel({
                 ))}
               </select>
             </div>
+
+            {audienceChoices && (
+              <select
+                value={audience}
+                onChange={(e) => setAudience(e.target.value)}
+                aria-label="Who is this for?"
+                style={{ ...field, width: "100%", marginBottom: 10 }}
+              >
+                {audienceChoices.map((a) => (
+                  <option key={a.value} value={a.value}>
+                    For: {a.label}
+                  </option>
+                ))}
+              </select>
+            )}
 
             <input
               value={url}
@@ -339,12 +498,112 @@ export function ResourcesPanel({
           </div>
         ) : (
           <button type="button" onClick={() => setAdding(true)} className="btn">
-            + Add SOP or tutorial
+            {addLabel}
           </button>
         ))}
     </div>
   );
 }
+
+/** Editing one entry in place, rather than delete-and-retype. */
+function EditForm({
+  resource,
+  audienceChoices,
+  onCancel,
+  onSave,
+}: {
+  resource: ResourceEntry;
+  audienceChoices?: AudienceChoice[];
+  onCancel: () => void;
+  onSave: (patch: Partial<ResourceEntry>) => void;
+}) {
+  const [title, setTitle] = useState(resource.title);
+  const [kind, setKind] = useState(resource.kind as ResourceKind);
+  const [url, setUrl] = useState(resource.url ?? "");
+  const [body, setBody] = useState(resource.body ?? "");
+  const [audience, setAudience] = useState(resource.audience_role);
+  const [error, setError] = useState<string | null>(null);
+
+  function submit() {
+    if (!title.trim()) return setError("Give it a title.");
+    if (url.trim() && !/^https?:\/\//i.test(url.trim())) {
+      return setError("The link should start with http:// or https://");
+    }
+    onSave({
+      title: title.trim(),
+      kind,
+      url: url.trim() || null,
+      body: body.trim() || null,
+      audience_role: audience,
+    });
+  }
+
+  return (
+    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ ...field, flex: "2 1 200px" }} />
+        <select value={kind} onChange={(e) => setKind(e.target.value as ResourceKind)} style={{ ...field, flex: "1 1 120px" }}>
+          {KINDS.map((k) => (
+            <option key={k} value={k}>
+              {KIND_LABEL[k]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {audienceChoices && (
+        <select
+          value={audience}
+          onChange={(e) => setAudience(e.target.value)}
+          aria-label="Who is this for?"
+          style={{ ...field, width: "100%", marginBottom: 10 }}
+        >
+          {audienceChoices.map((a) => (
+            <option key={a.value} value={a.value}>
+              For: {a.label}
+            </option>
+          ))}
+        </select>
+      )}
+
+      <input
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="Link to a doc or video (optional)"
+        style={{ ...field, width: "100%", marginBottom: 10 }}
+      />
+
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        rows={4}
+        placeholder="Or write it out here (optional)"
+        style={{ ...field, width: "100%", resize: "vertical", marginBottom: 10 }}
+      />
+
+      {error && <p style={{ color: "var(--status-closed)", fontSize: 12.5, margin: "0 0 10px" }}>{error}</p>}
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button type="button" onClick={submit} className="btn btn-primary">
+          Save changes
+        </button>
+        <button type="button" onClick={onCancel} className="btn">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const iconButton = {
+  background: "none",
+  border: "none",
+  color: "var(--text-3)",
+  cursor: "pointer",
+  padding: 4,
+  lineHeight: 0,
+  flexShrink: 0,
+} as const;
 
 const field = {
   padding: "9px 11px",

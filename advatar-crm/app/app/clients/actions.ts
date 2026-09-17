@@ -10,7 +10,7 @@ export interface CreateClientState {
 
 /**
  * Creates a new `clients` row. RLS ("clients: management full access",
- * 0010_ops_manager_leads_staff_scoping.sql) only grants insert to
+ * most recently rewritten in 0029) only grants insert to
  * ceo/operations_manager — a plain `staff` account's insert would be
  * rejected by Postgres regardless of what this action does, but the
  * explicit role check below gives a clear error message instead of a
@@ -81,9 +81,31 @@ export async function createClientRecord(
     return { error: "Likelihood must be between 0 and 100." };
   }
 
-  const { data: inserted, error } = await supabase
+  // The id is generated here rather than by the database, and the
+  // insert deliberately asks for NOTHING back. Both halves of that
+  // matter, and the reason is not obvious:
+  //
+  // An operations manager is scoped to the clients they are assigned
+  // to (0029). A brand new client has no assignments yet, so 0024
+  // added an AFTER INSERT trigger that puts the creator onto the row
+  // the moment it exists. That works — but "insert and return the new
+  // row" is a single statement, and Postgres checks the SELECT policy
+  // for the returned row BEFORE after-insert triggers run. So the row
+  // went in, the assignment had not happened yet, reading it back was
+  // refused, and the whole statement was rolled back with "new row
+  // violates row-level security policy for table clients". The CEO
+  // never saw it, because the CEO is not scoped in the first place.
+  //
+  // Asking for nothing back removes the read, and knowing the id in
+  // advance means we do not need one. By the time anything else looks
+  // at this client, the trigger has run and the creator can see it.
+  // Reproduced and re-tested against a real Postgres both ways.
+  const id = crypto.randomUUID();
+
+  const { error } = await supabase
     .from("clients")
     .insert({
+      id,
       name,
       stage,
       contact_name: contactName,
@@ -95,13 +117,11 @@ export async function createClientRecord(
       follow_up_date: followUpDate,
       estimated_value: estimatedValue,
       likelihood,
-    })
-    .select("id")
-    .single();
+    });
 
-  if (error || !inserted) {
-    return { error: error?.message ?? "Could not create the client." };
+  if (error) {
+    return { error: error.message };
   }
 
-  redirect(stage === "lead" ? "/app/leads" : `/app/clients/${inserted.id}`);
+  redirect(stage === "lead" ? "/app/leads" : `/app/clients/${id}`);
 }

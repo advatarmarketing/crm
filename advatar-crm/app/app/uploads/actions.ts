@@ -6,6 +6,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { displayName } from "@/lib/names";
 import type { SubmissionVisibility } from "@/lib/supabase/types";
 
+/**
+ * These were `/app/my-work`'s actions until the Uploads tab took the
+ * submission workflow over. They moved rather than being copied so
+ * there is still exactly one place that knows how handing work in
+ * works — the thing this app's conventions care about most.
+ */
 export interface SubmitWorkInput {
   title: string;
   clientId: string;
@@ -101,7 +107,7 @@ export async function submitWorkAction(input: SubmitWorkInput): Promise<SubmitWo
     await notifyClient({ clientId, title, actorId: user.id });
   }
 
-  revalidatePath("/app/my-work");
+  revalidatePath("/app/uploads");
 
   return { ok: true, note };
 }
@@ -155,9 +161,13 @@ export async function shareWithClientAction(submissionId: string): Promise<Submi
     ? await fillPlannerSlot({ clientId: row.client_id, submissionId: row.id, title: row.title, url })
     : null;
 
-  await notifyClient({ clientId: row.client_id, title: row.title, actorId: user.id });
+  // No notifyClient() here any more. The update above trips
+  // `submissions_shared_notify` (0028), which tells every login on
+  // that client and points them at their own Uploads tab. Calling it
+  // from here too would send the same person the same thing twice.
 
-  revalidatePath("/app/my-work");
+  revalidatePath("/app/uploads");
+  revalidatePath("/app/portal/uploads");
   revalidatePath("/app/clients");
 
   return { ok: true, note };
@@ -323,7 +333,7 @@ async function notifyClient({
       kind: "submission_shared",
       title: "New video ready to watch",
       body: `${displayName(actor?.full_name ?? null)} has shared “${title}” with you.`,
-      href: "/app/portal",
+      href: "/app/portal/uploads",
       email_pending: true,
     }));
 

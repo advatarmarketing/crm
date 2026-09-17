@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { resetLoginPassword, updateLoginName } from "./actions";
+import { resetLoginPassword, updateLoginName, updateLoginNotifyEmail } from "./actions";
 import { displayName } from "@/lib/names";
 
 export interface LoginRow {
@@ -12,6 +12,12 @@ export interface LoginRow {
   email: string | null;
   clientName: string | null;
   lastSignInAt: string | null;
+  /**
+   * Where the CRM emails them. Null means it falls back to their
+   * sign-in address — which is why the input below shows that address
+   * as its placeholder rather than sitting empty and unexplained.
+   */
+  notifyEmail: string | null;
   /** False when the caller's own role isn't allowed to touch this one. */
   manageable: boolean;
 }
@@ -84,20 +90,46 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
 
 function LoginItem({ login }: { login: LoginRow }) {
   const [name, setName] = useState(login.fullName ?? "");
+  const [notify, setNotify] = useState(login.notifyEmail ?? "");
   const [busy, setBusy] = useState<"name" | "reset" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const router = useRouter();
 
-  const dirty = name.trim() !== (login.fullName ?? "").trim();
+  const nameDirty = name.trim() !== (login.fullName ?? "").trim();
+  const notifyDirty = notify.trim() !== (login.notifyEmail ?? "").trim();
+  const dirty = nameDirty || notifyDirty;
 
-  async function saveName() {
+  /**
+   * One button for both fields.
+   *
+   * They are two separate writes underneath — the name also syncs to
+   * auth metadata, the address does not — but from here it is one
+   * edit to one person, and two Save buttons on a row would be two
+   * decisions where there is only one.
+   */
+  async function saveDetails() {
     setBusy("name");
     setError(null);
-    const { error: saveError } = await updateLoginName(login.id, name);
+
+    if (nameDirty) {
+      const { error: nameError } = await updateLoginName(login.id, name);
+      if (nameError) {
+        setBusy(null);
+        return setError(nameError);
+      }
+    }
+
+    if (notifyDirty) {
+      const { error: mailError } = await updateLoginNotifyEmail(login.id, notify);
+      if (mailError) {
+        setBusy(null);
+        return setError(mailError);
+      }
+    }
+
     setBusy(null);
-    if (saveError) return setError(saveError);
     router.refresh();
   }
 
@@ -145,6 +177,44 @@ function LoginItem({ login }: { login: LoginRow }) {
             </span>
           )}
 
+          {login.manageable && (
+            <label style={{ display: "block", marginTop: 8 }}>
+              <span
+                style={{
+                  display: "block",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9.5,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: "var(--text-3)",
+                  marginBottom: 4,
+                }}
+              >
+                Email for notifications
+              </span>
+              <input
+                value={notify}
+                onChange={(e) => setNotify(e.target.value)}
+                type="email"
+                inputMode="email"
+                // The sign-in address as the placeholder, so leaving
+                // it blank visibly means "send it there".
+                placeholder={login.email ?? "you@example.com"}
+                aria-label={`Notification email for ${login.fullName ?? login.email ?? "this login"}`}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface-2)",
+                  color: "var(--text-1)",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 13.5,
+                }}
+              />
+            </label>
+          )}
+
           <span
             style={{
               display: "block",
@@ -156,6 +226,8 @@ function LoginItem({ login }: { login: LoginRow }) {
             }}
           >
             {login.email ?? "no email on file"}
+            <br />
+            {login.notifyEmail ? `mail to ${login.notifyEmail}` : "mail to the sign-in address"}
             <br />
             {ROLE_LABEL[login.role] ?? login.role}
             {login.clientName ? ` · ${login.clientName}` : ""}
@@ -175,12 +247,12 @@ function LoginItem({ login }: { login: LoginRow }) {
             {dirty && (
               <button
                 type="button"
-                onClick={saveName}
+                onClick={saveDetails}
                 disabled={busy !== null || !name.trim()}
                 className="btn"
                 style={{ opacity: busy !== null || !name.trim() ? 0.5 : 1 }}
               >
-                {busy === "name" ? "Saving…" : "Save name"}
+                {busy === "name" ? "Saving…" : "Save"}
               </button>
             )}
 

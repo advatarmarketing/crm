@@ -4,11 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { ResourcesPanel, type ResourceEntry } from "@/components/ResourcesPanel";
+import { AvailabilityPanel } from "@/components/AvailabilityPanel";
+import { loadAvailability } from "@/lib/availability";
 import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { loadSubmissions } from "@/lib/submissions";
 import type { ProfileRole } from "@/lib/supabase/types";
 import { displayName } from "@/lib/names";
 import { ProfilePanel, type EditableProfile } from "@/components/ProfilePanel";
+import { loadProfileField } from "@/lib/profile-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +60,16 @@ export default async function VideographerDetailPage({ params }: { params: { id:
   if (!videographer || videographer.role !== "videographer") {
     notFound();
   }
+
+  // Read on its own, so a database that hasn't had 0026 run cannot
+  // turn this whole page into a 404 — which is exactly what selecting
+  // it alongside the columns above used to do. See lib/availability.ts.
+  const availability = await loadAvailability(supabase, params.id);
+
+  // Same treatment, same reason: a CEO or operations manager filling
+  // in somebody's notification address must not be able to take this
+  // page down on a database still waiting for 0030.
+  const notifyEmail = await loadProfileField(supabase, params.id, "notify_email");
 
   const [
     { data: events },
@@ -174,7 +187,34 @@ export default async function VideographerDetailPage({ params }: { params: { id:
           <h2 className="section-title">Details</h2>
           <p className="section-sub">Name, phone and photo</p>
         </div>
-        <ProfilePanel profile={videographer as unknown as EditableProfile} />
+        <ProfilePanel
+          profile={{ ...(videographer as unknown as EditableProfile), notify_email: notifyEmail.value }}
+        />
+      </section>
+
+      {/* Prompt 9: what they've written about their own availability,
+          placed immediately above the schedule because the two are read
+          together — when they're free, then what's already booked.
+          Editable here as well as by them: 0022 lets management update
+          any profile, so a note taken over the phone doesn't have to
+          wait for them to type it in. */}
+      <section className="section" style={{ maxWidth: 780 }}>
+        <div className="section-head">
+          <h2 className="section-title">Availability</h2>
+          <p className="section-sub">In their words — they edit this from their own Calendar tab</p>
+        </div>
+        {availability.columnMissing ? (
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)", margin: 0 }}>
+            Availability isn&rsquo;t switched on yet — migration 0026 still needs
+            running. The rest of this page works as normal.
+          </p>
+        ) : (
+          <AvailabilityPanel
+            profileId={videographer.id}
+            initialValue={availability.value}
+            emptyMessage={`${name} hasn't written down their availability yet. You can add it here, or ask them to fill it in on their Calendar tab.`}
+          />
+        )}
       </section>
 
       <section className="section" style={{ maxWidth: 780 }}>

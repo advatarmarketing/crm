@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { SchedulePanel, type ScheduleEntry, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { StatTile } from "@/components/StatTile";
+import { UpcomingStrip } from "@/components/UpcomingStrip";
+import { MonthCalendar } from "@/components/MonthCalendar";
 import { Greeting } from "@/components/Greeting";
 import { firstName as firstNameOf } from "@/lib/names";
 import { startOfToday, isPast } from "@/lib/format";
@@ -41,14 +43,29 @@ export default async function MyDashboardPage() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
+  // The "coming up" strip looks past the seven-day window the rest of
+  // this page uses — a shoot ten days out is exactly the thing you
+  // want warning of, and it would otherwise appear from nowhere on the
+  // Monday it becomes "this week".
+  const horizon = new Date(today);
+  horizon.setDate(horizon.getDate() + 30);
+
+  // The month grid at the foot of the page needs the surrounding
+  // months, not just what's ahead: its six-week layout reaches into
+  // the month either side, and paging back a month should show
+  // something rather than an empty grid. One query covers all of it
+  // and the narrower views filter it down.
+  const calendarFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const calendarTo = new Date(today.getFullYear(), today.getMonth() + 2, 1);
+
   const [{ data: profile }, { data: events }, { data: tasks }, { data: categories }, { data: threads }] =
     await Promise.all([
       supabase.from("profiles").select("full_name").eq("id", user.id).single(),
       supabase
         .from("schedule_events")
         .select("id, title, starts_at, ends_at, all_day, location, category_id, client_id, assigned_to")
-        .gte("starts_at", today.toISOString())
-        .lt("starts_at", weekEnd.toISOString())
+        .gte("starts_at", calendarFrom.toISOString())
+        .lt("starts_at", calendarTo.toISOString())
         .order("starts_at"),
       supabase
         .from("tasks")
@@ -63,7 +80,12 @@ export default async function MyDashboardPage() {
   const categoryName = new Map(eventCategories.map((c) => [c.id, c.name]));
 
   type EventRow = ScheduleEntry;
-  const weekEvents = (events ?? []) as unknown as EventRow[];
+  const allEvents = (events ?? []) as unknown as EventRow[];
+  const upcomingEvents = allEvents.filter((e) => {
+    const at = new Date(e.starts_at);
+    return at >= today && at < horizon;
+  });
+  const weekEvents = upcomingEvents.filter((e) => new Date(e.starts_at) < weekEnd);
 
   // Today's entries, split out from the rest of the week.
   const todays = weekEvents.filter((e) => {
@@ -114,6 +136,24 @@ export default async function MyDashboardPage() {
       .neq("sender_id", user.id);
     unreadCount = count ?? 0;
   }
+
+  // Client names for the strip's cards. The list is already narrowed
+  // by RLS to the clients this videographer is on.
+  const { data: clientRows } = await supabase.from("clients").select("id, name");
+  const clientNameById = new Map(
+    ((clientRows ?? []) as unknown as { id: string; name: string | null }[]).map((c) => [
+      c.id,
+      c.name?.trim() || "Untitled client",
+    ])
+  );
+  const withClientNames = (list: EventRow[]): EventRow[] =>
+    list.map((e) => ({
+      ...e,
+      clientName: e.client_id ? clientNameById.get(e.client_id) ?? null : null,
+    }));
+
+  const upcomingWithClients = withClientNames(upcomingEvents);
+  const monthEvents = withClientNames(allEvents);
 
   const who = firstNameOf((profile as { full_name?: string | null } | null)?.full_name);
   // The server's hour seeds the first paint; Greeting corrects it to
@@ -241,6 +281,26 @@ export default async function MyDashboardPage() {
         </section>
       )}
 
+      {/* Prompt 8: the compact "coming up" view. Deliberately not the
+          month grid — that lives on the Calendar tab, and a whole
+          month is not what you open a dashboard to find out. */}
+      <section className="section">
+        <div className="section-head">
+          <h2 className="section-title">Coming up</h2>
+          <p className="section-sub">
+            The next month ·{" "}
+            <Link href="/app/calendar" style={{ color: "var(--accent)" }}>
+              full calendar
+            </Link>
+          </p>
+        </div>
+        <UpcomingStrip
+          events={upcomingWithClients}
+          categories={eventCategories}
+          emptyMessage="Nothing booked in over the next month."
+        />
+      </section>
+
       <section id="today" className="section" style={{ maxWidth: 780, scrollMarginTop: 90 }}>
         <div className="section-head">
           <h2 className="section-title">Today</h2>
@@ -264,12 +324,29 @@ export default async function MyDashboardPage() {
           emptyMessage="Nothing booked in this week."
         />
         <Link
-          href="/app/my-calendar"
+          href="/app/calendar"
           className="btn"
           style={{ textDecoration: "none", display: "inline-block", marginTop: 12 }}
         >
           Full calendar →
         </Link>
+      </section>
+
+      {/* The same month grid the staff and CEO dashboards carry. The
+          strip at the top answers "what's next"; this answers "how
+          busy is the month", which a list can't. Read-only, as
+          everywhere on this page — booking is the office's job. */}
+      <section className="section">
+        <div className="section-head">
+          <h2 className="section-title">The month</h2>
+          <p className="section-sub">
+            Everything in your diary ·{" "}
+            <Link href="/app/calendar" style={{ color: "var(--accent)" }}>
+              open the calendar
+            </Link>
+          </p>
+        </div>
+        <MonthCalendar events={monthEvents} categories={eventCategories} />
       </section>
 
       <section id="tasks" className="section" style={{ maxWidth: 780, scrollMarginTop: 90 }}>
