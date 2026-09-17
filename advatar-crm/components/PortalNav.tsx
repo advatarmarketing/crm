@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { NavBadge } from "@/components/NavBadge";
 
 // Documents deliberately sits AFTER Content Plan: the plan is the
@@ -35,9 +36,27 @@ const LINKS = [
 // query are what actually restrict this section to the client role.
 export function PortalNav() {
   const pathname = usePathname();
+  const strip = useRef<HTMLElement>(null);
+
+  // Keep the tab you are on in view. Eight tabs do not fit across a
+  // phone, so Messages and To-do sit off the right-hand edge — without
+  // this, opening one of them leaves the underline somewhere the
+  // client cannot see. Mirrors AppNav; scrollLeft rather than
+  // scrollIntoView for the same reason given there.
+  useEffect(() => {
+    const el = strip.current;
+    if (!el) return;
+
+    const current = el.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!current) return;
+
+    const target = current.offsetLeft - (el.clientWidth - current.offsetWidth) / 2;
+    el.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+  }, [pathname]);
 
   return (
     <nav
+      ref={strip}
       style={{
         display: "flex",
         gap: 4,
@@ -53,6 +72,7 @@ export function PortalNav() {
           <Link
             key={link.href}
             href={link.href}
+            aria-current={active ? "page" : undefined}
             style={{
               display: "inline-flex",
               alignItems: "center",

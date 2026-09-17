@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProfileRole } from "@/lib/supabase/types";
 import { signOutAction } from "@/app/app/actions";
 import { MessagesNavBadge } from "@/components/MessagesNavBadge";
@@ -12,6 +12,7 @@ import { QuickSearch } from "@/components/QuickSearch";
 import { NotificationBell, type AppNotification } from "@/components/NotificationBell";
 import { NavIcon, type NavIconName } from "@/components/NavIcon";
 import { NavBadge } from "@/components/NavBadge";
+import { BackButton } from "@/components/BackButton";
 
 /**
  * Phase 7: the nav's content per role is a presentation choice layered
@@ -125,11 +126,31 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
   const links = NAV_BY_ROLE[role];
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const tabStrip = useRef<HTMLDivElement>(null);
 
   // Close the mobile menu on navigation — without this, tapping a link
   // leaves the panel sitting open over the page you just moved to.
   useEffect(() => {
     setMenuOpen(false);
+  }, [pathname]);
+
+  // Bring the current tab into view.
+  //
+  // The strip scrolls sideways, and on a phone it shows perhaps three
+  // of the CEO's fourteen tabs — so without this, opening Payments
+  // leaves you looking at Dashboard with no indication of where you
+  // actually are. scrollLeft is set directly rather than using
+  // scrollIntoView, which on some browsers scrolls the PAGE as well
+  // and would yank the content out from under the reader.
+  useEffect(() => {
+    const strip = tabStrip.current;
+    if (!strip) return;
+
+    const current = strip.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!current) return;
+
+    const target = current.offsetLeft - (strip.clientWidth - current.offsetWidth) / 2;
+    strip.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
   }, [pathname]);
 
   function isActive(href: string) {
@@ -157,6 +178,13 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
           minHeight: 56,
         }}
       >
+        {/* Left of the wordmark, where a phone's back control belongs
+            and where it cannot be confused with the actions on the
+            right. It renders nothing on a desktop, nothing on the
+            role's home page, and nothing until there is somewhere to
+            go — see components/BackButton.tsx. */}
+        <BackButton home={links[0]?.href ?? "/app"} />
+
         <Link
           href={links[0]?.href ?? "/app"}
           style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", marginRight: 8 }}
@@ -272,8 +300,15 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
           them, and the underline lines up with the bar's own bottom
           edge instead of floating inside it.
 
-          Still `.nav-links`, so it disappears under 900px exactly as
-          before and the burger takes over unchanged.
+          It stays on a phone rather than collapsing into the burger,
+          which is what the client portal has always done and what the
+          staff side was asked to match. The burger is untouched and
+          still holds everything: Profile, Password and Sign out have
+          no tab, and on a phone they are only reachable there.
+
+          It was `.nav-links` — hidden under 900px — until then, which
+          meant every staff-side login on a phone had to open the menu
+          to change page, while a client tapped a tab.
 
           Every tab carries a NavBadge, not just Uploads. It counts
           unread notifications pointing at that tab, so a tab with
@@ -284,7 +319,8 @@ export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifi
           and has done since Phase 10. */}
       {role !== "client" && (
       <div
-        className="nav-links"
+        ref={tabStrip}
+        className="nav-tabs"
         style={{
           gap: 4,
           padding: "0 16px",

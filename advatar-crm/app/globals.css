@@ -760,6 +760,41 @@ textarea:focus-visible {
   display: flex;
 }
 
+/* The tab strip, which — unlike .nav-links — stays on a phone. The
+   staff side used to collapse it into the burger and the client
+   portal never did; this is the staff side matching the portal. The
+   burger stays alongside it and keeps everything that has no tab. */
+.nav-tabs {
+  display: flex;
+}
+
+/* The back control for the installed app, where there is no browser
+   chrome to provide one. Phone widths only: a desktop browser's own
+   back button is inches away and a second one would just be clutter.
+   See components/BackButton.tsx for the other two conditions. */
+.nav-back {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* Borderless until touched, so it reads as part of the bar rather
+   than as a third button competing with the bell and the menu. */
+.nav-back:active {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
 .nav-burger {
   display: none;
 }
@@ -774,6 +809,10 @@ textarea:focus-visible {
   }
 
   .nav-burger {
+    display: inline-flex;
+  }
+
+  .nav-back {
     display: inline-flex;
   }
 
