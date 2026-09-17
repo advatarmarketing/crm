@@ -1079,3 +1079,67 @@ textarea:focus-visible {
     overflow: visible !important;
   }
 }
+
+/* =================================================================
+   LOGIN
+   The sign-in card's framing, which has to be right on a phone
+   because it is the only thing on the screen.
+   ================================================================= */
+
+.login-shell {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+
+  /* 100vh on a phone is NOT what is on the screen: mobile Safari
+     measures it against the viewport with the address bar and the
+     toolbar collapsed, so it is taller than the visible area by
+     roughly the height of both. Centring inside it therefore centres
+     the card in a box that extends behind the browser's own chrome,
+     and it lands visibly low — which is exactly what was reported.
+     dvh is the same measurement done against what is actually
+     visible; the vh line above it is the fallback for browsers that
+     do not know dvh. */
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  /* Optically centred rather than mathematically centred. A card with
+     nothing else on the screen reads as "low" when its middle is on
+     the middle line, because the eye weights the empty space below it
+     more heavily. Slightly more room above than below is what looks
+     level. */
+  align-items: center;
+  padding-bottom: 56px;
+}
+
+/* On a short screen — a phone in landscape, or one with the keyboard
+   open over the field — centring has nothing to give, and the top of
+   the card is the part that matters. Anchor it to the top and let the
+   page scroll instead of pushing the logo off the screen. */
+@media (max-height: 620px) {
+  .login-shell {
+    align-items: flex-start;
+    padding-top: 24px;
+    padding-bottom: 24px;
+  }
+}
+
+.login-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 36px 28px;
+}
+
+/* Top-right of the card, in the gap beside the wordmark. Positioned
+   rather than placed in a row with the logo so it cannot push the
+   wordmark around at any width. */
+.login-theme-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}

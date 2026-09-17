@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { login, type LoginState } from "./actions";
 import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type Tab = "client" | "staff";
 
@@ -14,26 +15,16 @@ export default function LoginPage() {
   const [state, formAction] = useFormState(login, initialState);
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--bg)",
-        padding: "24px",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 400,
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-lg)",
-          padding: "36px 28px",
-        }}
-      >
+    <main className="login-shell">
+      <div className="login-card">
+        {/* The only switch a signed-out visitor gets. It is here
+            because this is the first screen anyone sees, and because
+            the rest of the app's toggle lives in the nav, which does
+            not exist until you are signed in. */}
+        <div className="login-theme-toggle">
+          <ThemeToggle />
+        </div>
+
         {/* The real wordmark replaces the text treatment here. The
             card's background is var(--surface), which is exactly the
             colour baked into each logo file's backdrop, so it sits
