@@ -200,7 +200,17 @@ export default async function ClientDetailPage({
         tasks={tasks ?? []}
         monthlyValue={finance ? finance.monthly_value : undefined}
         finance={finance ?? undefined}
-        initialTab={searchParams?.tab === "plan" ? "plan" : "info"}
+        // ?tab=plan / ?tab=calendar / ?tab=activity open straight on
+        // that tab, so a link out of a notification or an email lands
+        // where it meant to. Anything else falls back to Info rather
+        // than trusting the query string.
+        initialTab={
+          searchParams?.tab === "plan" ||
+          searchParams?.tab === "calendar" ||
+          searchParams?.tab === "activity"
+            ? searchParams.tab
+            : "info"
+        }
         teamMembers={teamMembers}
         assignableProfiles={assignableHere}
         canAssign={canAssign}

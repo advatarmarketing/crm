@@ -14,6 +14,7 @@ import { ClientFinancePanel, type ClientInvoice } from "./ClientFinancePanel";
 import { DocumentUpload } from "./DocumentUpload";
 import { FathomLinkPanel, type LinkedMeeting } from "./FathomLinkPanel";
 import { ActivityTimeline, type ActivityEntry } from "./ActivityTimeline";
+import { ClientCalendarPanel } from "./ClientCalendarPanel";
 import { OnboardingChecklist, type ChecklistItem, type TemplateOption } from "./OnboardingChecklist";
 import type { Database } from "@/lib/supabase/types";
 
@@ -24,6 +25,12 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 const TABS = [
   { id: "info", label: "Info" },
   { id: "plan", label: "Content Plan" },
+  // Sits beside the plan because it is the half of the plan that has
+  // dates on it. The shooting schedule that used to be typed into the
+  // content plan was removed in favour of this: a booking that can be
+  // moved, that the client sees in their portal, and that raises a
+  // notification, rather than a paragraph about weeks.
+  { id: "calendar", label: "Calendar" },
   { id: "activity", label: "Activity" },
 ] as const;
 
@@ -104,6 +111,13 @@ export function ClientDetailTabs({
           gap: 8,
           marginBottom: 24,
           borderBottom: "1px solid var(--border)",
+          // Four tabs no longer fit across a phone the way three did,
+          // so the row scrolls sideways instead of squashing the
+          // labels or pushing the last one off the edge. The
+          // scrollbar is hidden: on a phone there is nothing to grab
+          // anyway, and on a desktop all four fit.
+          overflowX: "auto",
+          scrollbarWidth: "none",
         }}
       >
         {TABS.map((t) => (
@@ -124,6 +138,8 @@ export function ClientDetailTabs({
               padding: "10px 4px",
               cursor: "pointer",
               marginRight: 16,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
             {t.label}
@@ -220,6 +236,10 @@ export function ClientDetailTabs({
           planner's fetch + Realtime subscription on every client
           detail page load, only when staff actually opens the tab. */}
       {tab === "plan" && <PlannerDocument clientId={client.id} editable={true} />}
+
+      {/* Mounted with the tab, like the planner above — its two
+          queries are only worth making when somebody looks. */}
+      {tab === "calendar" && <ClientCalendarPanel clientId={client.id} />}
 
       {tab === "activity" && (
         <div style={{ maxWidth: 720 }}>

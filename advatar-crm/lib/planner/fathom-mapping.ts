@@ -126,22 +126,30 @@ export function mapFathomToPlanner(payload: any): MappingResult {
   // reasonably say so, using only fields we actually have.
   if (fields.meetingTitle) {
     content.hero.scene = "Discovery call";
-    content.hero.sub = `90-day production schedule — from the "${fields.meetingTitle}" discovery call`;
+    content.hero.sub = `Content plan — from the "${fields.meetingTitle}" discovery call`;
   } else {
     notes.push("No meeting title — hero left at template defaults.");
   }
 
-  // Agreed next steps → schedule section description. This is the
-  // one explicitly named in the spec, and action_items is the most
-  // structured, least-guessable field Fathom is likely to send, so
-  // it's the highest-confidence mapping in this file.
+  // Agreed next steps → the client timeline's description.
+  //
+  // These used to land on the shooting schedule, which has since been
+  // removed from the plan in favour of the calendar tab on the client
+  // record — dates belong somewhere they can be booked, not typed
+  // into prose. The timeline is the nearest thing left: it is the
+  // section about how the engagement rolls out, which is exactly what
+  // an agreed next step is.
+  //
+  // action_items remains the most structured, least-guessable field
+  // Fathom is likely to send, so this is still the
+  // highest-confidence mapping in this file.
   const nextSteps = actionItemLines(fields.actionItems);
   if (nextSteps.length > 0) {
     const bulleted = nextSteps.map((s) => `• ${s}`).join(" ");
-    content.schedule.desc = `${content.schedule.desc} Agreed next steps from the discovery call: ${bulleted}`;
-    notes.push(`Mapped ${nextSteps.length} action item(s) into schedule.desc.`);
+    content.timeline.desc = `${content.timeline.desc} Agreed next steps from the discovery call: ${bulleted}`;
+    notes.push(`Mapped ${nextSteps.length} action item(s) into timeline.desc.`);
   } else {
-    notes.push("No action items found — schedule.desc left at template default.");
+    notes.push("No action items found — timeline.desc left at template default.");
   }
 
   // Mentioned content ideas → a new, clearly-labeled pillar with
