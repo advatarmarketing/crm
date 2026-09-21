@@ -325,26 +325,6 @@ export const PLANNER_CSS = `
 .planner-doc .format-stat .num{font-family:var(--display);font-size:34px;color:var(--panel-accent);display:block;}
 .planner-doc .format-stat .lbl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--panel-fg-dim);}
 
-/* ---------- ACTS / TABS ---------- */
-.planner-doc .tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;}
-.planner-doc .tab-btn{
-  font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
-  background:transparent;border:1px solid var(--ink);color:var(--ink);
-  padding:10px 16px;border-radius:20px;cursor:pointer;transition:.15s;
-}
-.planner-doc .tab-btn.active{background:var(--ink);color:var(--paper);}
-.planner-doc .act-panel{display:none;}
-.planner-doc .act-panel.active{display:block;}
-.planner-doc .week-row{
-  display:grid;grid-template-columns:110px 1fr;gap:18px;
-  padding:18px 0;border-top:1px solid var(--line);
-}
-.planner-doc .week-row:last-child{border-bottom:1px solid var(--line);}
-.planner-doc .week-tc{font-family:var(--mono);font-size:13px;color:var(--red);padding-top:2px;}
-.planner-doc .week-tc small{display:block;color:var(--muted);font-size:10px;margin-top:3px;}
-.planner-doc .week-body h4{margin:0 0 6px;font-size:16px;font-family:var(--body);font-weight:700;}
-.planner-doc .week-body p{margin:0;font-size:14px;line-height:1.55;color:var(--body-text);}
-
 /* ---------- WORKFLOW ---------- */
 .planner-doc .workflow{display:flex;gap:0;flex-wrap:wrap;counter-reset:step;}
 .planner-doc .wf-step{flex:1;min-width:150px;position:relative;padding:0 16px 0 0;}

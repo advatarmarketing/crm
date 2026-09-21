@@ -30,20 +30,6 @@ export interface PlannerBrandRow {
   value: string;
 }
 
-export interface PlannerWeek {
-  id: string;
-  weekLabel: string;
-  weekSub: string;
-  title: string;
-  description: string;
-}
-
-export interface PlannerAct {
-  id: string;
-  tabLabel: string;
-  weeks: PlannerWeek[];
-}
-
 export interface PlannerWorkflowStep {
   id: string;
   num: string;
@@ -152,13 +138,6 @@ export interface PlannerContent {
     heading: string;
     desc: string;
     stats: PlannerFormatStat[];
-  };
-
-  schedule: {
-    tag: string;
-    heading: string;
-    desc: string;
-    acts: PlannerAct[];
   };
 
   workflow: {
@@ -352,120 +331,6 @@ export const DEFAULT_PLANNER_CONTENT: PlannerContent = {
       { value: "25%", label: "Carousels" },
       { value: "10%", label: "Static / announcement" },
       { value: "Daily", label: "Stories" },
-    ],
-  },
-
-  schedule: {
-    tag: "90 days, three acts",
-    heading: "The shooting schedule",
-    desc: "Act I is the launch sequence we already mapped out. Acts II and III are where the pillars settle into rhythm and the expansion story gets louder.",
-    acts: [
-      {
-        id: id("act"),
-        tabLabel: "Act I — Weeks 1–4",
-        weeks: [
-          {
-            id: id("week"),
-            weekLabel: "WK 01",
-            weekSub: "FOUNDATION",
-            title: "Profile reset + the trailer goes live",
-            description:
-              "Bio, highlights, business account fixed first. Cut and post the 60–90s sizzle reel across two years of work. Pin it. Push it hard on Stories that same day.",
-          },
-          {
-            id: id("week"),
-            weekLabel: "WK 02",
-            weekSub: "HERO 01",
-            title: "First hero project rollout",
-            description:
-              "Pick your strongest single client project. Result Reel, BTS carousel, Story arc showing the process. One project, full spotlight.",
-          },
-          {
-            id: id("week"),
-            weekLabel: "WK 03",
-            weekSub: "HERO 02",
-            title: "Second hero project + first Craft post",
-            description:
-              "Repeat the pattern with project two. Slot in your first pure Craft & Process piece — a grade breakdown or gear setup.",
-          },
-          {
-            id: id("week"),
-            weekLabel: "WK 04",
-            weekSub: "HERO 03",
-            title: "Third hero project + review",
-            description:
-              "Third project spotlight. End the month checking saves/shares per post to see which pillar is actually earning attention before Act II locks in cadence.",
-          },
-        ],
-      },
-      {
-        id: id("act"),
-        tabLabel: "Act II — Weeks 5–8",
-        weeks: [
-          {
-            id: id("week"),
-            weekLabel: "WK 05–06",
-            weekSub: "ROTATION",
-            title: "Full pillar rotation begins",
-            description:
-              "Settle into the 5–6 posts/week mix across all four pillars at their target allocation. Fourth and fifth hero projects roll in as part of the Client Work slot rather than as standalone launches.",
-          },
-          {
-            id: id("week"),
-            weekLabel: "WK 07",
-            weekSub: "THE STANDARD",
-            title: "First deliberate Standard post",
-            description:
-              "Publish the first direct POV piece on the no-music, no-filler-faces approach. Give it room — don't bury it in a carousel, let it be its own Reel.",
-          },
-          {
-            id: id("week"),
-            weekLabel: "WK 08",
-            weekSub: "DOUBLE DOWN",
-            title: "Lean into what's working",
-            description:
-              "By now you'll have real data. Shift the following two weeks' production toward whichever pillar/format is driving DMs and saves, without abandoning the others entirely.",
-          },
-        ],
-      },
-      {
-        id: id("act"),
-        tabLabel: "Act III — Weeks 9–13",
-        weeks: [
-          {
-            id: id("week"),
-            weekLabel: "WK 09–10",
-            weekSub: "THE BUILD",
-            title: "Turn up the expansion story",
-            description:
-              "More Build-pillar content — where Advatar is headed beyond the UK, new capacity, new hires. This is what gets a following invested rather than just watching.",
-          },
-          {
-            id: id("week"),
-            weekLabel: "WK 11",
-            weekSub: "UGC / TAGS",
-            title: "Ask clients to tag you",
-            description:
-              "Start prompting happy clients to repost or tag Advatar when they share the finished work — cheap, credible reach that doesn't cost production time.",
-          },
-          {
-            id: id("week"),
-            weekLabel: "WK 12",
-            weekSub: "FLAGSHIP 02",
-            title: "Second flagship reel",
-            description:
-              "A bigger, more ambitious piece than the original trailer — this time built to be the one that travels, leaning on the Standard positioning if the data says it resonates.",
-          },
-          {
-            id: id("week"),
-            weekLabel: "WK 13",
-            weekSub: "REVIEW",
-            title: "90-day review",
-            description:
-              "Pull the metrics below, see what actually moved, and set pillar weightings for the next quarter based on evidence instead of guesswork.",
-          },
-        ],
-      },
     ],
   },
 

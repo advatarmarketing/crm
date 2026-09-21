@@ -10,7 +10,6 @@ const NAV_SECTIONS: { id: string; label: string }[] = [
   { id: "branding", label: "Branding" },
   { id: "pillars", label: "Pillars" },
   { id: "format", label: "Format" },
-  { id: "schedule", label: "Schedule" },
   { id: "workflow", label: "Workflow" },
   { id: "metrics", label: "Metrics" },
   { id: "competitors", label: "Competitors" },
@@ -124,7 +123,6 @@ export function PlannerDocument({
   const [loading, setLoading] = useState(true);
   const [notAvailable, setNotAvailable] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [activeAct, setActiveAct] = useState(0);
   const [activeSection, setActiveSection] = useState("overview");
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -598,49 +596,6 @@ export function PlannerDocument({
             </div>
           ))}
         </div>
-      </section>
-
-      <section id={sid("schedule")} style={{ paddingTop: 0 }}>
-        <SectionHeadInner editable={editable} data={content.schedule} onCommit={(field, v) => update(["schedule", field], v)} />
-        <div className="tabs">
-          {content.schedule.acts.map((act, i) => (
-            <button
-              key={act.id}
-              type="button"
-              className={"tab-btn" + (activeAct === i ? " active" : "")}
-              onClick={() => setActiveAct(i)}
-            >
-              {act.tabLabel}
-            </button>
-          ))}
-        </div>
-        {content.schedule.acts.map((act, actIdx) => (
-          <div key={act.id} className={"act-panel" + (activeAct === actIdx ? " active" : "")}>
-            {act.weeks.map((week, weekIdx) => (
-              <div className="week-row" key={week.id}>
-                <div className="week-tc">
-                  <Editable
-                    as="span"
-                    className="wk-num"
-                    editable={editable}
-                    value={week.weekLabel}
-                    onCommit={(v) => update(["schedule", "acts", actIdx, "weeks", weekIdx, "weekLabel"], v)}
-                  />
-                  <Editable
-                    as="small"
-                    editable={editable}
-                    value={week.weekSub}
-                    onCommit={(v) => update(["schedule", "acts", actIdx, "weeks", weekIdx, "weekSub"], v)}
-                  />
-                </div>
-                <div className="week-body">
-                  <Editable as="h4" editable={editable} value={week.title} onCommit={(v) => update(["schedule", "acts", actIdx, "weeks", weekIdx, "title"], v)} />
-                  <Editable as="p" editable={editable} value={week.description} onCommit={(v) => update(["schedule", "acts", actIdx, "weeks", weekIdx, "description"], v)} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ))}
       </section>
 
       <section id={sid("workflow")} style={{ paddingTop: 0 }}>
