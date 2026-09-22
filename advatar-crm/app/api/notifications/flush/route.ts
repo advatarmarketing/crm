@@ -12,10 +12,24 @@ export const dynamic = "force-dynamic";
  * send email — Postgres has no outbound mail. So the triggers mark a
  * row `email_pending` and this route drains the queue.
  *
- * Called on a schedule by Vercel Cron — see vercel.json, which runs
- * it every fifteen minutes. A Supabase Database Webhook on
- * `notifications` INSERT pointing here would deliver in near real
- * time instead, if that ever matters more than it does today.
+ * Two things call it.
+ *
+ * 1. A Supabase Database Webhook on `notifications` INSERT, pointing
+ *    at this route. That is the one that matters: it fires the
+ *    moment a notification is raised, so the email goes out in
+ *    seconds rather than whenever a timer next comes round.
+ *
+ * 2. Vercel Cron, once a day — see vercel.json. A safety net, for
+ *    anything the webhook missed while the site or the provider was
+ *    having a bad minute. Nothing is sent twice: `email_pending` is
+ *    cleared as each row goes out.
+ *
+ * The cron is daily rather than frequent because this project is on
+ * Vercel's Hobby plan, which rejects any cron shorter than 24 hours
+ * — and rejects it by FAILING THE WHOLE DEPLOYMENT, not by ignoring
+ * the line. A "*\/15 * * * *" here broke every build for a week. If
+ * the plan is ever upgraded this can go back to minutes, but with
+ * the webhook in place there is little reason to.
  *
  * Protected by NOTIFICATIONS_CRON_SECRET when that is set. Vercel Cron
  * sends its own Authorization header, which is accepted too. With no
