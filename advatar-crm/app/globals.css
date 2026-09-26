@@ -1182,3 +1182,20 @@ textarea:focus-visible {
   top: 12px;
   right: 12px;
 }
+
+/* =================================================================
+   NOTES
+   On a phone, "Created … · Updated …" does not fit on one line and
+   would break wherever the width ran out — often mid-date. Two clean
+   lines read better than one broken one.
+   ================================================================= */
+
+@media (max-width: 520px) {
+  .note-meta-sep {
+    display: none;
+  }
+
+  .note-meta-updated {
+    display: block;
+  }
+}

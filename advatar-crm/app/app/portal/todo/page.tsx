@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { StatTile } from "@/components/StatTile";
 import { EmptyState } from "@/components/EmptyState";
+import { NoteTodoList } from "@/components/notes/NoteTodoList";
+import { loadNoteTodos } from "@/lib/notes";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +62,12 @@ export default async function PortalTodoPage() {
   const overdue = open.filter((t) => t.due_date && new Date(t.due_date) < today).length;
 
   const nextAction = (client as { next_action?: string | null } | null)?.next_action;
+
+  // The client's own to-dos from their Notes tab (0032). Unlike the
+  // list above, these ARE theirs to tick: the rows are owned by this
+  // login, so the owner-only policy that keeps them private is also
+  // what lets the client change them. Empty until 0032 is run.
+  const noteTodos = await loadNoteTodos(supabase);
 
   return (
     <main className="page">
@@ -135,6 +143,19 @@ export default async function PortalTodoPage() {
             />
           </section>
         </>
+      )}
+
+      {noteTodos.length > 0 && (
+        <section className="section" style={{ maxWidth: 780, marginTop: 32 }}>
+          <div className="section-head">
+            <h2 className="section-title">From your notes</h2>
+          </div>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--text-3)", margin: "-4px 0 14px", maxWidth: "60ch" }}>
+            Your own to-do lists from your Notes tab. Private to you — your team
+            can&rsquo;t see these. Tick them off here or in the note.
+          </p>
+          <NoteTodoList initial={noteTodos} notesHref="/app/portal/notes" />
+        </section>
       )}
     </main>
   );
