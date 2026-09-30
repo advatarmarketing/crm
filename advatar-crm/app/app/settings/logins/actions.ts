@@ -1,9 +1,18 @@
 "use server";
 
 import { randomInt } from "crypto";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  HOME_BY_ROLE,
+  VIEW_AS_COOKIE,
+  VIEW_AS_MAX_AGE_SECONDS,
+  sealViewAs,
+  withViewAs,
+} from "@/lib/view-as";
 import type { ProfileRole } from "@/lib/supabase/types";
 
 export interface CreateLoginState {
@@ -293,6 +302,128 @@ export async function setLoginPassword(
 
   revalidatePath("/app/settings/logins");
   return { error: null };
+}
+
+/**
+ * Opens a read-only preview of somebody else's CRM.
+ *
+ * Mints a short-lived access token for them and seals it into an
+ * httpOnly cookie. The browser cannot read it, and it does nothing on
+ * its own: middleware only honours it on a request that also carries
+ * `?_viewAs=1`, and refuses anything that isn't a read. See
+ * lib/view-as.ts for the whole shape of it.
+ *
+ * CEO only, and never yourself. An operations manager can already set
+ * a staff password; being able to silently look through their screen
+ * is a different thing, and not one this hands out.
+ */
+export async function startViewAs(
+  profileId: string
+): Promise<{ error: string | null; href: string | null }> {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not signed in.", href: null };
+
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+
+  if ((me as { role?: string } | null)?.role !== "ceo") {
+    return { error: "Only the CEO can view someone else's CRM.", href: null };
+  }
+
+  if (profileId === user.id) {
+    return { error: "That's your own login — you're already looking at it.", href: null };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: target } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", profileId)
+    .single();
+
+  const targetRole = (target as { role?: string } | null)?.role as ProfileRole | undefined;
+  if (!targetRole) return { error: "That login no longer exists.", href: null };
+
+  // The email on the auth record, not on the profile: it is what the
+  // token is minted against, and the two can differ.
+  const { data: authUser, error: lookupError } = await admin.auth.admin.getUserById(profileId);
+  const email = authUser?.user?.email;
+
+  if (lookupError || !email) {
+    return { error: "That login has no email address to sign in with.", href: null };
+  }
+
+  // A magic link is generated and then spent here on the server, which
+  // is how a token is obtained without knowing anyone's password and
+  // without an email ever being sent. The link is consumed
+  // immediately, so nothing usable is left behind.
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+
+  const hashedToken = link?.properties?.hashed_token;
+  if (linkError || !hashedToken) {
+    return { error: linkError?.message ?? "Could not open a preview for that login.", href: null };
+  }
+
+  // A throwaway client: no session is persisted anywhere, so this
+  // never disturbs the CEO's own sign-in or writes a cookie.
+  const exchange = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
+  );
+
+  const { data: exchanged, error: exchangeError } = await exchange.auth.verifyOtp({
+    type: "magiclink",
+    token_hash: hashedToken,
+  });
+
+  const accessToken = exchanged?.session?.access_token;
+  if (exchangeError || !accessToken) {
+    return { error: exchangeError?.message ?? "Could not open a preview for that login.", href: null };
+  }
+
+  const sealed = await sealViewAs({
+    id: profileId,
+    role: targetRole,
+    token: accessToken,
+    viewer: user.id,
+    expires: Date.now() + VIEW_AS_MAX_AGE_SECONDS * 1000,
+  });
+
+  cookies().set({
+    name: VIEW_AS_COOKIE,
+    value: sealed,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: VIEW_AS_MAX_AGE_SECONDS,
+  });
+
+  // Their home page, not the CEO's — the point is to land where they
+  // land.
+  return { error: null, href: withViewAs(HOME_BY_ROLE[targetRole]) };
+}
+
+/** Closes the preview. Safe to call when none is open. */
+export async function stopViewAs(): Promise<void> {
+  cookies().set({
+    name: VIEW_AS_COOKIE,
+    value: "",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
 }
 
 /** Sets or corrects the name shown for a login. */

@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppNav } from "@/components/AppNav";
+import { PreviewNavigation } from "@/components/PreviewNavigation";
+import { VIEW_AS_HEADER } from "@/lib/view-as";
 import type { AppNotification } from "@/components/NotificationBell";
 import type { ProfileRole } from "@/lib/supabase/types";
 
@@ -38,8 +41,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // Set by middleware only, and only on a verified preview request. By
+  // this point `supabase` is already the other person's client, so
+  // everything above — their role, their nav, their notifications —
+  // is genuinely theirs.
+  const isPreview = headers().get(VIEW_AS_HEADER) !== null;
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+      {isPreview && <PreviewNavigation />}
       <AppNav role={profile.role as ProfileRole} notifications={(notifications ?? []) as AppNotification[]} />
       {children}
     </div>

@@ -1,20 +1,18 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  HOME_BY_ROLE,
+  VIEW_AS_COOKIE,
+  VIEW_AS_HEADER,
+  VIEW_AS_PARAM,
+  openViewAs,
+  withViewAs,
+} from "@/lib/view-as";
 import type { ProfileRole } from "@/lib/supabase/types";
 
-// Each role's home route, and the /app/* prefix it's allowed to be
-// under. A role hitting any /app/* path outside its own prefix gets
-// bounced to its home instead — this is a UX convenience only;
-// row-level security in Postgres is what actually stops a role from
-// reading data it shouldn't, so this list only ever needs to be as
-// strict as the nav itself.
-const HOME_BY_ROLE: Record<ProfileRole, string> = {
-  ceo: "/app/dashboard",
-  operations_manager: "/app/dashboard",
-  staff: "/app/dashboard",
-  videographer: "/app/my-dashboard",
-  client: "/app/portal",
-};
+// HOME_BY_ROLE — each role's home route — now lives in lib/view-as.ts,
+// because the preview window has to open on the same page the person
+// would land on themselves, and two copies of that map would drift.
 
 // Route prefixes each role may access under /app/*. ceo and staff
 // share the full CRM; videographer and client are scoped. Extend
@@ -67,7 +65,24 @@ function isAllowed(role: ProfileRole, pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  // The headers forwarded to the app. The view-as header is deleted
+  // first and unconditionally: it is the one thing that changes whose
+  // data renders, so a request must never be able to arrive already
+  // carrying it. Nothing below re-adds it except the verified branch.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete(VIEW_AS_HEADER);
+
+  // Session-refresh cookies are collected rather than written into a
+  // response straight away, because the response is not built until
+  // the end — the forwarded headers are still being decided.
+  const pendingCookies: { name: string; value: string; options: CookieOptions }[] = [];
+
+  const withCookies = (response: NextResponse) => {
+    for (const c of pendingCookies) {
+      response.cookies.set({ name: c.name, value: c.value, ...c.options });
+    }
+    return response;
+  };
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,12 +93,10 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value, ...options });
+          pendingCookies.push({ name, value, options });
         },
         remove(name: string, options: CookieOptions) {
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value: "", ...options });
+          pendingCookies.push({ name, value: "", options });
         },
       },
     }
@@ -97,7 +110,7 @@ export async function middleware(request: NextRequest) {
   const isAppRoute = pathname.startsWith("/app");
 
   if (!isAppRoute) {
-    return response;
+    return withCookies(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   if (!user) {
@@ -120,12 +133,54 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // ---------------------------------------------------------------
+  // "View their CRM"
+  // ---------------------------------------------------------------
+  // Only requests that ask for it get it, so the CEO's ordinary tabs
+  // are untouched by the cookie sitting in the same browser.
+  if (request.nextUrl.searchParams.get(VIEW_AS_PARAM) === "1") {
+    const preview = await openViewAs(request.cookies.get(VIEW_AS_COOKIE)?.value);
+
+    // Every reason to refuse ends the same way: drop the marker and
+    // show the viewer their own CRM. A preview that cannot be proven
+    // valid must never fall through to somebody else's data.
+    const ownView = () => {
+      const url = request.nextUrl.clone();
+      url.searchParams.delete(VIEW_AS_PARAM);
+      return NextResponse.redirect(url);
+    };
+
+    // Re-checked here rather than trusted from the cookie, so ending
+    // somebody's CEO access ends their open previews too.
+    if (role !== "ceo") return ownView();
+    if (!preview || preview.viewer !== user.id) return ownView();
+
+    // What makes this a viewing tool rather than an impersonation one.
+    // Server actions are POSTs to the page's own URL, so refusing
+    // anything that isn't a read stops every form, button and action
+    // in the app at once, without having to find them one by one.
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new NextResponse("This is a read-only preview.", { status: 403 });
+    }
+
+    // Route by the role being viewed, not the viewer's: a client's CRM
+    // lives under /app/portal, and the CEO's own "/app" allowance
+    // would otherwise let the preview sit on a page that person could
+    // never reach.
+    if (!isAllowed(preview.role, pathname)) {
+      return NextResponse.redirect(new URL(withViewAs(HOME_BY_ROLE[preview.role]), request.url));
+    }
+
+    requestHeaders.set(VIEW_AS_HEADER, preview.token);
+    return withCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+  }
+
   if (!isAllowed(role, pathname)) {
     const homeUrl = new URL(HOME_BY_ROLE[role], request.url);
     return NextResponse.redirect(homeUrl);
   }
 
-  return response;
+  return withCookies(NextResponse.next({ request: { headers: requestHeaders } }));
 }
 
 export const config = {

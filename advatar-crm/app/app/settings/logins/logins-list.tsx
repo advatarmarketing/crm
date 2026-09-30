@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import {
   resetLoginPassword,
   setLoginPassword,
+  startViewAs,
+  stopViewAs,
   updateLoginName,
   updateLoginNotifyEmail,
 } from "./actions";
+import { ViewAsWindow } from "./view-as-window";
 import { displayName } from "@/lib/names";
 
 export interface LoginRow {
@@ -25,6 +28,12 @@ export interface LoginRow {
   notifyEmail: string | null;
   /** False when the caller's own role isn't allowed to touch this one. */
   manageable: boolean;
+  /**
+   * Whether this row offers "View their CRM". CEO only, and never your
+   * own row. Cosmetic — startViewAs re-checks both, since a button
+   * that isn't drawn is not a button that cannot be called.
+   */
+  previewable: boolean;
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -96,7 +105,9 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
 function LoginItem({ login }: { login: LoginRow }) {
   const [name, setName] = useState(login.fullName ?? "");
   const [notify, setNotify] = useState(login.notifyEmail ?? "");
-  const [busy, setBusy] = useState<"name" | "reset" | "set" | null>(null);
+  const [busy, setBusy] = useState<"name" | "reset" | "set" | "view" | null>(null);
+  /** The preview window's URL while it is open, null when it is not. */
+  const [viewHref, setViewHref] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -167,6 +178,22 @@ function LoginItem({ login }: { login: LoginRow }) {
     // back, and clearing it the instant it saves is how people end up
     // having set something they can no longer remember.
     setSetDone(true);
+  }
+
+  async function openPreview() {
+    setBusy("view");
+    setError(null);
+    const { error: viewError, href } = await startViewAs(login.id);
+    setBusy(null);
+    if (viewError || !href) return setError(viewError ?? "Could not open that preview.");
+    setViewHref(href);
+  }
+
+  async function closePreview() {
+    // Closed here rather than left to expire, so the token stops being
+    // usable the moment the window is shut.
+    setViewHref(null);
+    await stopViewAs();
   }
 
   function closeSetPanel() {
@@ -274,9 +301,21 @@ function LoginItem({ login }: { login: LoginRow }) {
           </span>
         </div>
 
-        {login.manageable && (
+        {(login.manageable || login.previewable) && (
           <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-            {dirty && (
+            {login.previewable && (
+              <button
+                type="button"
+                onClick={openPreview}
+                disabled={busy !== null}
+                className="btn"
+                title={`See the CRM as ${displayName(login.fullName)} sees it`}
+              >
+                {busy === "view" ? "Opening…" : "View their CRM"}
+              </button>
+            )}
+
+            {login.manageable && dirty && (
               <button
                 type="button"
                 onClick={saveDetails}
@@ -288,7 +327,7 @@ function LoginItem({ login }: { login: LoginRow }) {
               </button>
             )}
 
-            {confirmingReset ? (
+            {!login.manageable ? null : confirmingReset ? (
               <>
                 <button type="button" onClick={doReset} disabled={busy !== null} className="btn btn-primary">
                   {busy === "reset" ? "Resetting…" : "Yes, reset"}
@@ -472,6 +511,15 @@ function LoginItem({ login }: { login: LoginRow }) {
 
       {error && (
         <p style={{ margin: "8px 0 0", color: "var(--status-closed)", fontSize: 12.5 }}>{error}</p>
+      )}
+
+      {viewHref && (
+        <ViewAsWindow
+          name={displayName(login.fullName)}
+          roleLabel={ROLE_LABEL[login.role] ?? login.role}
+          href={viewHref}
+          onClose={closePreview}
+        />
       )}
     </li>
   );
