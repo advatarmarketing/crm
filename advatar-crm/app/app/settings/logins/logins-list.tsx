@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { resetLoginPassword, updateLoginName, updateLoginNotifyEmail } from "./actions";
+import {
+  resetLoginPassword,
+  setLoginPassword,
+  updateLoginName,
+  updateLoginNotifyEmail,
+} from "./actions";
 import { displayName } from "@/lib/names";
 
 export interface LoginRow {
@@ -91,10 +96,17 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
 function LoginItem({ login }: { login: LoginRow }) {
   const [name, setName] = useState(login.fullName ?? "");
   const [notify, setNotify] = useState(login.notifyEmail ?? "");
-  const [busy, setBusy] = useState<"name" | "reset" | null>(null);
+  const [busy, setBusy] = useState<"name" | "reset" | "set" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
+
+  // The chosen-password panel. `chosen` is what will be sent; `setDone`
+  // keeps the confirmation on screen after the panel closes, so the
+  // row still says what happened.
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [chosen, setChosen] = useState("");
+  const [setDone, setSetDone] = useState(false);
   const router = useRouter();
 
   const nameDirty = name.trim() !== (login.fullName ?? "").trim();
@@ -141,6 +153,26 @@ function LoginItem({ login }: { login: LoginRow }) {
     setBusy(null);
     if (resetError) return setError(resetError);
     setNewPassword(tempPassword);
+  }
+
+  async function doSetPassword() {
+    setBusy("set");
+    setError(null);
+    const { error: setError_ } = await setLoginPassword(login.id, chosen);
+    setBusy(null);
+    if (setError_) return setError(setError_);
+
+    // The password stays on screen in the input until the panel is
+    // closed deliberately — this is the one moment it can be read
+    // back, and clearing it the instant it saves is how people end up
+    // having set something they can no longer remember.
+    setSetDone(true);
+  }
+
+  function closeSetPanel() {
+    setSettingPassword(false);
+    setChosen("");
+    setSetDone(false);
   }
 
   return (
@@ -266,14 +298,29 @@ function LoginItem({ login }: { login: LoginRow }) {
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmingReset(true)}
-                disabled={busy !== null}
-                className="btn"
-              >
-                Reset password
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingPassword((open) => !open);
+                    setSetDone(false);
+                    setError(null);
+                  }}
+                  disabled={busy !== null}
+                  className="btn"
+                  aria-expanded={settingPassword}
+                >
+                  {settingPassword ? "Close" : "Set password"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingReset(true)}
+                  disabled={busy !== null}
+                  className="btn"
+                >
+                  Reset password
+                </button>
+              </>
             )}
           </div>
         )}
@@ -285,6 +332,103 @@ function LoginItem({ login }: { login: LoginRow }) {
           sign in with the old one, so only do this if you can pass the new
           password to them now.
         </p>
+      )}
+
+      {settingPassword && (
+        <div
+          style={{
+            marginTop: 10,
+            padding: "10px 12px",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--surface-2)",
+          }}
+        >
+          <label style={{ display: "block" }}>
+            <span
+              style={{
+                display: "block",
+                fontFamily: "var(--font-mono)",
+                fontSize: 10.5,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "var(--text-3)",
+                marginBottom: 6,
+              }}
+            >
+              Password for {displayName(login.fullName)}
+            </span>
+            <input
+              // Deliberately a plain text field, not type="password".
+              // The entire point of this panel is that the person
+              // using it is meant to read what they are setting, and
+              // dots would hide the one thing it exists to show.
+              type="text"
+              value={chosen}
+              onChange={(e) => {
+                setChosen(e.target.value);
+                setSetDone(false);
+              }}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="At least 8 characters"
+              aria-label={`New password for ${login.fullName ?? login.email ?? "this login"}`}
+              style={{
+                width: "100%",
+                padding: "9px 11px",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text-1)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 15,
+              }}
+            />
+          </label>
+
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={doSetPassword}
+              disabled={busy !== null || chosen.length < 8}
+              className="btn btn-primary"
+              style={{ opacity: busy !== null || chosen.length < 8 ? 0.5 : 1 }}
+            >
+              {busy === "set" ? "Setting…" : "Set this password"}
+            </button>
+            <button type="button" onClick={closeSetPanel} className="btn">
+              Done
+            </button>
+          </div>
+
+          {setDone ? (
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontFamily: "var(--font-body)",
+                fontSize: 12.5,
+                color: "var(--text-1)",
+              }}
+            >
+              Set. {displayName(login.fullName)} signs in with this now — write it
+              down before you press Done, because it can&rsquo;t be read back
+              afterwards. If they change it themselves in Settings &rarr;
+              Password, yours stops working and you won&rsquo;t be told.
+            </p>
+          ) : (
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontFamily: "var(--font-body)",
+                fontSize: 12.5,
+                color: "var(--text-2)",
+              }}
+            >
+              This replaces their current password straight away. Their old one
+              stops working.
+            </p>
+          )}
+        </div>
       )}
 
       {newPassword && (
