@@ -12,13 +12,26 @@ export interface EnquiryOption {
   emoji: string;
   title: string;
   description: string;
+  /** A small flag sitting on the box. Used sparingly — one per screen. */
+  badge?: string;
 }
 
 export const LOOKING_FOR: EnquiryOption[] = [
-  { id: "viral", emoji: "🚀", title: "Go viral", description: "Reach more people" },
-  { id: "professional", emoji: "💼", title: "Look professional", description: "Present my brand properly" },
+  {
+    id: "full_partnership",
+    emoji: "🏆",
+    title: "Full Marketing Partnership",
+    description: "We run your marketing end to end",
+    badge: "Best Results & Revenue Booster",
+  },
+  { id: "social_takeover", emoji: "🚀", title: "Social Media Takeover", description: "Go viral" },
   { id: "video", emoji: "🎥", title: "Video production", description: "High quality content" },
-  { id: "social", emoji: "📱", title: "Social management", description: "Handle my socials for me" },
+  {
+    id: "growth_partner",
+    emoji: "🤝",
+    title: "Growth Partner",
+    description: "Our team becomes your team, with specific goals and specific solutions",
+  },
 ];
 
 export const BUSINESS_TYPE: EnquiryOption[] = [
@@ -28,12 +41,61 @@ export const BUSINESS_TYPE: EnquiryOption[] = [
   { id: "charity", emoji: "🤝", title: "Charity", description: "Community or non-profit" },
 ];
 
+/**
+ * The budget screen, which is not one list but three.
+ *
+ * What somebody is asking for decides what a sensible budget even
+ * looks like, so the bands shown are the bands for the work they
+ * picked. Nobody is asked to choose "Under £500" for a full
+ * partnership, and nobody exploring a Growth Partner is shown £15,000
+ * and quietly put off.
+ *
+ * The ids stay distinct across the three sets on purpose. A band only
+ * means something next to the tier it belongs to, and reusing an id
+ * would let an answer survive a change of tier and end up describing
+ * a band that was never on screen.
+ */
 export const BUDGET: EnquiryOption[] = [
   { id: "under_500", emoji: "💷", title: "Under £500", description: "Getting started" },
   { id: "500_1500", emoji: "💰", title: "£500 to £1,500", description: "Steady growth" },
   { id: "1500_plus", emoji: "💎", title: "£1,500+", description: "Full service" },
   { id: "unsure", emoji: "🤔", title: "Not sure yet", description: "Let's talk it through" },
 ];
+
+/** Full Marketing Partnership: £1,500 up to £15,000 a month. */
+export const BUDGET_FULL_PARTNERSHIP: EnquiryOption[] = [
+  { id: "fp_1500_3000", emoji: "💷", title: "£1,500 to £3,000", description: "Getting started" },
+  { id: "fp_3000_6000", emoji: "💰", title: "£3,000 to £6,000", description: "Building momentum" },
+  { id: "fp_6000_10000", emoji: "💎", title: "£6,000 to £10,000", description: "Full service" },
+  { id: "fp_10000_15000", emoji: "🏆", title: "£10,000 to £15,000", description: "Everything, at pace" },
+];
+
+/** Growth Partner: £500 up to £5,000 a month. */
+export const BUDGET_GROWTH_PARTNER: EnquiryOption[] = [
+  { id: "gp_500_1000", emoji: "💷", title: "£500 to £1,000", description: "Getting started" },
+  { id: "gp_1000_2000", emoji: "💰", title: "£1,000 to £2,000", description: "Steady growth" },
+  { id: "gp_2000_3500", emoji: "💎", title: "£2,000 to £3,500", description: "Scaling up" },
+  { id: "gp_3500_5000", emoji: "🏆", title: "£3,500 to £5,000", description: "Full service" },
+];
+
+/**
+ * Which set of bands to show, given what they picked on the first
+ * screen.
+ *
+ * The first screen takes one answer, so in practice only one of these
+ * can be set. The precedence still matters because this reads a
+ * payload, not a screen, and a payload can arrive saying anything.
+ * Full Marketing Partnership wins the tie: it is the larger piece of
+ * work, and showing the higher bands to somebody who asked for both is
+ * the recoverable mistake — a call can bring a number down far more
+ * easily than it can raise one after a lower band has been put in
+ * front of them.
+ */
+export function budgetOptionsFor(lookingFor: string[]): EnquiryOption[] {
+  if (lookingFor.includes("full_partnership")) return BUDGET_FULL_PARTNERSHIP;
+  if (lookingFor.includes("growth_partner")) return BUDGET_GROWTH_PARTNER;
+  return BUDGET;
+}
 
 export const TIMING: EnquiryOption[] = [
   { id: "asap", emoji: "⚡", title: "ASAP", description: "Ready to go" },
@@ -145,7 +207,9 @@ export function describeAnswers(p: EnquiryPayload): string {
     lines.push("");
   }
 
-  const budget = labelFor(BUDGET, p.budget);
+  // Read back against the same set the person was shown, or a band
+  // from one tier would be looked up in another and come back blank.
+  const budget = labelFor(budgetOptionsFor(p.lookingFor), p.budget);
   if (budget) lines.push(`Monthly budget: ${budget}`, "");
 
   const timing = labelFor(TIMING, p.timing);
