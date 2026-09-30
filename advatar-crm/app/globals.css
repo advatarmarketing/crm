@@ -1292,6 +1292,49 @@ textarea:focus-visible {
      narrow phone. */
   min-height: 140px;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  /* The badge hangs off the top edge, so it needs something to hang
+     from and room above it not to be clipped by the neighbouring row. */
+  position: relative;
+}
+
+/* Only one box wears this, so it is allowed to be the loudest thing on
+   the screen. Sitting on the border rather than inside the box keeps
+   it from eating the space the four boxes share. */
+.enquire-option-badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  max-width: calc(100% - 8px);
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--text-1);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  /* Wraps rather than truncating. The words are the reason to pick
+     this box, so "Best Results & Reve…" would be worse than two
+     lines. Held inside the box's own width so it cannot reach across
+     the grid gap into its neighbour. */
+  max-width: calc(100% - 8px);
+}
+
+@media (min-width: 720px) {
+  .enquire-option-badge {
+    font-size: 9px;
+    padding: 3px 10px;
+  }
+}
+
+/* The badge sits astride the top of its box, so the row needs the
+   headroom or the top line would be clipped by whatever is above. */
+.enquire-options {
+  padding-top: 16px;
 }
 
 .enquire-option:hover {

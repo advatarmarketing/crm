@@ -4,11 +4,11 @@ import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Logo } from "@/components/Logo";
 import { submitEnquiry } from "./actions";
 import {
-  BUDGET,
   BUSINESS_TYPE,
   EMPTY_ENQUIRY,
   LOOKING_FOR,
   TIMING,
+  budgetOptionsFor,
   type EnquiryFieldErrors,
   type EnquiryOption,
   type EnquiryPayload,
@@ -66,13 +66,26 @@ export function EnquiryFlow() {
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
-  function toggleLookingFor(id: string) {
-    setAnswers((prev) => ({
-      ...prev,
-      lookingFor: prev.lookingFor.includes(id)
-        ? prev.lookingFor.filter((x) => x !== id)
-        : [...prev.lookingFor, id],
-    }));
+  /**
+   * The first screen picks one and moves on, like the three after it.
+   *
+   * Kept as an array rather than a single string so the answer shape,
+   * the server action and the lead's notes all stay as they were —
+   * this is a change to how the screen behaves, not to what an enquiry
+   * is.
+   *
+   * Changing the answer clears any budget already chosen, because the
+   * budget bands belong to the thing picked here: a band from one tier
+   * would otherwise survive into another and describe a figure that
+   * was never on screen.
+   */
+  function pickLookingFor(id: string) {
+    setAnswers((prev) => {
+      const lookingFor = [id];
+      const bandsChanged = budgetOptionsFor(prev.lookingFor) !== budgetOptionsFor(lookingFor);
+      return { ...prev, lookingFor, budget: bandsChanged ? null : prev.budget };
+    });
+    goTo(2, CONFIRM_MS);
   }
 
   /** Picking on a one-answer screen moves you on by itself. */
@@ -130,11 +143,11 @@ export function EnquiryFlow() {
         )}
 
         {screen === 1 && (
-          <Question heading="What are you looking for?" helper="Pick as many as you like.">
+          <Question heading="What are you looking for?" helper="Pick whichever sounds most like you.">
             <Options
               options={LOOKING_FOR}
               selected={answers.lookingFor}
-              onPick={toggleLookingFor}
+              onPick={pickLookingFor}
             />
             <OtherLine
               value={answers.lookingForOther}
@@ -165,8 +178,11 @@ export function EnquiryFlow() {
 
         {screen === 3 && (
           <Question heading="What's your monthly budget?" helper="A rough idea is fine.">
+            {/* The bands follow what they picked on the first screen,
+                so the numbers on offer are the numbers that make sense
+                for the work they are actually asking about. */}
             <Options
-              options={BUDGET}
+              options={budgetOptionsFor(answers.lookingFor)}
               selected={answers.budget ? [answers.budget] : []}
               onPick={(id) => pickAndAdvance("budget", id, 4)}
             />
@@ -328,6 +344,11 @@ function Options({
               color: active ? "var(--text-1)" : "var(--text-2)",
             }}
           >
+            {/* Read out as part of the button's name rather than
+                hidden, because "Best Results & Revenue Booster" is a
+                reason to choose this one and someone using a screen
+                reader deserves to hear it too. */}
+            {option.badge && <span className="enquire-option-badge">{option.badge}</span>}
             <span aria-hidden="true" className="enquire-option-emoji">
               {option.emoji}
             </span>
