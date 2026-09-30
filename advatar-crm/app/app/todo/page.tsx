@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
 import { PersonPicker, type Person } from "@/components/PersonPicker";
 import { StatTile } from "@/components/StatTile";
+import { NoteTodoList } from "@/components/notes/NoteTodoList";
+import { loadNoteTodos } from "@/lib/notes";
 import { displayName, firstName } from "@/lib/names";
 import type { ProfileRole } from "@/lib/supabase/types";
 
@@ -91,6 +93,13 @@ export default async function TodoPage({ searchParams }: { searchParams: { perso
   const dueToday = open.filter((t) => t.due_date && sameDay(new Date(t.due_date), today)).length;
 
   const lookingAtSomeoneElse = !everyone && selectedPerson !== user.id;
+
+  // The to-do lists from this person's own notes (0032). Only when they
+  // are looking at their OWN list: notes are private, so a manager
+  // viewing a colleague's list or everyone's does not see these — and
+  // could not if they tried, because every note policy is owner-only.
+  // Empty rather than an error when 0032 has not been run yet.
+  const noteTodos = !everyone && !lookingAtSomeoneElse ? await loadNoteTodos(supabase) : [];
   const whose = lookingAtSomeoneElse ? personNameById.get(selectedPerson) ?? "them" : null;
 
   // Clients and staff can only link through to a client page that
@@ -169,6 +178,19 @@ export default async function TodoPage({ searchParams }: { searchParams: { perso
           </p>
         )}
       </section>
+
+      {noteTodos.length > 0 && (
+        <section className="section">
+          <div className="section-head">
+            <h2 className="section-title">From your notes</h2>
+          </div>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--text-3)", margin: "-4px 0 14px", maxWidth: "60ch" }}>
+            The to-do lists inside your notes. Private to you — ticking one here
+            ticks it in the note too.
+          </p>
+          <NoteTodoList initial={noteTodos} notesHref="/app/notes" />
+        </section>
+      )}
     </main>
   );
 }

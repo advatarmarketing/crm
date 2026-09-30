@@ -24,6 +24,7 @@ const LINKS = [
   { href: "/app/portal/documents", label: "Documents" },
   { href: "/app/portal/calendar", label: "Calendar" },
   { href: "/app/portal/todo", label: "To-do" },
+  { href: "/app/portal/notes", label: "Notes" },
   { href: "/app/portal/messages", label: "Messages" },
 ] as const;
 

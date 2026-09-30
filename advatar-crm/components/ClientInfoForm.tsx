@@ -50,6 +50,15 @@ export function ClientInfoForm({ client }: { client: Client }) {
           value={client.contact_email ?? ""}
           onSave={saveField("contact_email")}
         />
+        {/* Added with the website enquiry form (0033), which asks for
+            a number and requires it — a lead you cannot ring is a lead
+            you cannot chase. Leads added by hand may still leave it
+            blank. */}
+        <EditableField
+          label="Contact phone"
+          value={client.contact_phone ?? ""}
+          onSave={saveField("contact_phone")}
+        />
         <EditableField label="Service" value={client.service ?? ""} onSave={saveField("service")} />
         <EditableField
           label="Next action"

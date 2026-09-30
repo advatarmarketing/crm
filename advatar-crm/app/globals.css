@@ -1182,3 +1182,148 @@ textarea:focus-visible {
   top: 12px;
   right: 12px;
 }
+
+/* =================================================================
+   NOTES
+   On a phone, "Created … · Updated …" does not fit on one line and
+   would break wherever the width ran out — often mid-date. Two clean
+   lines read better than one broken one.
+   ================================================================= */
+
+@media (max-width: 520px) {
+  .note-meta-sep {
+    display: none;
+  }
+
+  .note-meta-updated {
+    display: block;
+  }
+}
+
+/* =================================================================
+   ENQUIRE
+   The public enquiry page. Shares the sign-in card's shell
+   (.login-shell) so the framing fix applies here too; the card itself
+   is wider because four option boxes have to sit across it.
+   ================================================================= */
+
+.enquire-card {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 36px 30px;
+}
+
+@media (max-width: 520px) {
+  .enquire-card {
+    padding: 26px 20px;
+  }
+}
+
+/* Each question fades out, is replaced, and the next fades in — the
+   only movement on the page, and the reason there is no progress bar:
+   one question at a time, and no sense of a queue behind it. */
+.enquire-step {
+  animation: enquire-in 260ms ease both;
+}
+
+.enquire-step[data-phase="out"] {
+  animation: enquire-out 170ms ease both;
+}
+
+@keyframes enquire-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes enquire-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* Someone who has asked their device to stop animations gets the
+   screens swapped instantly instead. The page works identically. */
+@media (prefers-reduced-motion: reduce) {
+  .enquire-step,
+  .enquire-step[data-phase="out"] {
+    animation: none;
+  }
+}
+
+/* Two by two on a phone, four across on a desktop. */
+.enquire-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 720px) {
+  .enquire-options {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.enquire-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  text-align: center;
+  padding: 18px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  /* Tall enough that the four boxes line up whatever the length of
+     their descriptions, without a fixed height that would clip on a
+     narrow phone. */
+  min-height: 140px;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.enquire-option:hover {
+  border-color: var(--border-2) !important;
+}
+
+.enquire-option-emoji {
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.enquire-option-title {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: inherit;
+}
+
+.enquire-option-desc {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
+/* Out of sight, out of the tab order, and hidden from screen readers:
+   only an automated form-filler ever meets this field. */
+.enquire-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}

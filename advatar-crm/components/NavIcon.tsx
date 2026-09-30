@@ -22,6 +22,7 @@ export type NavIconName =
   | "dashboard"
   | "calendar"
   | "todo"
+  | "notes"
   | "clients"
   | "videographers"
   | "leads"
@@ -47,6 +48,14 @@ const PATHS: Record<NavIconName, JSX.Element> = {
     <>
       <rect x="3" y="4" width="18" height="13" rx="2" />
       <path d="M12 14V8M9 10.5L12 7.5l3 3M8 21h8" />
+    </>
+  ),
+  // A page with its corner folded and three lines of writing — a
+  // note, rather than the ruled document that would read as "files".
+  notes: (
+    <>
+      <path d="M5 3h10l4 4v14H5z" />
+      <path d="M15 3v4h4M8.5 11h7M8.5 14.5h7M8.5 18h4" />
     </>
   ),
   // Four panes — the shape of a summary screen.
