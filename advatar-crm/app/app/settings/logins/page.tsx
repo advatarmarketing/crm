@@ -94,6 +94,9 @@ export default async function LoginsPage() {
         notifyEmail: notifyEmailById.get(p.id) ?? null,
         lastSignInAt: auth?.lastSignInAt ?? null,
         manageable: creatableRoles.includes(p.role as ProfileRole),
+        // CEO only, and not your own row — looking at your own CRM
+        // through a window is just your CRM.
+        previewable: callerRole === "ceo" && p.id !== user.id,
       };
     })
     .sort((a, b) => {
