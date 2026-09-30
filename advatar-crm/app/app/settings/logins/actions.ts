@@ -228,6 +228,73 @@ export async function resetLoginPassword(
   return { error: null, tempPassword };
 }
 
+/**
+ * Sets a login's password to one the manager has chosen.
+ *
+ * This exists because nobody — not the CEO, not Supabase support, not
+ * anyone with the database in front of them — can read an existing
+ * password. Supabase stores a bcrypt hash, which is a one-way
+ * scramble: signing in re-scrambles what was typed and compares the
+ * two. There is no "show me their password" to build, so the way to
+ * know somebody's password is to be the one who set it.
+ *
+ * That is the whole trade this makes, and it is worth stating plainly:
+ * a password the CEO knows is a password that is no longer proof of
+ * who did something. Where it matters that only one person could have
+ * signed in, use Reset password instead and let them change it.
+ */
+export async function setLoginPassword(
+  profileId: string,
+  password: string
+): Promise<{ error: string | null }> {
+  const caller = await requireLoginManager();
+  if (caller.error) return { error: caller.error };
+
+  // Not trimmed. A leading or trailing space is a legitimate part of a
+  // password, and quietly removing it here would set something other
+  // than what is on screen — which is the one thing this must not do.
+  if (password.length < 8) {
+    return { error: "Use at least 8 characters." };
+  }
+
+  // bcrypt only looks at the first 72 bytes, so anything longer is a
+  // password whose tail does nothing. Refusing beats silently ignoring
+  // half of what was typed.
+  if (Buffer.byteLength(password, "utf8") > 72) {
+    return { error: "That's too long — keep it under 72 characters." };
+  }
+
+  const admin = createAdminClient();
+
+  // Same gate as resetLoginPassword: an operations manager must not be
+  // able to set the CEO's password, which would be a way to take over
+  // the account.
+  const { data: target } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", profileId)
+    .single();
+
+  const targetRole = (target as { role?: string } | null)?.role as ProfileRole | undefined;
+  if (!targetRole) return { error: "That login no longer exists." };
+
+  const allowed = CREATABLE_BY[caller.role!] ?? [];
+  if (!allowed.includes(targetRole)) {
+    return { error: "You can't set the password for that login." };
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(profileId, { password });
+
+  if (error) {
+    // Supabase enforces its own project-level password rules on top of
+    // ours, and its wording is the useful one when they disagree.
+    return { error: error.message };
+  }
+
+  revalidatePath("/app/settings/logins");
+  return { error: null };
+}
+
 /** Sets or corrects the name shown for a login. */
 export async function updateLoginName(
   profileId: string,

@@ -134,6 +134,17 @@ export default async function LoginsPage() {
             ? `${logins.length} in total. ${unnamed} ${unnamed === 1 ? "has" : "have"} no name set, which is why they show as "Name not set" on client pages — fill them in below.`
             : `${logins.length} in total.`}
         </p>
+        {/* Said once, here, rather than on every row. People arrive at
+            this page looking for a password column, and an unexplained
+            absence reads as something missing rather than as something
+            that cannot exist. */}
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)", margin: "0 0 18px", lineHeight: 1.6 }}>
+          Existing passwords can&rsquo;t be shown to anyone — they aren&rsquo;t
+          stored, only a scrambled version that can be checked against but never
+          read. To know somebody&rsquo;s password, use <strong>Set password</strong> and
+          choose it yourself. <strong>Reset password</strong> generates one instead, for
+          when they should be the only one who knows it.
+        </p>
         <LoginsList logins={logins} />
       </section>
 
