@@ -17,4 +17,5 @@ select thing, case when ok then 'DONE' else 'NOT RUN' end as state from (
     exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='notify_email')
   union all select '0031 team directory (names)', to_regclass('public.team_directory') is not null
   union all select '0032 notes', to_regclass('public.note_checklist_items') is not null
+  union all select '0033 website enquiries', to_regclass('public.enquiry_throttle') is not null
 ) rows order by thing;

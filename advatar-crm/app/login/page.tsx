@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { login, type LoginState } from "./actions";
@@ -128,6 +129,36 @@ export default function LoginPage() {
             ? "Client access to your project and planner."
             : "Staff, videographer, and CEO logins use this tab."}
         </p>
+
+        {/* The way in for someone who does not have a login and wants
+            one. Below the fold of the card and quiet on purpose: this
+            is a sign-in screen first, and the people who land here
+            every morning are the team. Separated by a rule so it reads
+            as a different errand rather than more sign-in copy. */}
+        <div
+          style={{
+            marginTop: 20,
+            paddingTop: 18,
+            borderTop: "1px solid var(--border)",
+            textAlign: "center",
+          }}
+        >
+          <Link
+            href="/enquire"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11.5,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: "var(--text-2)",
+              textDecoration: "none",
+              borderBottom: "1px solid var(--border-2)",
+              paddingBottom: 2,
+            }}
+          >
+            Interested in working with us? &rarr;
+          </Link>
+        </div>
       </div>
     </main>
   );

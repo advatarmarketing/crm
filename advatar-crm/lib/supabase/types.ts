@@ -85,6 +85,8 @@ export interface Database {
           name: string;
           contact_name: string | null;
           contact_email: string | null;
+          // 0033 — the website enquiry form asks for one.
+          contact_phone: string | null;
           service: string | null;
           stage: ClientStage;
           next_action: string | null;
@@ -105,6 +107,7 @@ export interface Database {
           name: string;
           contact_name?: string | null;
           contact_email?: string | null;
+          contact_phone?: string | null;
           service?: string | null;
           stage?: ClientStage;
           next_action?: string | null;
@@ -124,6 +127,7 @@ export interface Database {
           name?: string;
           contact_name?: string | null;
           contact_email?: string | null;
+          contact_phone?: string | null;
           service?: string | null;
           stage?: ClientStage;
           next_action?: string | null;
