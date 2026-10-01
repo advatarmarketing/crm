@@ -22,12 +22,26 @@ export interface PlannerPillar {
 export interface PlannerFormatStat {
   value: string;
   label: string;
+  /**
+   * The greyed prompt for this stat's value. Per-stat rather than one
+   * for the row, because "5–6 posts" and "Daily stories" are not the
+   * same kind of answer and a single prompt would be wrong for four of
+   * the five.
+   */
+  ph?: string;
 }
 
 export interface PlannerBrandRow {
   id: string;
   label: string;
   value: string;
+  /**
+   * The greyed prompt for this row's value. Stored alongside the row
+   * because each one asks for something different — fonts, a palette,
+   * who is on camera — so there is no single prompt the section could
+   * use. A row somebody adds themselves simply has none.
+   */
+  ph?: string;
 }
 
 export interface PlannerWorkflowStep {
@@ -193,82 +207,162 @@ export interface PlannerContent {
 let seq = 0;
 const id = (prefix: string) => `${prefix}-${++seq}`;
 
-export const DEFAULT_PLANNER_CONTENT: PlannerContent = {
-  logoUrl: null,
+/**
+ * The greyed prompts shown in empty fields in the editor.
+ *
+ * Kept here, beside the template they belong to, so the blank value
+ * and the prompt that explains it cannot drift apart. Nothing in here
+ * is ever stored or shown to a client — an unanswered field in a
+ * published plan is simply blank, rather than showing them an
+ * instruction we wrote to ourselves.
+ *
+ * Prompts that repeat down a list (every pillar, every metric, every
+ * video slot) live here as one string and are passed to each row. The
+ * two that genuinely differ per row — the branding sheet and the
+ * format mix — carry their prompt on the row itself instead.
+ */
+export const PLANNER_PH = {
+  logo: "Drop client logo",
 
   hero: {
-    scene: "Relaunch",
+    scene: "RELAUNCH",
     take: "01",
-    director: "Rayyan",
-    roll: "2 Years of Footage",
-    brand: "ADVATAR.",
-    sub: "Content plan — the month ahead",
+    director: "Client lead name",
+    roll: "What you're working with",
+    brand: "The line that sums this account up.",
+    sub: "CONTENT PLAN — THE MONTH AHEAD",
   },
 
   thesis: {
     quote:
-      "No trending audio doing the work for us. No faces hired to hold the hook. Two years of client work, finally in one place — and it has to earn attention on its own.",
+      "The one sentence that sets the bar for this account — what you refuse to do, or what you're betting on instead.",
     caption: "THE STANDARD THIS ACCOUNT IS BUILT ON",
   },
 
   overview: {
-    tag: "What this account is actually for",
-    heading: "Three jobs, one feed",
-    desc: "This isn't a general brand page — it's doing three jobs at once: it's the proof you send people you're already talking to, it's the thing that finds new clients on its own through Reels reach, and it's how people watch Advatar grow from a UK studio into something bigger. Every pillar below is built to serve at least one of those.",
+    tag: "WHAT THIS ACCOUNT IS ACTUALLY FOR",
+    heading: "The job this feed does",
+    desc: "What this page is for, in plain terms — who it needs to convince, how it finds people who don't know you yet, and what it should look like six months from now.",
   },
+
+  branding: {
+    desc: "The reference sheet everything else gets built against — fill this in first, so pillars, shoots and edits all pull in the same direction.",
+  },
+
+  pillars: {
+    desc: "How the month is divided, and why each pillar earns the share it has.",
+    name: "Pillar name",
+    pct: "00%",
+    subtitle: "WHAT THIS PILLAR IS FOR",
+    description:
+      "What goes in this pillar, who it's aimed at, and why it earns this share of the month.",
+    tag: "Format or angle",
+  },
+
+  format: {
+    desc: "Why this mix — which format carries the reach, and what gets repurposed where.",
+  },
+
+  workflow: {
+    desc: "Who this workflow is built around — team size and who owns what.",
+    title: "Step name",
+    description: "Who does it, when in the week it happens, and what comes out the other end.",
+  },
+
+  metrics: {
+    desc: "Which numbers tie to the actual goal, and which ones to ignore.",
+    label: "METRIC NAME",
+    value: "Weekly",
+  },
+
+  competitors: {
+    desc: "Log anything worth studying — just the link and a note on why it's here.",
+    title: "Studio / handle",
+  },
+
+  producing: {
+    desc: "Log finished pieces as they come off the line — title, link, done.",
+    title: "Piece title — client or pillar",
+  },
+
+  slots: {
+    title: "Working title",
+    description: "What this video covers, in a line or two.",
+    hook: "First 3 seconds — the line that stops the scroll",
+    body: "What happens in the middle",
+    cta: "What you want them to do next",
+    wms: "What must be said, word for word",
+    scenery: "Location, set, lighting",
+    set: "Which shoot day this belongs to",
+  },
+
+  timeline: {
+    desc: "The shape of the engagement — what gets shot, cut and published, and by when.",
+    date: "Week 01",
+    title: "Phase name",
+    description: "What gets shot, cut, or published in this window.",
+  },
+
+  guarantee: {
+    tag: "THE FINE PRINT, KEPT SHORT",
+    heading: "Our guarantee",
+    body: "The promise, with a number and a deadline attached — what happens if the plan doesn't hit it.",
+    term: "One term, one line — no sub-clauses.",
+  },
+} as const;
+
+/**
+ * The starting template for a client with no plan yet.
+ *
+ * Deliberately empty. It used to carry Advatar's own worked example,
+ * which read as somebody else's plan sitting in your client's
+ * document — and worse, text that is already there has to be deleted
+ * before it can be replaced, so the quickest thing to do with it was
+ * to leave it. Blank fields with a prompt behind them ask to be
+ * answered instead.
+ *
+ * What is NOT blank: the structural furniture that is the same for
+ * every client — section headings, the labels down the branding
+ * sheet, the names of the five format stats, the step numbers, and
+ * the four pillar colours. Those are the form, not the answers.
+ */
+export const DEFAULT_PLANNER_CONTENT: PlannerContent = {
+  logoUrl: null,
+
+  hero: { scene: "", take: "", director: "", roll: "", brand: "", sub: "" },
+
+  thesis: { quote: "", caption: "" },
+
+  overview: { tag: "", heading: "", desc: "" },
 
   branding: {
     tag: "Brand DNA",
     heading: "Branding & positioning",
-    desc: "The reference sheet everything else in this plan gets built against — fill this in per client, first, so pillars, shoots, and edits all pull in the same direction.",
+    desc: "",
     rows: [
-      { id: id("brand"), label: "Brand essence (3 words)", value: "Premium, purposeful, personal" },
+      { id: id("brand"), label: "Brand essence (3 words)", value: "", ph: "Three words that describe the brand" },
       {
         id: id("brand"),
         label: "Mission statement (1 line)",
-        value: "Why this account exists, in one sentence — what changes for someone after they watch it.",
+        value: "",
+        ph: "Why this account exists, in one sentence — what changes for someone after they watch it.",
       },
-      {
-        id: id("brand"),
-        label: "Tone of voice",
-        value: "e.g. direct, warm, a little dry — the three words that describe how the brand talks.",
-      },
-      { id: id("brand"), label: "Fonts", value: "Primary: [font name] · Secondary: [font name]" },
-      { id: id("brand"), label: "Colour palette", value: "e.g. Navy, cream, gold accent" },
-      {
-        id: id("brand"),
-        label: "Design style",
-        value: "Clean and editorial — minimal texture, high contrast, no clutter.",
-      },
-      {
-        id: id("brand"),
-        label: "Sound design",
-        value: "Vocals-forward, subtle SFX, no trending stock audio.",
-      },
+      { id: id("brand"), label: "Tone of voice", value: "", ph: "Three words for how the brand talks" },
+      { id: id("brand"), label: "Fonts", value: "", ph: "Primary: [font name] · Secondary: [font name]" },
+      { id: id("brand"), label: "Colour palette", value: "", ph: "e.g. Navy, cream, gold accent" },
+      { id: id("brand"), label: "Design style", value: "", ph: "How it should look and feel on the grid" },
+      { id: id("brand"), label: "Sound design", value: "", ph: "Music, voice, SFX — and what's off-limits" },
       {
         id: id("brand"),
         label: "Backgrounds / set style",
-        value: "Studio or in-office — consistent lighting and set across every piece.",
+        value: "",
+        ph: "Where this gets filmed and how consistent it stays",
       },
       {
         id: id("brand"),
         label: "Faces of the brand",
-        value: "Who's on camera — founder, team, community, or a mix.",
-      },
-      {
-        id: id("brand"),
-        label: "The 'energy'",
-        value: "One line on how it should feel to watch — confident? warm? elevated?",
-      },
-      {
-        id: id("brand"),
-        label: "What we're NOT",
-        value: "The one thing this account should never look or sound like.",
-      },
-      {
-        id: id("brand"),
-        label: "Positioning statement",
-        value: "The one-paragraph promise this account makes to its audience.",
+        value: "",
+        ph: "Who's on camera — founder, team, community, or a mix",
       },
     ],
   },
@@ -276,139 +370,89 @@ export const DEFAULT_PLANNER_CONTENT: PlannerContent = {
   pillars: {
     tag: "The shot list",
     heading: "Content pillars",
-    desc: "Allocation is weighted toward proof first — because the people who matter most right now are prospects deciding whether to hire you — with room kept for the values-led content that can travel furthest when it lands.",
+    desc: "",
+    // Four cards, because four is what the layout is built for and a
+    // month split more finely than that stops being a plan. The
+    // colours stay — they are how the allocation bars tell themselves
+    // apart, not content.
     items: [
-      {
-        id: id("pillar"),
-        name: "Client Work",
-        pct: 40,
-        subtitle: "The proof reel",
-        description:
-          "Results, before/afters, finished pieces, client logos. This is what actually gets sent in a DM to close a deal — treat every project as its own launch, not a grid filler.",
-        tags: ["Result-led Reel", "Brief vs. delivery", "Client logo carousel"],
-        color: "var(--red)",
-      },
-      {
-        id: id("pillar"),
-        name: "Craft & Process",
-        pct: 25,
-        subtitle: "How it's actually made",
-        description:
-          "Colour grade breakdowns, rig and lighting setups, sped-up edit timelines. This is what positions Advatar as the technically serious option, not just a nice-looking page.",
-        tags: ["Grade split-screen", "On-set BTS", "Edit timelapse"],
-        color: "var(--ink)",
-      },
-      {
-        id: id("pillar"),
-        name: "The Build",
-        pct: 20,
-        subtitle: "Bringing people along",
-        description:
-          "The expansion story — new clients signed, new hires, milestones, the push past the UK. This is what turns followers into people invested in Advatar's trajectory, not just its output.",
-        tags: ["Milestone post", "Team intro", "Why we said yes/no"],
-        color: "var(--gold)",
-      },
-      {
-        id: id("pillar"),
-        name: "The Standard",
-        pct: 15,
-        subtitle: "How we work, on purpose",
-        description:
-          "The stance, stated plainly and occasionally: no trending audio, no relying on faces to do the hook's job. Used deliberately rather than constantly — this is the one with real viral upside because it's a real position, not a gimmick.",
-        tags: ["Direct POV Reel", "What we won't do", "Industry commentary"],
-        color: "var(--red-deep)",
-      },
+      { id: id("pillar"), name: "", pct: 0, subtitle: "", description: "", tags: [""], color: "var(--red)" },
+      { id: id("pillar"), name: "", pct: 0, subtitle: "", description: "", tags: [""], color: "var(--ink)" },
+      { id: id("pillar"), name: "", pct: 0, subtitle: "", description: "", tags: [""], color: "var(--gold)" },
+      { id: id("pillar"), name: "", pct: 0, subtitle: "", description: "", tags: [""], color: "var(--red-deep)" },
     ],
   },
 
   format: {
     tag: "Cadence",
     heading: "Format mix, weekly",
-    desc: "Weighted toward Reels since that's both your production strength and the format Instagram is pushing hardest for reach right now. Every Reel gets cut for TikTok and YouTube Shorts too — same footage, near-zero extra cost, wider net for inbound.",
+    desc: "",
     stats: [
-      { value: "5–6", label: "Posts / week" },
-      { value: "65%", label: "Reels" },
-      { value: "25%", label: "Carousels" },
-      { value: "10%", label: "Static / announcement" },
-      { value: "Daily", label: "Stories" },
+      { value: "", label: "Posts / week", ph: "5–6" },
+      { value: "", label: "Reels", ph: "65%" },
+      { value: "", label: "Carousels", ph: "25%" },
+      { value: "", label: "Static / announcement", ph: "10%" },
+      { value: "", label: "Stories", ph: "Daily" },
     ],
   },
 
   workflow: {
     tag: "Production line",
     heading: "Weekly workflow",
-    desc: "Built around you plus editing help — not a full in-house team.",
+    desc: "",
     steps: [
-      {
-        id: id("wf"),
-        num: "01",
-        title: "Batch shoot",
-        description:
-          "Capture BTS and finished-project footage across client work as it happens — don't shoot separately for the page.",
-      },
-      {
-        id: id("wf"),
-        num: "02",
-        title: "Hand off to edit",
-        description: "Editor cuts against the week's pillar assignment — footage in, Reel/carousel out, same brief every time.",
-      },
-      {
-        id: id("wf"),
-        num: "03",
-        title: "Approve & caption",
-        description: "You review, write the caption/hook, and slot it into the week's format mix.",
-      },
-      {
-        id: id("wf"),
-        num: "04",
-        title: "Post & engage",
-        description: "10–15 minutes daily replying to DMs and comments — this is where prospects actually convert.",
-      },
+      { id: id("wf"), num: "01", title: "", description: "" },
+      { id: id("wf"), num: "02", title: "", description: "" },
+      { id: id("wf"), num: "03", title: "", description: "" },
+      { id: id("wf"), num: "04", title: "", description: "" },
     ],
   },
 
   metrics: {
     tag: "What actually matters",
     heading: "Metrics to track",
-    desc: "Followers are the least important number here — DMs and saves are the ones tied to your real goals.",
+    desc: "",
     items: [
-      { id: id("metric"), label: "DMs / inquiries", value: "Weekly" },
-      { id: id("metric"), label: "Saves + shares / post", value: "Weekly" },
-      { id: id("metric"), label: "Profile → link clicks", value: "Weekly" },
-      { id: id("metric"), label: "Follower growth", value: "Monthly" },
+      { id: id("metric"), label: "", value: "" },
+      { id: id("metric"), label: "", value: "" },
+      { id: id("metric"), label: "", value: "" },
+      { id: id("metric"), label: "", value: "" },
     ],
   },
 
   competitors: {
     tag: "Competitive scan",
     heading: "What competitors are posting",
-    desc: "Log anything worth studying — Google Drive, TikTok, Instagram, YouTube, wherever it lives. Just the link and a note on why it's here.",
+    desc: "",
     links: [
-      { id: id("link"), title: "Studio A — @studio-a", url: "" },
-      { id: id("link"), title: "Studio B — @studio-b", url: "" },
-      { id: id("link"), title: "Freelancer C — @freelancer-c", url: "" },
+      { id: id("link"), title: "", url: "" },
+      { id: id("link"), title: "", url: "" },
+      { id: id("link"), title: "", url: "" },
     ],
   },
 
   producing: {
     tag: "Proof of work",
     heading: "What we're producing",
-    desc: "The other side of the comparison — log finished pieces as they come off the line, same way: title, link, done.",
+    desc: "",
     links: [
-      { id: id("link"), title: "Hero project 01 — client name", url: "" },
-      { id: id("link"), title: "Craft breakdown — grade / rig walkthrough", url: "" },
-      { id: id("link"), title: "The Standard — direct POV piece", url: "" },
+      { id: id("link"), title: "", url: "" },
+      { id: id("link"), title: "", url: "" },
+      { id: id("link"), title: "", url: "" },
     ],
   },
 
   slots: {
     tag: "Monthly output",
     heading: "Video slot planner",
+    // Kept as real text rather than a prompt: this one explains how
+    // the section works, which is true for every client and is not
+    // something anybody should have to write.
     desc: "Set how many finished videos you're committing to this month. Each slot carries its own brief — hook, body, CTA, WMS and scenery — plus the shoot it belongs to and a spot for the link once it's done.",
-    items: Array.from({ length: 12 }, (_, i) => ({
+    items: Array.from({ length: 12 }, () => ({
       id: id("slot"),
-      title: `Video ${String(i + 1).padStart(2, "0")}`,
-      description: "What this video covers, in a line or two.",
+      title: "",
+      description: "",
       pillar: "",
       link: "",
       hook: "",
@@ -423,54 +467,24 @@ export const DEFAULT_PLANNER_CONTENT: PlannerContent = {
   timeline: {
     tag: "How it rolls out",
     heading: "Client timeline",
-    desc: "A quick-glance version of the engagement — swap the labels and milestones per client, add or remove steps as needed.",
+    desc: "",
     items: [
-      {
-        id: id("tl"),
-        date: "Week 0",
-        title: "Kickoff call",
-        description: "Align on goals, brand voice, and get access to footage, accounts, and past client work.",
-        done: false,
-      },
-      {
-        id: id("tl"),
-        date: "Week 1",
-        title: "Foundation",
-        description: "Profile reset, bio and highlights fixed, trailer reel shot, edited, and published.",
-        done: false,
-      },
-      {
-        id: id("tl"),
-        date: "Weeks 2–4",
-        title: "Hero rollout",
-        description: "First three hero client projects launched, one per week, to build initial momentum.",
-        done: false,
-      },
-      {
-        id: id("tl"),
-        date: "Month 2",
-        title: "Full rotation",
-        description: "Pillar mix settles into a steady weekly cadence based on what the first month showed us.",
-        done: false,
-      },
-      {
-        id: id("tl"),
-        date: "Month 3",
-        title: "Review & scale",
-        description: "90-day review, results shared, and the next quarter planned around what actually worked.",
-        done: false,
-      },
+      { id: id("tl"), date: "", title: "", description: "", done: false },
+      { id: id("tl"), date: "", title: "", description: "", done: false },
+      { id: id("tl"), date: "", title: "", description: "", done: false },
+      { id: id("tl"), date: "", title: "", description: "", done: false },
+      { id: id("tl"), date: "", title: "", description: "", done: false },
     ],
   },
 
   guarantee: {
-    tag: "The fine print, kept short",
-    heading: "Our guarantee",
-    body: "If the pillar mix above doesn't produce a measurable lift in inbound DMs within 90 days, we keep producing at no extra cost until it does — in writing, before a single frame is shot.",
+    tag: "",
+    heading: "",
+    body: "",
     terms: [
-      { id: id("term"), text: "No lock-in contract — reviewed and renewed month to month." },
-      { id: id("term"), text: "Any underperforming piece gets reshot at no extra cost." },
-      { id: id("term"), text: "Direct line to your editor throughout — no account manager layer." },
+      { id: id("term"), text: "" },
+      { id: id("term"), text: "" },
+      { id: id("term"), text: "" },
     ],
   },
 };
