@@ -1362,11 +1362,30 @@ textarea:focus-visible {
   line-height: 1.1;
 }
 
+/* Deliberately NOT `inherit`. The button sets its own colour to the
+   muted --text-2 until it is picked, which dimmed the one piece of
+   text somebody is actually reading to choose. The border and the
+   background already say which box is selected; the title does not
+   need to go quiet to help them. */
 .enquire-option-title {
   font-family: var(--font-body);
   font-weight: 600;
   font-size: 14px;
-  color: inherit;
+  color: var(--text-1);
+}
+
+/* Pure white in dark mode, rather than the #f4f4f2 --text-1 carries.
+   Both rules are needed and both are the file's existing pattern: the
+   first for a visitor whose device is set to dark, the second for
+   someone who chose dark with the toggle. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .enquire-option-title {
+    color: #ffffff;
+  }
+}
+
+:root[data-theme="dark"] .enquire-option-title {
+  color: #ffffff;
 }
 
 .enquire-option-desc {
