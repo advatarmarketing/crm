@@ -12,8 +12,15 @@ export interface EnquiryOption {
   emoji: string;
   title: string;
   description: string;
-  /** A small flag sitting on the box. Used sparingly — one per screen. */
+  /** A small flag sitting on the box. */
   badge?: string;
+  /**
+   * Which badge colour. "headline" is the white-on-dark pill that
+   * carries the most weight; "accent" is the brand gold, which reads
+   * as a different kind of remark rather than a competing one — two
+   * identical pills side by side would cancel each other out.
+   */
+  badgeTone?: "headline" | "accent";
 }
 
 export const LOOKING_FOR: EnquiryOption[] = [
@@ -21,16 +28,19 @@ export const LOOKING_FOR: EnquiryOption[] = [
     id: "full_partnership",
     emoji: "🏆",
     title: "Full Marketing Partnership",
-    description: "We run your marketing end to end",
+    description: "We run your marketing end to end, tackling everything.",
     badge: "Best Results & Revenue Booster",
+    badgeTone: "headline",
   },
-  { id: "social_takeover", emoji: "🚀", title: "Social Media Takeover", description: "Go viral" },
-  { id: "video", emoji: "🎥", title: "Video production", description: "High quality content" },
+  { id: "social_takeover", emoji: "🚀", title: "Social Media Takeover", description: "Go viral." },
+  { id: "video", emoji: "🎥", title: "Video production", description: "High quality content." },
   {
     id: "growth_partner",
     emoji: "🤝",
     title: "Growth Partner",
-    description: "Our team becomes your team, with specific goals and specific solutions",
+    description: "Our team becomes your team, with specific goals and specific solutions.",
+    badge: "Sharp focus, smaller spend",
+    badgeTone: "accent",
   },
 ];
 

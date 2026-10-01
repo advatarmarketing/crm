@@ -42,6 +42,12 @@ export function EnquiryFlow() {
   const [problem, setProblem] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  /**
+   * Whether they have come back to the first screen having already
+   * answered it. Only then does that screen need a Continue button —
+   * see canContinueScreen1 below.
+   */
+  const [backOnFirst, setBackOnFirst] = useState(false);
   const moving = useRef(false);
 
   /** Fades the current screen out, swaps it, fades the new one in. */
@@ -126,7 +132,20 @@ export function EnquiryFlow() {
     );
   }
 
-  const canContinueScreen1 = answers.lookingFor.length > 0 || answers.lookingForOther.trim().length > 0;
+  /**
+   * Continue is not a step on the way out of the first screen — a pick
+   * carries you on by itself. Showing it the moment something is
+   * chosen made it flash up for the fraction of a second before the
+   * screen turned, which looked like a button you had missed.
+   *
+   * So it appears in exactly the two cases where there is no other way
+   * forward: something typed into "Something else", which cannot
+   * auto-advance (you would be thrown off the screen mid-word), and
+   * coming back to a screen already answered, where tapping the same
+   * box again to move on would be a guess rather than an instruction.
+   */
+  const canContinueScreen1 =
+    answers.lookingForOther.trim().length > 0 || (backOnFirst && answers.lookingFor.length > 0);
 
   return (
     <Card>
@@ -134,7 +153,16 @@ export function EnquiryFlow() {
           again each time, rather than only on the first question. */}
       <div key={screen} className="enquire-step" data-phase={phase}>
         {screen > 1 && (
-          <button type="button" onClick={() => goTo((screen - 1) as Screen)} style={backStyle} aria-label="Go back">
+          <button
+            type="button"
+            onClick={() => {
+              const previous = (screen - 1) as Screen;
+              if (previous === 1) setBackOnFirst(true);
+              goTo(previous);
+            }}
+            style={backStyle}
+            aria-label="Go back"
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M15 18l-6-6 6-6" />
             </svg>
@@ -348,7 +376,11 @@ function Options({
                 hidden, because "Best Results & Revenue Booster" is a
                 reason to choose this one and someone using a screen
                 reader deserves to hear it too. */}
-            {option.badge && <span className="enquire-option-badge">{option.badge}</span>}
+            {option.badge && (
+              <span className={`enquire-option-badge enquire-option-badge--${option.badgeTone ?? "headline"}`}>
+                {option.badge}
+              </span>
+            )}
             <span aria-hidden="true" className="enquire-option-emoji">
               {option.emoji}
             </span>
