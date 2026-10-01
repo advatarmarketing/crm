@@ -631,6 +631,21 @@ export const PLANNER_CSS = `
 .planner-doc .timeline-item.done .timeline-done-tag{display:inline-block;}
 .planner-doc .timeline-title{font-family:var(--display);font-weight:400;font-size:19px;margin:0 0 6px;letter-spacing:.01em;}
 .planner-doc .timeline-desc{font-size:14px;line-height:1.55;color:var(--body-text);margin:0;max-width:600px;}
+/* Owner and milestone, as a quiet pair under the description rather
+   than two more paragraphs — they are the margin notes of the window,
+   not the account of it. */
+.planner-doc .timeline-meta{
+  display:flex;flex-wrap:wrap;gap:6px 26px;margin-top:10px;max-width:600px;
+}
+.planner-doc .timeline-meta-row{display:flex;align-items:baseline;gap:8px;min-width:0;}
+.planner-doc .timeline-meta-label{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--text-3);flex-shrink:0;
+}
+.planner-doc .timeline-meta-value{
+  font-family:var(--body);font-size:13px;line-height:1.5;color:var(--body-text);
+  border-radius:6px;padding:2px 4px;margin:-2px -4px;
+}
 
 /* ---------- GUARANTEE ---------- */
 .planner-doc .guarantee-section{

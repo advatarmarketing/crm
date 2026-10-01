@@ -9,6 +9,7 @@ import {
   type PlannerContent,
   type PlannerSlot,
 } from "@/lib/planner/content";
+import { PastePlanDialog } from "@/components/planner/PastePlanDialog";
 import { PLANNER_CSS } from "@/lib/planner/css";
 
 const NAV_SECTIONS: { id: string; label: string }[] = [
@@ -157,6 +158,7 @@ export function PlannerDocument({
   const [notAvailable, setNotAvailable] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [activeSection, setActiveSection] = useState("overview");
+  const [pasting, setPasting] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSentJson = useRef<string | null>(null);
@@ -760,6 +762,22 @@ export function PlannerDocument({
                 </div>
                 <Editable as="h4" className="timeline-title" editable={editable} value={item.title} onCommit={(v) => update(["timeline", "items", i, "title"], v)} placeholder={PLANNER_PH.timeline.title} />
                 <Editable as="p" className="timeline-desc" editable={editable} value={item.description} onCommit={(v) => update(["timeline", "items", i, "description"], v)} placeholder={PLANNER_PH.timeline.description} />
+                {/* Who owns the window and what is done by the end of
+                    it. Hidden entirely in a read-only render when both
+                    are empty, so an older plan that never had them
+                    does not grow two blank rows. */}
+                {(editable || item.owner?.trim() || item.milestone?.trim()) && (
+                  <div className="timeline-meta">
+                    <span className="timeline-meta-row">
+                      <span className="timeline-meta-label">Owner</span>
+                      <Editable as="span" className="timeline-meta-value" editable={editable} value={item.owner ?? ""} onCommit={(v) => update(["timeline", "items", i, "owner"], v)} placeholder={PLANNER_PH.timeline.owner} />
+                    </span>
+                    <span className="timeline-meta-row">
+                      <span className="timeline-meta-label">Milestone</span>
+                      <Editable as="span" className="timeline-meta-value" editable={editable} value={item.milestone ?? ""} onCommit={(v) => update(["timeline", "items", i, "milestone"], v)} placeholder={PLANNER_PH.timeline.milestone} />
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -775,7 +793,7 @@ export function PlannerDocument({
                   ...prev,
                   timeline: {
                     ...prev.timeline,
-                    items: [...prev.timeline.items, { id: makeId("tl"), date: "", title: "", description: "", done: false }],
+                    items: [...prev.timeline.items, { id: makeId("tl"), date: "", title: "", description: "", done: false, owner: "", milestone: "" }],
                   },
                 };
                 scheduleSave(next);
@@ -851,10 +869,28 @@ export function PlannerDocument({
             {saveState === "error" && "Couldn't save — check connection"}
             {saveState === "idle" && "Click any text to edit"}
           </span>
+          <button type="button" className="secondary" onClick={() => setPasting(true)}>
+            Paste a plan
+          </button>
           <button type="button" className="secondary" onClick={toggleStatus}>
             {status === "draft" ? "Publish" : "Unpublish"}
           </button>
         </div>
+      )}
+
+      {editable && pasting && (
+        <PastePlanDialog
+          onClose={() => setPasting(false)}
+          onFill={(next) => {
+            // The logo is the client's own and has nothing to do with
+            // the pasted words, so it survives being filled over.
+            const merged = { ...next, logoUrl: contentRef.current?.logoUrl ?? null };
+            setContent(merged);
+            scheduleSave(merged);
+            setPasting(false);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
       )}
     </div>
   );

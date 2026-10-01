@@ -103,6 +103,15 @@ export interface PlannerTimelineItem {
   title: string;
   description: string;
   done: boolean;
+
+  /**
+   * Who is responsible for this window, and what is finished by the
+   * end of it. Optional, like the slot brief: plans written before
+   * these existed simply do not carry them, and everything reading
+   * them treats a missing field as an empty one.
+   */
+  owner?: string;
+  milestone?: string;
 }
 
 export interface PlannerGuaranteeTerm {
@@ -301,6 +310,8 @@ export const PLANNER_PH = {
     date: "Week 01",
     title: "Phase name",
     description: "What gets shot, cut, or published in this window.",
+    owner: "Who's responsible",
+    milestone: "What's finished by the end of it",
   },
 
   guarantee: {
@@ -469,11 +480,11 @@ export const DEFAULT_PLANNER_CONTENT: PlannerContent = {
     heading: "Client timeline",
     desc: "",
     items: [
-      { id: id("tl"), date: "", title: "", description: "", done: false },
-      { id: id("tl"), date: "", title: "", description: "", done: false },
-      { id: id("tl"), date: "", title: "", description: "", done: false },
-      { id: id("tl"), date: "", title: "", description: "", done: false },
-      { id: id("tl"), date: "", title: "", description: "", done: false },
+      { id: id("tl"), date: "", title: "", description: "", done: false, owner: "", milestone: "" },
+      { id: id("tl"), date: "", title: "", description: "", done: false, owner: "", milestone: "" },
+      { id: id("tl"), date: "", title: "", description: "", done: false, owner: "", milestone: "" },
+      { id: id("tl"), date: "", title: "", description: "", done: false, owner: "", milestone: "" },
+      { id: id("tl"), date: "", title: "", description: "", done: false, owner: "", milestone: "" },
     ],
   },
 
