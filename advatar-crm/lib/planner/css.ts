@@ -508,6 +508,35 @@ export const PLANNER_CSS = `
 .planner-doc [contenteditable].slot-field-value.is-empty::before{
   content:var(--placeholder, "—");color:var(--text-3);
 }
+/* The same idea, for every other editable field in the document. The
+   class is only set while the stored value is blank, so an answered
+   field never carries it; :focus hides the prompt the moment somebody
+   starts typing, before the value has been committed on blur.
+   Editor-only by construction — a read-only render is plain text with
+   no contenteditable to match. */
+/* --text-2, not the --text-3 the slot fields use. These prompts are
+   whole sentences telling somebody what to write, so they have to be
+   comfortably readable: --text-3 measures 2.9:1 against the page and
+   --text-2 measures 6.8:1, in both themes. Still plainly lighter than
+   --text-1, so a prompt never reads as an answer.
+   The resets are because several of these fields are styled as small
+   caps or bold labels, and a prompt inherits that styling — an
+   instruction set in letter-spaced uppercase is much harder to read
+   than the thing it is standing in for. */
+.planner-doc [contenteditable].is-ph::before{
+  content:var(--placeholder);color:var(--text-2);font-weight:400;font-style:normal;
+  letter-spacing:normal;text-transform:none;
+}
+.planner-doc [contenteditable].is-ph:focus::before{content:none;}
+/* The hero and the guarantee block are pinned dark in BOTH themes
+   (see the --panel-* note at the top of this file), so --text-3 —
+   which flips with the theme — would be dark grey on a dark panel in
+   light mode, i.e. an invisible prompt. These two use the panel's own
+   dimmed foreground instead, which is pinned the same way they are. */
+.planner-doc .hero [contenteditable].is-ph::before,
+.planner-doc .guarantee-section [contenteditable].is-ph::before{
+  color:var(--panel-fg-dim);
+}
 .planner-doc [contenteditable].slot-field-value:focus::before{content:none;}
 .planner-doc [contenteditable].slot-field-value:hover{background:var(--wash-1);}
 .planner-doc [contenteditable].slot-field-value:focus{

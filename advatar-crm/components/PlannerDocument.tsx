@@ -2,7 +2,13 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { DEFAULT_PLANNER_CONTENT, makeId, type PlannerContent, type PlannerSlot } from "@/lib/planner/content";
+import {
+  DEFAULT_PLANNER_CONTENT,
+  PLANNER_PH,
+  makeId,
+  type PlannerContent,
+  type PlannerSlot,
+} from "@/lib/planner/content";
 import { PLANNER_CSS } from "@/lib/planner/css";
 
 const NAV_SECTIONS: { id: string; label: string }[] = [
@@ -49,6 +55,18 @@ function isValidHttpUrl(value: string) {
 // keystroke), so the parent never re-renders mid-typing and the
 // caret never jumps.
 // ---------------------------------------------------------------
+/**
+ * Quotes a string for a CSS `content:` value.
+ *
+ * The prompts below are ordinary prose and contain apostrophes, dashes
+ * and brackets, none of which need anything doing to them — but a
+ * double quote or a backslash would end the string early and silently
+ * drop the rest of the prompt, so both are escaped.
+ */
+function cssQuote(text: string) {
+  return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
 function Editable({
   as: Tag = "span",
   value,
@@ -56,6 +74,7 @@ function Editable({
   editable,
   className,
   style,
+  placeholder,
 }: {
   as?: keyof JSX.IntrinsicElements;
   value: string;
@@ -63,6 +82,13 @@ function Editable({
   editable: boolean;
   className?: string;
   style?: React.CSSProperties;
+  /**
+   * Greyed-out prompt shown while the field is empty, in the editor
+   * only. It is never stored and never printed: a blank field in a
+   * published plan stays blank rather than showing the client a
+   * half-written instruction to ourselves.
+   */
+  placeholder?: string;
 }) {
   if (!editable) {
     return (
@@ -71,10 +97,17 @@ function Editable({
       </Tag>
     );
   }
+
+  const showPrompt = Boolean(placeholder) && !value.trim();
+
   return (
     <Tag
-      className={className}
-      style={style}
+      className={[className, showPrompt ? "is-ph" : null].filter(Boolean).join(" ") || undefined}
+      style={
+        showPrompt
+          ? ({ ...style, "--placeholder": cssQuote(placeholder!) } as React.CSSProperties)
+          : style
+      }
       contentEditable
       suppressContentEditableWarning
       onBlur={(e: React.FocusEvent<HTMLElement>) => {
@@ -352,16 +385,16 @@ export function PlannerDocument({
             {editable && (
               <div className="hero-meta">
                 <span>
-                  Scene <Editable as="b" editable={editable} value={content.hero.scene} onCommit={(v) => update(["hero", "scene"], v)} />
+                  Scene <Editable as="b" editable={editable} value={content.hero.scene} onCommit={(v) => update(["hero", "scene"], v)} placeholder={PLANNER_PH.hero.scene} />
                 </span>
                 <span>
-                  Take <Editable as="b" editable={editable} value={content.hero.take} onCommit={(v) => update(["hero", "take"], v)} />
+                  Take <Editable as="b" editable={editable} value={content.hero.take} onCommit={(v) => update(["hero", "take"], v)} placeholder={PLANNER_PH.hero.take} />
                 </span>
                 <span>
-                  Director <Editable as="b" editable={editable} value={content.hero.director} onCommit={(v) => update(["hero", "director"], v)} />
+                  Director <Editable as="b" editable={editable} value={content.hero.director} onCommit={(v) => update(["hero", "director"], v)} placeholder={PLANNER_PH.hero.director} />
                 </span>
                 <span>
-                  Roll <Editable as="b" editable={editable} value={content.hero.roll} onCommit={(v) => update(["hero", "roll"], v)} />
+                  Roll <Editable as="b" editable={editable} value={content.hero.roll} onCommit={(v) => update(["hero", "roll"], v)} placeholder={PLANNER_PH.hero.roll} />
                 </span>
               </div>
             )}
@@ -373,6 +406,7 @@ export function PlannerDocument({
             editable={editable}
             value={content.hero.brand}
             onCommit={(v) => update(["hero", "brand"], v)}
+            placeholder={PLANNER_PH.hero.brand}
           />
 
           <span className="hero-rule" aria-hidden="true" />
@@ -383,6 +417,7 @@ export function PlannerDocument({
             editable={editable}
             value={content.hero.sub}
             onCommit={(v) => update(["hero", "sub"], v)}
+            placeholder={PLANNER_PH.hero.sub}
           />
         </div>
       </div>
@@ -390,16 +425,16 @@ export function PlannerDocument({
       <div className="thesis">
         <p>
           <span className="lead-mark">&ldquo;</span>
-          <Editable editable={editable} value={content.thesis.quote} onCommit={(v) => update(["thesis", "quote"], v)} />
+          <Editable editable={editable} value={content.thesis.quote} onCommit={(v) => update(["thesis", "quote"], v)} placeholder={PLANNER_PH.thesis.quote} />
           <span className="lead-mark">&rdquo;</span>
         </p>
-        <Editable as="small" editable={editable} value={content.thesis.caption} onCommit={(v) => update(["thesis", "caption"], v)} />
+        <Editable as="small" editable={editable} value={content.thesis.caption} onCommit={(v) => update(["thesis", "caption"], v)} placeholder={PLANNER_PH.thesis.caption} />
       </div>
 
       <nav className="page-nav">
         <div className="page-nav-inner">
           <a href={`#${sid("top")}`} className="page-nav-top">
-            {content.hero.brand.replace(/\.$/, "")} ↑
+            {content.hero.brand.replace(/\.$/, "") || "Top"} ↑
           </a>
           {NAV_SECTIONS.map((s) => (
             <a
@@ -413,15 +448,15 @@ export function PlannerDocument({
         </div>
       </nav>
 
-      <SectionHead id={sid("overview")} editable={editable} data={content.overview} onCommit={(field, v) => update(["overview", field], v)} />
+      <SectionHead id={sid("overview")} editable={editable} data={content.overview} onCommit={(field, v) => update(["overview", field], v)} ph={PLANNER_PH.overview} />
 
       <section id={sid("branding")} style={{ paddingTop: 0 }}>
-        <SectionHeadInner editable={editable} data={content.branding} onCommit={(field, v) => update(["branding", field], v)} />
+        <SectionHeadInner editable={editable} data={content.branding} onCommit={(field, v) => update(["branding", field], v)} ph={PLANNER_PH.branding} />
         <div className="brand-table">
           {content.branding.rows.map((row, i) => (
             <div className="brand-row" key={row.id}>
               <Editable as="span" className="brand-label" editable={editable} value={row.label} onCommit={(v) => update(["branding", "rows", i, "label"], v)} />
-              <Editable as="span" className="brand-value" editable={editable} value={row.value} onCommit={(v) => update(["branding", "rows", i, "value"], v)} />
+              <Editable as="span" className="brand-value" editable={editable} value={row.value} onCommit={(v) => update(["branding", "rows", i, "value"], v)} placeholder={row.ph} />
               {editable && (
                 <RemoveBtn
                   className="brand-remove"
@@ -449,7 +484,7 @@ export function PlannerDocument({
                   ...prev,
                   branding: {
                     ...prev.branding,
-                    rows: [...prev.branding.rows, { id: makeId("brand"), label: "New detail", value: "Add a note here." }],
+                    rows: [...prev.branding.rows, { id: makeId("brand"), label: "New detail", value: "" }],
                   },
                 };
                 scheduleSave(next);
@@ -463,7 +498,7 @@ export function PlannerDocument({
       </section>
 
       <section id={sid("pillars")} style={{ paddingTop: 0 }}>
-        <SectionHeadInner editable={editable} data={content.pillars} onCommit={(field, v) => update(["pillars", field], v)} />
+        <SectionHeadInner editable={editable} data={content.pillars} onCommit={(field, v) => update(["pillars", field], v)} ph={PLANNER_PH.pillars} />
         <div className="pillars">
           {content.pillars.items.map((pillar, i) => (
             <div className="pillar-card" key={pillar.id}>
@@ -481,24 +516,25 @@ export function PlannerDocument({
                 />
               )}
               <div className="top-row">
-                <Editable as="h3" editable={editable} value={pillar.name} onCommit={(v) => update(["pillars", "items", i, "name"], v)} />
+                <Editable as="h3" editable={editable} value={pillar.name} onCommit={(v) => update(["pillars", "items", i, "name"], v)} placeholder={PLANNER_PH.pillars.name} />
                 <Editable
                   as="span"
                   className="pct"
                   style={{ color: pillar.color }}
                   editable={editable}
-                  value={`${pillar.pct}%`}
+                  value={pillar.pct ? `${pillar.pct}%` : ""}
+                  placeholder={PLANNER_PH.pillars.pct}
                   onCommit={(v) => {
                     const num = parseInt(v.replace(/[^0-9]/g, ""), 10);
                     update(["pillars", "items", i, "pct"], Number.isNaN(num) ? 0 : Math.max(0, Math.min(100, num)));
                   }}
                 />
               </div>
-              <Editable as="span" className="role" editable={editable} value={pillar.subtitle} onCommit={(v) => update(["pillars", "items", i, "subtitle"], v)} />
+              <Editable as="span" className="role" editable={editable} value={pillar.subtitle} onCommit={(v) => update(["pillars", "items", i, "subtitle"], v)} placeholder={PLANNER_PH.pillars.subtitle} />
               <div className="bar-track">
                 <div className="bar-fill" style={{ width: `${pillar.pct}%`, background: pillar.color }} />
               </div>
-              <Editable as="p" editable={editable} value={pillar.description} onCommit={(v) => update(["pillars", "items", i, "description"], v)} />
+              <Editable as="p" editable={editable} value={pillar.description} onCommit={(v) => update(["pillars", "items", i, "description"], v)} placeholder={PLANNER_PH.pillars.description} />
               <div className="chips">
                 {pillar.tags.map((tag, ti) => (
                   <span className="chip" key={ti}>
@@ -508,6 +544,7 @@ export function PlannerDocument({
                       editable={editable}
                       value={tag}
                       onCommit={(v) => update(["pillars", "items", i, "tags", ti], v)}
+                      placeholder={PLANNER_PH.pillars.tag}
                     />
                     {editable && (
                       <RemoveBtn
@@ -566,11 +603,11 @@ export function PlannerDocument({
                       ...prev.pillars.items,
                       {
                         id: makeId("pillar"),
-                        name: "New Pillar",
-                        pct: 10,
-                        subtitle: "What this is for",
-                        description: "Describe what this pillar covers and why it's here.",
-                        tags: ["Example format"],
+                        name: "",
+                        pct: 0,
+                        subtitle: "",
+                        description: "",
+                        tags: [""],
                         color: "var(--red)",
                       },
                     ],
@@ -587,11 +624,11 @@ export function PlannerDocument({
       </section>
 
       <section id={sid("format")} style={{ paddingTop: 0 }}>
-        <SectionHeadInner editable={editable} data={content.format} onCommit={(field, v) => update(["format", field], v)} />
+        <SectionHeadInner editable={editable} data={content.format} onCommit={(field, v) => update(["format", field], v)} ph={PLANNER_PH.format} />
         <div className="format-row">
           {content.format.stats.map((stat, i) => (
             <div className="format-stat" key={i}>
-              <Editable as="span" className="num" editable={editable} value={stat.value} onCommit={(v) => update(["format", "stats", i, "value"], v)} />
+              <Editable as="span" className="num" editable={editable} value={stat.value} onCommit={(v) => update(["format", "stats", i, "value"], v)} placeholder={stat.ph} />
               <Editable as="span" className="lbl" editable={editable} value={stat.label} onCommit={(v) => update(["format", "stats", i, "label"], v)} />
             </div>
           ))}
@@ -599,25 +636,25 @@ export function PlannerDocument({
       </section>
 
       <section id={sid("workflow")} style={{ paddingTop: 0 }}>
-        <SectionHeadInner editable={editable} data={content.workflow} onCommit={(field, v) => update(["workflow", field], v)} />
+        <SectionHeadInner editable={editable} data={content.workflow} onCommit={(field, v) => update(["workflow", field], v)} ph={PLANNER_PH.workflow} />
         <div className="workflow">
           {content.workflow.steps.map((step, i) => (
             <div className="wf-step" key={step.id}>
               <Editable as="span" className="wf-num" editable={editable} value={step.num} onCommit={(v) => update(["workflow", "steps", i, "num"], v)} />
-              <Editable as="h4" editable={editable} value={step.title} onCommit={(v) => update(["workflow", "steps", i, "title"], v)} />
-              <Editable as="p" editable={editable} value={step.description} onCommit={(v) => update(["workflow", "steps", i, "description"], v)} />
+              <Editable as="h4" editable={editable} value={step.title} onCommit={(v) => update(["workflow", "steps", i, "title"], v)} placeholder={PLANNER_PH.workflow.title} />
+              <Editable as="p" editable={editable} value={step.description} onCommit={(v) => update(["workflow", "steps", i, "description"], v)} placeholder={PLANNER_PH.workflow.description} />
             </div>
           ))}
         </div>
       </section>
 
       <section id={sid("metrics")} style={{ paddingTop: 0 }}>
-        <SectionHeadInner editable={editable} data={content.metrics} onCommit={(field, v) => update(["metrics", field], v)} />
+        <SectionHeadInner editable={editable} data={content.metrics} onCommit={(field, v) => update(["metrics", field], v)} ph={PLANNER_PH.metrics} />
         <div className="metrics">
           {content.metrics.items.map((m, i) => (
             <div className="metric-card" key={m.id}>
-              <Editable as="span" className="m-lbl" editable={editable} value={m.label} onCommit={(v) => update(["metrics", "items", i, "label"], v)} />
-              <Editable as="span" className="m-val" editable={editable} value={m.value} onCommit={(v) => update(["metrics", "items", i, "value"], v)} />
+              <Editable as="span" className="m-lbl" editable={editable} value={m.label} onCommit={(v) => update(["metrics", "items", i, "label"], v)} placeholder={PLANNER_PH.metrics.label} />
+              <Editable as="span" className="m-val" editable={editable} value={m.value} onCommit={(v) => update(["metrics", "items", i, "value"], v)} placeholder={PLANNER_PH.metrics.value} />
             </div>
           ))}
         </div>
@@ -627,12 +664,13 @@ export function PlannerDocument({
         id={sid("competitors")}
         editable={editable}
         section={content.competitors}
+        ph={PLANNER_PH.competitors}
         onHeadCommit={(field, v) => update(["competitors", field], v)}
         onLinkCommit={(i, field, v) => update(["competitors", "links", i, field], v)}
         onAdd={() =>
           setContent((prev) => {
             if (!prev) return prev;
-            const next = { ...prev, competitors: { ...prev.competitors, links: [...prev.competitors.links, { id: makeId("link"), title: "New entry", url: "" }] } };
+            const next = { ...prev, competitors: { ...prev.competitors, links: [...prev.competitors.links, { id: makeId("link"), title: "", url: "" }] } };
             scheduleSave(next);
             return next;
           })
@@ -651,12 +689,13 @@ export function PlannerDocument({
         id={sid("producing")}
         editable={editable}
         section={content.producing}
+        ph={PLANNER_PH.producing}
         onHeadCommit={(field, v) => update(["producing", field], v)}
         onLinkCommit={(i, field, v) => update(["producing", "links", i, field], v)}
         onAdd={() =>
           setContent((prev) => {
             if (!prev) return prev;
-            const next = { ...prev, producing: { ...prev.producing, links: [...prev.producing.links, { id: makeId("link"), title: "New entry", url: "" }] } };
+            const next = { ...prev, producing: { ...prev.producing, links: [...prev.producing.links, { id: makeId("link"), title: "", url: "" }] } };
             scheduleSave(next);
             return next;
           })
@@ -682,7 +721,7 @@ export function PlannerDocument({
           setContent((prev) => {
             if (!prev) return prev;
             const existing = prev.slots.items;
-            const items = Array.from({ length: count }, (_, i) => existing[i] ?? { id: makeId("slot"), title: `Video ${String(i + 1).padStart(2, "0")}`, description: "What this video covers, in a line or two.", pillar: "", link: "", hook: "", body: "", cta: "", wms: "", scenery: "", set: "" });
+            const items = Array.from({ length: count }, (_, i) => existing[i] ?? { id: makeId("slot"), title: "", description: "", pillar: "", link: "", hook: "", body: "", cta: "", wms: "", scenery: "", set: "" });
             const next = { ...prev, slots: { ...prev.slots, items } };
             scheduleSave(next);
             return next;
@@ -691,7 +730,7 @@ export function PlannerDocument({
       />
 
       <section id={sid("timeline")} style={{ paddingTop: 0 }}>
-        <SectionHeadInner editable={editable} data={content.timeline} onCommit={(field, v) => update(["timeline", field], v)} />
+        <SectionHeadInner editable={editable} data={content.timeline} onCommit={(field, v) => update(["timeline", field], v)} ph={PLANNER_PH.timeline} />
         <TimelineProgress items={content.timeline.items} />
         <div className="timeline">
           {content.timeline.items.map((item, i) => (
@@ -716,11 +755,11 @@ export function PlannerDocument({
                   />
                 )}
                 <div className="timeline-date-row">
-                  <Editable as="span" className="timeline-date" editable={editable} value={item.date} onCommit={(v) => update(["timeline", "items", i, "date"], v)} />
+                  <Editable as="span" className="timeline-date" editable={editable} value={item.date} onCommit={(v) => update(["timeline", "items", i, "date"], v)} placeholder={PLANNER_PH.timeline.date} />
                   <span className="timeline-done-tag">✓ Done</span>
                 </div>
-                <Editable as="h4" className="timeline-title" editable={editable} value={item.title} onCommit={(v) => update(["timeline", "items", i, "title"], v)} />
-                <Editable as="p" className="timeline-desc" editable={editable} value={item.description} onCommit={(v) => update(["timeline", "items", i, "description"], v)} />
+                <Editable as="h4" className="timeline-title" editable={editable} value={item.title} onCommit={(v) => update(["timeline", "items", i, "title"], v)} placeholder={PLANNER_PH.timeline.title} />
+                <Editable as="p" className="timeline-desc" editable={editable} value={item.description} onCommit={(v) => update(["timeline", "items", i, "description"], v)} placeholder={PLANNER_PH.timeline.description} />
               </div>
             </div>
           ))}
@@ -736,7 +775,7 @@ export function PlannerDocument({
                   ...prev,
                   timeline: {
                     ...prev.timeline,
-                    items: [...prev.timeline.items, { id: makeId("tl"), date: "New date", title: "New milestone", description: "Describe what happens at this point in the timeline.", done: false }],
+                    items: [...prev.timeline.items, { id: makeId("tl"), date: "", title: "", description: "", done: false }],
                   },
                 };
                 scheduleSave(next);
@@ -759,14 +798,14 @@ export function PlannerDocument({
           </svg>
         </div>
         <div className="guarantee-inner">
-          <Editable as="span" className="guarantee-tag" editable={editable} value={content.guarantee.tag} onCommit={(v) => update(["guarantee", "tag"], v)} />
-          <Editable as="h2" className="guarantee-h2" editable={editable} value={content.guarantee.heading} onCommit={(v) => update(["guarantee", "heading"], v)} />
-          <Editable as="p" className="guarantee-body" editable={editable} value={content.guarantee.body} onCommit={(v) => update(["guarantee", "body"], v)} />
+          <Editable as="span" className="guarantee-tag" editable={editable} value={content.guarantee.tag} onCommit={(v) => update(["guarantee", "tag"], v)} placeholder={PLANNER_PH.guarantee.tag} />
+          <Editable as="h2" className="guarantee-h2" editable={editable} value={content.guarantee.heading} onCommit={(v) => update(["guarantee", "heading"], v)} placeholder={PLANNER_PH.guarantee.heading} />
+          <Editable as="p" className="guarantee-body" editable={editable} value={content.guarantee.body} onCommit={(v) => update(["guarantee", "body"], v)} placeholder={PLANNER_PH.guarantee.body} />
           <div className="guarantee-terms">
             {content.guarantee.terms.map((term, i) => (
               <div className="guarantee-term" key={term.id}>
                 <span className="term-num">{String(i + 1).padStart(2, "0")}</span>
-                <Editable as="span" className="term-text" editable={editable} value={term.text} onCommit={(v) => update(["guarantee", "terms", i, "text"], v)} />
+                <Editable as="span" className="term-text" editable={editable} value={term.text} onCommit={(v) => update(["guarantee", "terms", i, "text"], v)} placeholder={PLANNER_PH.guarantee.term} />
                 {editable && (
                   <RemoveBtn
                     className="gp-remove"
@@ -790,7 +829,7 @@ export function PlannerDocument({
               onClick={() =>
                 setContent((prev) => {
                   if (!prev) return prev;
-                  const next = { ...prev, guarantee: { ...prev.guarantee, terms: [...prev.guarantee.terms, { id: makeId("term"), text: "New guarantee term" }] } };
+                  const next = { ...prev, guarantee: { ...prev.guarantee, terms: [...prev.guarantee.terms, { id: makeId("term"), text: "" }] } };
                   scheduleSave(next);
                   return next;
                 })
@@ -828,15 +867,17 @@ function SectionHead({
   editable,
   data,
   onCommit,
+  ph,
 }: {
   id: string;
   editable: boolean;
   data: { tag: string; heading: string; desc: string };
   onCommit: (field: "tag" | "heading" | "desc", value: string) => void;
+  ph?: { tag?: string; heading?: string; desc?: string };
 }) {
   return (
     <section id={id}>
-      <SectionHeadInner editable={editable} data={data} onCommit={onCommit} />
+      <SectionHeadInner editable={editable} data={data} onCommit={onCommit} ph={ph} />
     </section>
   );
 }
@@ -845,16 +886,19 @@ function SectionHeadInner({
   editable,
   data,
   onCommit,
+  ph,
 }: {
   editable: boolean;
   data: { tag: string; heading: string; desc: string };
   onCommit: (field: "tag" | "heading" | "desc", value: string) => void;
+  /** The greyed prompts for this section's three head fields. */
+  ph?: { tag?: string; heading?: string; desc?: string };
 }) {
   return (
     <div className="section-head">
-      <Editable as="span" className="tag" editable={editable} value={data.tag} onCommit={(v) => onCommit("tag", v)} />
-      <Editable as="h2" editable={editable} value={data.heading} onCommit={(v) => onCommit("heading", v)} />
-      <Editable as="p" className="desc" editable={editable} value={data.desc} onCommit={(v) => onCommit("desc", v)} />
+      <Editable as="span" className="tag" editable={editable} value={data.tag} onCommit={(v) => onCommit("tag", v)} placeholder={ph?.tag} />
+      <Editable as="h2" editable={editable} value={data.heading} onCommit={(v) => onCommit("heading", v)} placeholder={ph?.heading} />
+      <Editable as="p" className="desc" editable={editable} value={data.desc} onCommit={(v) => onCommit("desc", v)} placeholder={ph?.desc} />
     </div>
   );
 }
@@ -871,7 +915,7 @@ function LogoSlot({ logoUrl, onChange }: { logoUrl: string | null; onChange: (ur
   return (
     <div className="hero-logo-wrap">
       <label className={"hero-logo" + (logoUrl ? " has-image" : " is-empty")}>
-        {logoUrl ? <img src={logoUrl} alt="Business logo" /> : <span className="hero-logo-hint">Add logo</span>}
+        {logoUrl ? <img src={logoUrl} alt="Business logo" /> : <span className="hero-logo-hint">{PLANNER_PH.logo}</span>}
         <input
           ref={inputRef}
           type="file"
@@ -901,6 +945,7 @@ function LinkListSection({
   onLinkCommit,
   onAdd,
   onRemove,
+  ph,
 }: {
   id: string;
   editable: boolean;
@@ -909,17 +954,19 @@ function LinkListSection({
   onLinkCommit: (index: number, field: "title" | "url", value: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
+  /** This list's own prompts — the two lists ask for different things. */
+  ph?: { desc?: string; title?: string };
 }) {
   return (
     <section id={id} style={{ paddingTop: 0 }}>
-      <SectionHeadInner editable={editable} data={section} onCommit={onHeadCommit} />
+      <SectionHeadInner editable={editable} data={section} onCommit={onHeadCommit} ph={ph} />
       <div className="link-list">
         {section.links.map((link, i) => {
           const hasLink = isValidHttpUrl(link.url);
           return (
             <div className={"link-row" + (hasLink ? " has-link" : "")} key={link.id}>
               <span className="link-idx">{String(i + 1).padStart(2, "0")}</span>
-              <Editable as="span" className="link-title" editable={editable} value={link.title} onCommit={(v) => onLinkCommit(i, "title", v)} />
+              <Editable as="span" className="link-title" editable={editable} value={link.title} onCommit={(v) => onLinkCommit(i, "title", v)} placeholder={ph?.title} />
               {editable ? (
                 <input
                   type="text"
@@ -1025,8 +1072,8 @@ function SlotPlannerSection({
           return (
             <div className="slot-card" key={slot.id}>
               <span className="slot-num">{String(i + 1).padStart(2, "0")}</span>
-              <Editable as="div" className="slot-title" editable={editable} value={slot.title} onCommit={(v) => onSlotChange(i, "title", v)} />
-              <Editable as="div" className="slot-desc" editable={editable} value={slot.description} onCommit={(v) => onSlotChange(i, "description", v)} />
+              <Editable as="div" className="slot-title" editable={editable} value={slot.title} onCommit={(v) => onSlotChange(i, "title", v)} placeholder={PLANNER_PH.slots.title} />
+              <Editable as="div" className="slot-desc" editable={editable} value={slot.description} onCommit={(v) => onSlotChange(i, "description", v)} placeholder={PLANNER_PH.slots.description} />
               {editable ? (
                 <select className="slot-pillar-select" value={slot.pillar} onChange={(e) => onSlotChange(i, "pillar", e.target.value)}>
                   <option value="">Select content pillar…</option>
@@ -1045,14 +1092,14 @@ function SlotPlannerSection({
                   place — and nobody has to remember the structure to
                   fill one in. */}
               <div className="slot-brief">
-                <SlotField label="Hook" value={slot.hook} editable={editable} onCommit={(v) => onSlotChange(i, "hook", v)} placeholder="The first line — what stops the scroll" />
-                <SlotField label="The body" value={slot.body} editable={editable} onCommit={(v) => onSlotChange(i, "body", v)} placeholder="What it actually says" multiline />
-                <SlotField label="CTA" value={slot.cta} editable={editable} onCommit={(v) => onSlotChange(i, "cta", v)} placeholder="What they should do next" />
+                <SlotField label="Hook" value={slot.hook} editable={editable} onCommit={(v) => onSlotChange(i, "hook", v)} placeholder={PLANNER_PH.slots.hook} />
+                <SlotField label="The body" value={slot.body} editable={editable} onCommit={(v) => onSlotChange(i, "body", v)} placeholder={PLANNER_PH.slots.body} multiline />
+                <SlotField label="CTA" value={slot.cta} editable={editable} onCommit={(v) => onSlotChange(i, "cta", v)} placeholder={PLANNER_PH.slots.cta} />
                 <div className="slot-brief-pair">
-                  <SlotField label="WMS" value={slot.wms} editable={editable} onCommit={(v) => onSlotChange(i, "wms", v)} />
-                  <SlotField label="Scenery (i/a)" value={slot.scenery} editable={editable} onCommit={(v) => onSlotChange(i, "scenery", v)} />
+                  <SlotField label="WMS" value={slot.wms} editable={editable} onCommit={(v) => onSlotChange(i, "wms", v)} placeholder={PLANNER_PH.slots.wms} />
+                  <SlotField label="Scenery (i/a)" value={slot.scenery} editable={editable} onCommit={(v) => onSlotChange(i, "scenery", v)} placeholder={PLANNER_PH.slots.scenery} />
                 </div>
-                <SlotField label="Video Set" value={slot.set} editable={editable} onCommit={(v) => onSlotChange(i, "set", v)} placeholder="Which shoot day this is filmed on" />
+                <SlotField label="Video Set" value={slot.set} editable={editable} onCommit={(v) => onSlotChange(i, "set", v)} placeholder={PLANNER_PH.slots.set} />
               </div>
 
               <div className={"slot-link-wrap" + (hasLink ? " has-link" : "")}>
