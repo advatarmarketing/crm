@@ -1268,7 +1268,11 @@ textarea:focus-visible {
 .enquire-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  /* Wider between the rows than between the columns, because a badge
+     on a second-row box hangs up into that gap and would otherwise sit
+     almost on the border of the box above it. */
+  column-gap: 10px;
+  row-gap: 24px;
 }
 
 @media (min-width: 720px) {
@@ -1297,9 +1301,10 @@ textarea:focus-visible {
   position: relative;
 }
 
-/* Only one box wears this, so it is allowed to be the loudest thing on
-   the screen. Sitting on the border rather than inside the box keeps
-   it from eating the space the four boxes share. */
+/* Sitting on the border rather than inside the box keeps it from
+   eating the space the four boxes share. The two tones below are
+   deliberately unlike each other: two identical pills on one screen
+   would read as a pair of equal claims and cancel out. */
 .enquire-option-badge {
   position: absolute;
   top: 0;
@@ -1309,8 +1314,6 @@ textarea:focus-visible {
   max-width: calc(100% - 8px);
   padding: 3px 8px;
   border-radius: 999px;
-  background: var(--text-1);
-  color: var(--bg);
   font-family: var(--font-mono);
   font-size: 8.5px;
   line-height: 1.3;
@@ -1322,6 +1325,19 @@ textarea:focus-visible {
      lines. Held inside the box's own width so it cannot reach across
      the grid gap into its neighbour. */
   max-width: calc(100% - 8px);
+}
+
+/* The loudest thing on the screen, and the only one allowed to be. */
+.enquire-option-badge--headline {
+  background: var(--text-1);
+  color: var(--bg);
+}
+
+/* The brand gold. Already defined per theme, so it stays legible in
+   both without a second set of values here. */
+.enquire-option-badge--accent {
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 
 @media (min-width: 720px) {
