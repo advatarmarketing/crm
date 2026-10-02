@@ -1405,3 +1405,154 @@ textarea:focus-visible {
   opacity: 0;
   pointer-events: none;
 }
+
+/* =================================================================
+   Notes: the rich-text body, colour labels, and subfolders (0035)
+   ================================================================= */
+
+.note-editor {
+  width: 100%;
+  min-height: 150px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.note-editor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* An empty contenteditable has no placeholder of its own. :empty
+   alone is not enough — browsers leave a stray <br> behind after the
+   last character is deleted — so the <br>-only case is matched too. */
+.note-editor:empty::before,
+.note-editor:has(> br:only-child)::before {
+  content: attr(data-placeholder);
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.note-editor ul,
+.note-editor ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.note-editor li {
+  margin: 2px 0;
+}
+
+/* The same shapes when a saved note is being read rather than
+   written, so a note does not reflow between the two. */
+.note-body-rich ul,
+.note-body-rich ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.note-body-rich li {
+  margin: 2px 0;
+}
+
+.note-body-rich u {
+  text-underline-offset: 2px;
+}
+
+/* ---- colour labels ----
+   Eight names, each a pair: a strong colour for the dot and a wash
+   for the chip behind it. Defined per theme rather than as one set,
+   because a colour that reads as a label on white disappears on
+   black. */
+:root {
+  --label-red: #c2403a;
+  --label-orange: #c2662a;
+  --label-gold: #9a7510;
+  --label-green: #3f7d3a;
+  --label-teal: #2b7a72;
+  --label-blue: #2f5fa8;
+  --label-purple: #6b4a9e;
+  --label-pink: #b43f7a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --label-red: #e8736c;
+    --label-orange: #e89a5c;
+    --label-gold: #d9b85f;
+    --label-green: #74c06c;
+    --label-teal: #5fbdb2;
+    --label-blue: #6d9ce8;
+    --label-purple: #a98ae0;
+    --label-pink: #e377ab;
+  }
+}
+
+:root[data-theme="dark"] {
+  --label-red: #e8736c;
+  --label-orange: #e89a5c;
+  --label-gold: #d9b85f;
+  --label-green: #74c06c;
+  --label-teal: #5fbdb2;
+  --label-blue: #6d9ce8;
+  --label-purple: #a98ae0;
+  --label-pink: #e377ab;
+}
+
+.note-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--note-label, var(--border-2, var(--border)));
+}
+
+/* A swatch in the picker. The ring shows which one is chosen without
+   relying on colour alone, which would be invisible to anyone who
+   cannot tell two of these apart. */
+.note-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+  background: var(--note-label, transparent);
+  position: relative;
+}
+
+.note-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text-1);
+}
+
+.note-swatch-none {
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* A subfolder sits indented under its parent, with a short rule
+   leading into it so the nesting is visible without a tree widget. */
+.note-subfolder {
+  margin-left: 14px;
+  position: relative;
+}
+
+.note-subfolder::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 50%;
+  width: 6px;
+  height: 1px;
+  background: var(--border-2, var(--border));
+}

@@ -4,18 +4,34 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
+  NOTE_COLOURS,
   formatNoteTime,
   linesToItems,
+  noteBodyAsText,
+  plainToHtml,
+  sanitizeNoteHtml,
   type Note,
+  type NoteColour,
   type NoteFolder,
   type NoteItem,
   type Notebook,
 } from "@/lib/notes";
+import { RichNoteEditor, type RichNoteEditorHandle } from "./RichNoteEditor";
 
 /** "all" and "none" are views, not folders: every note, and notes in no folder. */
 type FolderView = "all" | "none" | string;
 
 const NOTE_COLUMNS = "id, folder_id, title, body, created_at, updated_at";
+
+/**
+ * The same, plus 0035's columns. Used only when the notebook loaded
+ * them successfully — on a database without 0035 this select would
+ * fail outright and take the save with it, which is why the plain
+ * list above still exists.
+ */
+const NOTE_COLUMNS_RICH = NOTE_COLUMNS + ", color, body_format";
+const FOLDER_COLUMNS = "id, name, created_at";
+const FOLDER_COLUMNS_RICH = FOLDER_COLUMNS + ", parent_id, color";
 const ITEM_COLUMNS = "id, note_id, text, done, position";
 
 /**
@@ -50,6 +66,14 @@ export function NotesWorkspace({
   todoHref: string;
 }) {
   const supabase = useMemo(() => createClient(), []);
+
+  /**
+   * Whether 0035 has been run. Everything it added — subfolders,
+   * colour labels, rich text — is hidden rather than offered and
+   * refused when it has not, so a database that is behind the code
+   * gets the notebook it had before and no broken buttons.
+   */
+  const rich = initial.richAvailable;
 
   const [folders, setFolders] = useState<NoteFolder[]>(initial.folders);
   const [notes, setNotes] = useState<Note[]>(initial.notes);
@@ -112,25 +136,53 @@ export function NotesWorkspace({
   // Folders
   // ---------------------------------------------------------------
 
-  async function createFolder(name: string): Promise<boolean> {
+  async function createFolder(name: string, parentId: string | null = null): Promise<boolean> {
     const trimmed = name.trim();
     if (!trimmed) return false;
     setError(null);
 
     const { data, error: e } = await supabase
       .from("note_folders")
-      .insert({ name: trimmed })
-      .select("id, name, created_at")
+      .insert(rich ? { name: trimmed, parent_id: parentId } : { name: trimmed })
+      .select(rich ? FOLDER_COLUMNS_RICH : FOLDER_COLUMNS)
       .single();
 
     if (e || !data) {
-      fail(e?.code === "23505" ? `You already have a folder called “${trimmed}”.` : e?.message ?? "Could not create that folder.");
+      // 23505 is the unique index on (owner, parent, name): the same
+      // name in the same place. Worth naming, because the fix is to
+      // pick another name rather than to try again.
+      fail(
+        e?.code === "23505"
+          ? parentId
+            ? `That folder already has one called “${trimmed}”.`
+            : `You already have a folder called “${trimmed}”.`
+          : e?.message ?? "Could not create that folder."
+      );
       return false;
     }
 
-    setFolders((prev) => [...prev, data as NoteFolder].sort((a, b) => a.name.localeCompare(b.name)));
-    setView((data as NoteFolder).id);
+    const row = data as Partial<NoteFolder> & { id: string; name: string; created_at: string };
+    const created: NoteFolder = {
+      id: row.id,
+      name: row.name,
+      created_at: row.created_at,
+      parent_id: row.parent_id ?? parentId,
+      color: row.color ?? null,
+    };
+    setFolders((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    setView(created.id);
     return true;
+  }
+
+  /** Sets or clears a folder's colour label. */
+  async function setFolderColour(folder: NoteFolder, color: NoteColour | null) {
+    setError(null);
+    const { error: e } = await supabase.from("note_folders").update({ color }).eq("id", folder.id);
+    if (e) {
+      fail(e.message);
+      return;
+    }
+    setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, color } : f)));
   }
 
   async function renameFolder(folder: NoteFolder) {
@@ -163,8 +215,14 @@ export function NotesWorkspace({
       return;
     }
     // The database moves the notes itself (on delete set null); this
-    // mirrors it so the counts are right without a reload.
-    setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+    // mirrors it so the counts are right without a reload. A subfolder
+    // of this one is promoted to the top level the same way, rather
+    // than disappearing with its parent.
+    setFolders((prev) =>
+      prev
+        .filter((f) => f.id !== folder.id)
+        .map((f) => (f.parent_id === folder.id ? { ...f, parent_id: null } : f))
+    );
     setNotes((prev) => prev.map((n) => (n.folder_id === folder.id ? { ...n, folder_id: null } : n)));
     setView("all");
   }
@@ -178,8 +236,18 @@ export function NotesWorkspace({
 
     const { data, error: e } = await supabase
       .from("notes")
-      .insert({ title: values.title, body: values.body, folder_id: values.folderId })
-      .select(NOTE_COLUMNS)
+      .insert(
+        rich
+          ? {
+              title: values.title,
+              body: values.body,
+              folder_id: values.folderId,
+              color: values.color,
+              body_format: "html",
+            }
+          : { title: values.title, body: values.body, folder_id: values.folderId }
+      )
+      .select(rich ? NOTE_COLUMNS_RICH : NOTE_COLUMNS)
       .single();
 
     if (e || !data) {
@@ -187,7 +255,13 @@ export function NotesWorkspace({
       return false;
     }
 
-    const note = { ...(data as Omit<Note, "items">), items: [] as NoteItem[] };
+    const saved = data as Partial<Note> & Omit<Note, "items" | "color" | "body_format">;
+    const note: Note = {
+      ...saved,
+      color: saved.color ?? null,
+      body_format: saved.body_format ?? "plain",
+      items: [] as NoteItem[],
+    };
 
     if (values.newItems.length > 0) {
       const { data: items, error: itemsError } = await supabase
@@ -221,9 +295,19 @@ export function NotesWorkspace({
 
     const { data, error: e } = await supabase
       .from("notes")
-      .update({ title: values.title, body: values.body, folder_id: values.folderId })
+      .update(
+        rich
+          ? {
+              title: values.title,
+              body: values.body,
+              folder_id: values.folderId,
+              color: values.color,
+              body_format: "html",
+            }
+          : { title: values.title, body: values.body, folder_id: values.folderId }
+      )
       .eq("id", note.id)
-      .select(NOTE_COLUMNS)
+      .select(rich ? NOTE_COLUMNS_RICH : NOTE_COLUMNS)
       .single();
 
     if (e || !data) {
@@ -247,8 +331,11 @@ export function NotesWorkspace({
       }
     }
 
+    const saved = data as Partial<Note> & Omit<Note, "items" | "color" | "body_format">;
     replaceNote(note.id, {
-      ...(data as Omit<Note, "items">),
+      ...saved,
+      color: saved.color ?? null,
+      body_format: saved.body_format ?? "plain",
       items,
       updated_at: new Date().toISOString(),
     });
@@ -373,6 +460,8 @@ export function NotesWorkspace({
           setEditingId(null);
         }}
         onCreate={createFolder}
+        rich={rich}
+        onColour={setFolderColour}
       />
 
       {currentFolder && (
@@ -394,9 +483,12 @@ export function NotesWorkspace({
             initial={{
               title: "",
               body: "",
+              bodyIsHtml: false,
+              color: null,
               // A note started inside a folder belongs in that folder.
               folderId: currentFolder?.id ?? null,
             }}
+            rich={rich}
             submitLabel="Save note"
             onCancel={() => setComposing(false)}
             onSubmit={async (values) => {
@@ -436,7 +528,14 @@ export function NotesWorkspace({
                 <NoteForm
                   heading="Edit note"
                   folders={folders}
-                  initial={{ title: note.title, body: note.body, folderId: note.folder_id }}
+                  initial={{
+                    title: note.title,
+                    body: note.body,
+                    bodyIsHtml: note.body_format === "html",
+                    color: note.color,
+                    folderId: note.folder_id,
+                  }}
+                  rich={rich}
                   existingItemCount={note.items.length}
                   submitLabel="Save changes"
                   onCancel={() => setEditingId(null)}
@@ -482,31 +581,74 @@ function FolderBar({
   notes,
   view,
   unfiledCount,
+  rich,
   onSelect,
   onCreate,
+  onColour,
 }: {
   folders: NoteFolder[];
   notes: Note[];
   view: FolderView;
   unfiledCount: number;
+  rich: boolean;
   onSelect: (view: FolderView) => void;
-  onCreate: (name: string) => Promise<boolean>;
+  onCreate: (name: string, parentId: string | null) => Promise<boolean>;
+  onColour: (folder: NoteFolder, color: NoteColour | null) => void;
 }) {
-  const [adding, setAdding] = useState(false);
+  /** null = not adding; "" = adding at the top level; an id = inside it. */
+  const [addingIn, setAddingIn] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  /** Which folder's colour picker is open. */
+  const [colouring, setColouring] = useState<string | null>(null);
 
-  const countIn = (id: string) => notes.filter((n) => n.folder_id === id).length;
+  /**
+   * A folder's count includes its subfolders'.
+   *
+   * Otherwise a parent with everything filed one level down would read
+   * 0, which looks like an empty folder rather than a full one.
+   */
+  const countIn = (id: string) => {
+    const childIds = folders.filter((f) => f.parent_id === id).map((f) => f.id);
+    return notes.filter((n) => n.folder_id === id || (n.folder_id && childIds.includes(n.folder_id))).length;
+  };
+
+  const top = folders.filter((f) => !f.parent_id);
+  const childrenOf = (id: string) => folders.filter((f) => f.parent_id === id);
 
   async function submit() {
     setBusy(true);
-    const ok = await onCreate(name);
+    const ok = await onCreate(name, addingIn || null);
     setBusy(false);
     if (ok) {
       setName("");
-      setAdding(false);
+      setAddingIn(null);
     }
   }
+
+  const addRow = (
+    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+      <input
+        autoFocus
+        value={name}
+        maxLength={80}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+          if (e.key === "Escape") setAddingIn(null);
+        }}
+        placeholder={addingIn ? "Subfolder name" : "Folder name"}
+        aria-label={addingIn ? "New subfolder name" : "New folder name"}
+        style={{ width: 170, padding: "7px 10px", fontSize: 13 }}
+      />
+      <button type="button" className="btn" onClick={submit} disabled={busy || !name.trim()} style={{ minHeight: 34, padding: "6px 12px" }}>
+        Add
+      </button>
+      <button type="button" onClick={() => setAddingIn(null)} style={linkButton}>
+        Cancel
+      </button>
+    </span>
+  );
 
   return (
     <div
@@ -516,8 +658,74 @@ function FolderBar({
     >
       <Chip label="All notes" count={notes.length} active={view === "all"} onClick={() => onSelect("all")} />
 
-      {folders.map((f) => (
-        <Chip key={f.id} label={f.name} count={countIn(f.id)} active={view === f.id} onClick={() => onSelect(f.id)} folder />
+      {top.map((f) => (
+        <span key={f.id} style={{ display: "contents" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <Chip
+              label={f.name}
+              count={countIn(f.id)}
+              active={view === f.id}
+              onClick={() => onSelect(f.id)}
+              folder
+              colour={f.color}
+            />
+            {rich && (
+              <>
+                <IconBtn
+                  label={`Colour label for ${f.name}`}
+                  onClick={() => setColouring((c) => (c === f.id ? null : f.id))}
+                >
+                  <span className="note-dot" style={swatchVar(f.color)} />
+                </IconBtn>
+                <IconBtn label={`New folder inside ${f.name}`} onClick={() => { setAddingIn(f.id); setName(""); }}>
+                  +
+                </IconBtn>
+              </>
+            )}
+          </span>
+
+          {colouring === f.id && (
+            <ColourPicker
+              value={f.color}
+              onPick={(c) => {
+                onColour(f, c);
+                setColouring(null);
+              }}
+            />
+          )}
+
+          {addingIn === f.id && addRow}
+
+          {childrenOf(f.id).map((child) => (
+            <span key={child.id} className="note-subfolder" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Chip
+                label={child.name}
+                count={countIn(child.id)}
+                active={view === child.id}
+                onClick={() => onSelect(child.id)}
+                folder
+                colour={child.color}
+              />
+              {rich && (
+                <IconBtn
+                  label={`Colour label for ${child.name}`}
+                  onClick={() => setColouring((c) => (c === child.id ? null : child.id))}
+                >
+                  <span className="note-dot" style={swatchVar(child.color)} />
+                </IconBtn>
+              )}
+              {colouring === child.id && (
+                <ColourPicker
+                  value={child.color}
+                  onPick={(c) => {
+                    onColour(child, c);
+                    setColouring(null);
+                  }}
+                />
+              )}
+            </span>
+          ))}
+        </span>
       ))}
 
       {/* Only once there is something in it — an always-present
@@ -527,32 +735,12 @@ function FolderBar({
         <Chip label="No folder" count={unfiledCount} active={view === "none"} onClick={() => onSelect("none")} />
       )}
 
-      {adding ? (
-        <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-          <input
-            autoFocus
-            value={name}
-            maxLength={80}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submit();
-              if (e.key === "Escape") setAdding(false);
-            }}
-            placeholder="Folder name"
-            aria-label="New folder name"
-            style={{ width: 170, padding: "7px 10px", fontSize: 13 }}
-          />
-          <button type="button" className="btn" onClick={submit} disabled={busy || !name.trim()} style={{ minHeight: 34, padding: "6px 12px" }}>
-            Add
-          </button>
-          <button type="button" onClick={() => setAdding(false)} style={linkButton}>
-            Cancel
-          </button>
-        </span>
+      {addingIn === "" ? (
+        addRow
       ) : (
         <button
           type="button"
-          onClick={() => setAdding(true)}
+          onClick={() => { setAddingIn(""); setName(""); }}
           style={{
             ...chipBase,
             borderStyle: "dashed",
@@ -567,18 +755,108 @@ function FolderBar({
   );
 }
 
+/** The CSS variable each swatch and dot paints itself from. */
+function swatchVar(colour: NoteColour | null): CSSProperties {
+  return colour ? ({ "--note-label": `var(--label-${colour})` } as CSSProperties) : {};
+}
+
+/** A small square icon button, for the controls beside a folder chip. */
+function IconBtn({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      style={{
+        width: 24,
+        height: 24,
+        display: "grid",
+        placeItems: "center",
+        borderRadius: "var(--radius-sm)",
+        border: "1px solid var(--border)",
+        background: "var(--surface)",
+        color: "var(--text-3)",
+        fontSize: 13,
+        lineHeight: 1,
+        cursor: "pointer",
+        padding: 0,
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * The eight labels, plus "none".
+ *
+ * Each swatch is a button with aria-pressed, and the chosen one takes
+ * a ring as well as its colour — telling eight dots apart by hue alone
+ * is exactly the thing some people cannot do.
+ */
+function ColourPicker({
+  value,
+  onPick,
+}: {
+  value: NoteColour | null;
+  onPick: (colour: NoteColour | null) => void;
+}) {
+  return (
+    <span
+      role="group"
+      aria-label="Colour label"
+      style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}
+    >
+      <button
+        type="button"
+        className="note-swatch note-swatch-none"
+        aria-label="No colour"
+        title="No colour"
+        aria-pressed={value === null}
+        onClick={() => onPick(null)}
+      >
+        &times;
+      </button>
+      {NOTE_COLOURS.map((c) => (
+        <button
+          key={c}
+          type="button"
+          className="note-swatch"
+          style={swatchVar(c)}
+          aria-label={c}
+          title={c}
+          aria-pressed={value === c}
+          onClick={() => onPick(c)}
+        />
+      ))}
+    </span>
+  );
+}
+
 function Chip({
   label,
   count,
   active,
   onClick,
   folder = false,
+  colour = null,
 }: {
   label: string;
   count: number;
   active: boolean;
   onClick: () => void;
   folder?: boolean;
+  colour?: NoteColour | null;
 }) {
   return (
     <button
@@ -593,7 +871,7 @@ function Chip({
         color: active ? "var(--bg)" : "var(--text-2)",
       }}
     >
-      {folder && <FolderIcon />}
+      {colour ? <span className="note-dot" style={swatchVar(colour)} /> : folder && <FolderIcon />}
       <span style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       <span style={{ opacity: 0.6 }}>{count}</span>
     </button>
@@ -688,12 +966,22 @@ function NoteRow({
               fontFamily: "var(--font-body)",
               fontWeight: 600,
               fontSize: 15,
+              // The dot sits on the title line rather than before the
+              // chevron, so a labelled note and an unlabelled one line
+              // up the same way down the list.
               color: "var(--text-1)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: open ? "normal" : "nowrap",
             }}
           >
+            {note.color && (
+              <span
+                className="note-dot"
+                style={{ ...swatchVar(note.color), marginRight: 7, verticalAlign: "middle" }}
+                aria-hidden="true"
+              />
+            )}
             {note.title}
           </span>
           <span
@@ -743,19 +1031,38 @@ function NoteRow({
       {open && (
         <div style={{ padding: "0 16px 16px 42px" }}>
           {note.body.trim() ? (
-            <p
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: 14,
-                lineHeight: 1.6,
-                color: "var(--text-1)",
-                whiteSpace: "pre-wrap",
-                overflowWrap: "anywhere",
-                margin: "0 0 14px",
-              }}
-            >
-              {note.body}
-            </p>
+            note.body_format === "html" ? (
+              /* Sanitised here, at the point of rendering, rather than
+                 trusted because it was sanitised before being stored.
+                 What is in the database is data; this is the only
+                 place that decides what becomes markup. */
+              <div
+                className="note-body-rich"
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  color: "var(--text-1)",
+                  overflowWrap: "anywhere",
+                  margin: "0 0 14px",
+                }}
+                dangerouslySetInnerHTML={{ __html: sanitizeNoteHtml(note.body) }}
+              />
+            ) : (
+              <p
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  color: "var(--text-1)",
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "anywhere",
+                  margin: "0 0 14px",
+                }}
+              >
+                {note.body}
+              </p>
+            )
           ) : (
             total === 0 && (
               <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)", margin: "0 0 14px" }}>
@@ -950,6 +1257,7 @@ function Checklist({
 interface NoteFormValues {
   title: string;
   body: string;
+  color: NoteColour | null;
   folderId: string | null;
   /** To-do items made while writing, saved along with the note. */
   newItems: string[];
@@ -959,6 +1267,7 @@ function NoteForm({
   heading,
   folders,
   initial,
+  rich,
   existingItemCount = 0,
   submitLabel,
   onSubmit,
@@ -966,7 +1275,14 @@ function NoteForm({
 }: {
   heading: string;
   folders: NoteFolder[];
-  initial: { title: string; body: string; folderId: string | null };
+  initial: {
+    title: string;
+    body: string;
+    bodyIsHtml: boolean;
+    color: NoteColour | null;
+    folderId: string | null;
+  };
+  rich: boolean;
   existingItemCount?: number;
   submitLabel: string;
   onSubmit: (values: NoteFormValues) => Promise<boolean>;
@@ -974,11 +1290,22 @@ function NoteForm({
 }) {
   const [title, setTitle] = useState(initial.title);
   const [body, setBody] = useState(initial.body);
+  const [colour, setColour] = useState<NoteColour | null>(initial.color);
   const [folderId, setFolderId] = useState<string | null>(initial.folderId);
   const [items, setItems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<RichNoteEditorHandle>(null);
+
+  /**
+   * A note written before 0035 opens as markup so it can be edited
+   * with the rest. Computed once: re-running it on every render would
+   * hand the editor new HTML mid-keystroke.
+   */
+  const [startingHtml] = useState(() =>
+    initial.bodyIsHtml ? sanitizeNoteHtml(initial.body) : plainToHtml(initial.body)
+  );
 
   /**
    * The to-do list enterer.
@@ -989,6 +1316,21 @@ function NoteForm({
    * list to type into.
    */
   function makeTodoList() {
+    // The rich editor keeps its own DOM, so the selection comes from
+    // it rather than from a textarea's start/end offsets. Behaviour is
+    // the same as it always was: the selected lines BECOME the to-do
+    // list and leave the note, so nothing is said twice.
+    if (rich) {
+      const picked = linesToItems(editorRef.current?.getSelectedText() ?? "");
+      if (picked.length > 0) {
+        editorRef.current?.deleteSelection();
+        setItems((prev) => [...prev, ...picked]);
+        return;
+      }
+      setItems((prev) => [...prev, ""]);
+      return;
+    }
+
     const el = bodyRef.current;
     const start = el?.selectionStart ?? 0;
     const end = el?.selectionEnd ?? 0;
@@ -1021,9 +1363,19 @@ function NoteForm({
     }
     setProblem(null);
     setBusy(true);
+
+    // Sanitised on the way out as well as on the way in. The editor's
+    // own markup is already limited to what execCommand produces, but
+    // a note is stored once and rendered for years, and this is the
+    // last point where anything can be guaranteed about it.
+    const nextBody = rich
+      ? sanitizeNoteHtml(editorRef.current?.getHtml() ?? "").slice(0, 20000)
+      : body.slice(0, 20000);
+
     const ok = await onSubmit({
       title: cleanTitle.slice(0, 200),
-      body: body.slice(0, 20000),
+      body: nextBody,
+      color: colour,
       folderId,
       newItems: items.map((i) => i.trim()).filter(Boolean).map((i) => i.slice(0, 500)),
     });
@@ -1067,16 +1419,43 @@ function NoteForm({
         style={{ width: "100%", fontSize: 15, fontWeight: 600, marginBottom: 10 }}
       />
 
-      <textarea
-        ref={bodyRef}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        maxLength={20000}
-        rows={7}
-        placeholder="Write your note…"
-        aria-label="Note"
-        style={{ width: "100%", fontSize: 14, lineHeight: 1.55, resize: "vertical", marginBottom: 10 }}
-      />
+      {rich ? (
+        <div style={{ marginBottom: 10 }}>
+          <RichNoteEditor ref={editorRef} initialHtml={startingHtml} ariaLabel="Note" />
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 11.5, color: "var(--text-3)", margin: "6px 0 0" }}>
+            Ctrl+B, I and U work too. Typing <code>-&gt;</code> makes an arrow, and
+            starting a line with <code>-</code> and a space starts a bullet list.
+          </p>
+        </div>
+      ) : (
+        <textarea
+          ref={bodyRef}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          maxLength={20000}
+          rows={7}
+          placeholder="Write your note…"
+          aria-label="Note"
+          style={{ width: "100%", fontSize: 14, lineHeight: 1.55, resize: "vertical", marginBottom: 10 }}
+        />
+      )}
+
+      {rich && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "var(--text-3)",
+            }}
+          >
+            Label
+          </span>
+          <ColourPicker value={colour} onPick={setColour} />
+        </div>
+      )}
 
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <button type="button" className="btn" onClick={makeTodoList} style={{ minHeight: 36, padding: "7px 12px" }}>
