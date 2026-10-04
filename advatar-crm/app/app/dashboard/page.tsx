@@ -112,6 +112,15 @@ export default async function DashboardPage() {
   };
   const openTasks = (tasks ?? []) as unknown as TaskRow[];
 
+  // Whose is whose. Needed by both Needs attention and the to-do
+  // widget below, so it is built once, here, before either.
+  const nameById = new Map(
+    ((people ?? []) as unknown as { id: string; full_name: string | null }[]).map((p) => [
+      p.id,
+      p.full_name?.trim() || null,
+    ])
+  );
+
   // ---------------- needs attention ----------------
 
   const overdueFollowUps: AttentionItem[] = allClients
@@ -134,15 +143,46 @@ export default async function DashboardPage() {
       severity: "bad" as const,
     }));
 
-  const dueTasks: AttentionItem[] = openTasks
-    .filter((t) => t.due_date && new Date(t.due_date) <= today)
-    .map((t) => ({
-      id: `task-${t.id}`,
-      href: t.client_id ? `/app/clients/${t.client_id}` : "/app/dashboard",
-      label: t.text,
-      detail: `${t.clients?.name ? `${t.clients.name} · ` : ""}${isPast(t.due_date) ? "overdue" : "due today"}`,
-      severity: isPast(t.due_date) ? ("bad" as const) : ("warn" as const),
-    }));
+  /**
+   * Overdue and due-today tasks, split by whose they are.
+   *
+   * A task assigned to nobody counts as yours: it has no owner to file
+   * it under, and an unowned overdue task is the one most likely to be
+   * forgotten, so it belongs where you will see it.
+   */
+  const dueTaskRows = openTasks.filter((t) => t.due_date && new Date(t.due_date) <= today);
+
+  const asAttention = (t: TaskRow, withPerson: boolean): AttentionItem => ({
+    id: `task-${t.id}`,
+    href: t.client_id ? `/app/clients/${t.client_id}` : "/app/todo",
+    label: t.text,
+    detail: [
+      // Whose it is comes first on a staff item, because that is the
+      // thing you are reading the list for.
+      withPerson ? nameById.get(t.assigned_to ?? "") ?? "someone" : null,
+      t.clients?.name ?? null,
+      isPast(t.due_date) ? "overdue" : "due today",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    severity: isPast(t.due_date) ? ("bad" as const) : ("warn" as const),
+  });
+
+  const dueTasks: AttentionItem[] = dueTaskRows
+    .filter((t) => !t.assigned_to || t.assigned_to === user?.id)
+    .map((t) => asAttention(t, false));
+
+  const staffDueTasks: AttentionItem[] = dueTaskRows
+    .filter((t) => t.assigned_to && t.assigned_to !== user?.id)
+    .map((t) => asAttention(t, true))
+    // Grouped by person, so one person's overdue work reads together.
+    .sort((a, b) => a.detail.localeCompare(b.detail));
+
+  const staffAttentionNames = new Set(
+    dueTaskRows
+      .filter((t) => t.assigned_to && t.assigned_to !== user?.id)
+      .map((t) => t.assigned_to)
+  ).size;
 
   // Active clients nobody has spoken to in a while. Only counts
   // clients with a contact logged at all — a brand-new client nobody
@@ -250,12 +290,6 @@ export default async function DashboardPage() {
 
   // ---------------- schedule + to-do widgets ----------------
 
-  const nameById = new Map(
-    ((people ?? []) as unknown as { id: string; full_name: string | null }[]).map((p) => [
-      p.id,
-      p.full_name?.trim() || null,
-    ])
-  );
   const clientNameById = new Map(allClients.map((c) => [c.id, c.name]));
 
   const clientChoices: ClientChoice[] = allClients
@@ -331,6 +365,18 @@ export default async function DashboardPage() {
           </p>
         </div>
         <AttentionList items={attention} />
+
+        {/* Everybody else's overdue work, folded away. It is worth
+            being able to check, but it is not what this screen is
+            opened to find out. */}
+        <CollapsibleSection
+          title="Staff items"
+          count={staffDueTasks.length}
+          countLabel={`overdue${staffAttentionNames > 1 ? ` across ${staffAttentionNames} people` : ""}`}
+          emptyLabel="nothing outstanding"
+        >
+          <AttentionList items={staffDueTasks} />
+        </CollapsibleSection>
       </section>
 
       {/* Phase 19: the day/week at a glance, and the to-do list, above
