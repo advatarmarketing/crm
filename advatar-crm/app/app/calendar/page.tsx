@@ -4,6 +4,7 @@ import { MonthCalendar } from "@/components/MonthCalendar";
 import { SchedulePanel, type ScheduleEntry, type EventCategory, type ClientChoice } from "@/components/SchedulePanel";
 import { PersonPicker, type Person } from "@/components/PersonPicker";
 import { AvailabilityPanel } from "@/components/AvailabilityPanel";
+import { AddCalendarEntryButton } from "@/components/AddCalendarEntryButton";
 import { displayName } from "@/lib/names";
 import { loadAvailability } from "@/lib/availability";
 import type { ProfileRole } from "@/lib/supabase/types";
@@ -170,6 +171,17 @@ export default async function CalendarPage({
         <h1 className="page-title page-title-accent">Calendar</h1>
         {isManagement && (
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            {/* The quick way in. The form itself is SchedulePanel's,
+                further down — this opens it and scrolls to it, so
+                adding something does not mean hunting for the bottom
+                of the page first. */}
+            <AddCalendarEntryButton
+              disabledReason={
+                canAdd
+                  ? undefined
+                  : "Pick a person or a client first, so the entry lands on a calendar somebody looks at"
+              }
+            />
             {personList.length > 0 && (
               <PersonPicker people={personList} selected={selectedPerson} />
             )}
