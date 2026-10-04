@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -72,6 +72,7 @@ export function SchedulePanel({
   showPerson?: boolean;
 }) {
   const [events, setEvents] = useState(initialEvents);
+  const addRef = useRef<HTMLDivElement>(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,6 +86,29 @@ export function SchedulePanel({
 
   const supabase = createClient();
   const router = useRouter();
+
+  /**
+   * The + button at the top of the page opens this form.
+   *
+   * It talks to this panel through a DOM event rather than a prop,
+   * because the button lives in the page head and this lives at the
+   * bottom, with a server component in between that cannot hold the
+   * state. A custom event keeps the two decoupled: the button says
+   * what happened, this decides what to do about it.
+   */
+  useEffect(() => {
+    function open() {
+      setAdding(true);
+      setError(null);
+      // After the form has rendered, or there is nothing to scroll to.
+      window.setTimeout(() => {
+        addRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        addRef.current?.querySelector("input")?.focus();
+      }, 60);
+    }
+    document.addEventListener("advatar:add-calendar-entry", open);
+    return () => document.removeEventListener("advatar:add-calendar-entry", open);
+  }, []);
 
   function resetForm() {
     setTitle("");
@@ -269,6 +293,7 @@ export function SchedulePanel({
       {editable &&
         (adding ? (
           <div
+            ref={addRef}
             style={{
               padding: "14px 16px",
               border: "1px solid var(--border)",

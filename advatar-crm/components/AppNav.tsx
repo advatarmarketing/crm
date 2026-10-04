@@ -30,6 +30,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
   ceo: [
     { href: "/app/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/app/calendar", label: "Calendar", icon: "calendar" },
+    { href: "/app/schedule", label: "Schedule", icon: "schedule" },
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/notes", label: "Notes", icon: "notes" },
     { href: "/app/clients", label: "Clients", icon: "clients" },
@@ -59,6 +60,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
   operations_manager: [
     { href: "/app/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/app/calendar", label: "Calendar", icon: "calendar" },
+    { href: "/app/schedule", label: "Schedule", icon: "schedule" },
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/notes", label: "Notes", icon: "notes" },
     { href: "/app/clients", label: "Clients", icon: "clients" },
@@ -82,6 +84,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
   staff: [
     { href: "/app/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/app/calendar", label: "Calendar", icon: "calendar" },
+    { href: "/app/schedule", label: "Schedule", icon: "schedule" },
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/notes", label: "Notes", icon: "notes" },
     { href: "/app/clients", label: "Clients", icon: "clients" },
@@ -97,6 +100,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
   videographer: [
     { href: "/app/my-dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/app/calendar", label: "Calendar", icon: "calendar" },
+    { href: "/app/schedule", label: "Schedule", icon: "schedule" },
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/notes", label: "Notes", icon: "notes" },
     { href: "/app/my-work", label: "My Work", icon: "work" },

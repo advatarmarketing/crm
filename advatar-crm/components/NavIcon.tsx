@@ -23,6 +23,7 @@ export type NavIconName =
   | "calendar"
   | "todo"
   | "notes"
+  | "schedule"
   | "clients"
   | "videographers"
   | "leads"
@@ -48,6 +49,15 @@ const PATHS: Record<NavIconName, JSX.Element> = {
     <>
       <rect x="3" y="4" width="18" height="13" rx="2" />
       <path d="M12 14V8M9 10.5L12 7.5l3 3M8 21h8" />
+    </>
+  ),
+  // A week laid out in columns, with one block filled in -- the grid
+  // this tab draws, rather than the dated page the Calendar uses.
+  schedule: (
+    <>
+      <path d="M3 4h18v16H3z" />
+      <path d="M9 4v16M15 4v16M3 9h18" />
+      <path d="M10.5 12h3v4h-3z" />
     </>
   ),
   // A page with its corner folded and three lines of writing — a

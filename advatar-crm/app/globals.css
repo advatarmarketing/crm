@@ -1556,3 +1556,218 @@ textarea:focus-visible {
   height: 1px;
   background: var(--border-2, var(--border));
 }
+
+/* =================================================================
+   Schedule: the week, by the hour (0036)
+   ================================================================= */
+
+.week-grid-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* The gutter width is shared by the header and the grid, so the day
+   columns line up with their headings. */
+.week-grid-head,
+.week-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(7, minmax(0, 1fr));
+}
+
+.week-grid-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.week-grid-day-head {
+  padding: 7px 4px;
+  text-align: center;
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+
+.week-grid-day-head.is-today {
+  background: var(--accent-soft);
+}
+
+.week-grid-day-name {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.week-grid-day-num {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.3;
+}
+
+.week-grid-day-head.is-today .week-grid-day-num {
+  color: var(--accent);
+}
+
+/* The hours scroll; the day names above them do not. */
+.week-grid-scroll {
+  max-height: 62vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.week-grid {
+  position: relative;
+}
+
+.week-grid-gutter {
+  position: relative;
+  border-right: 1px solid var(--border);
+}
+
+.week-grid-hour-label {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-6px);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.week-grid-col {
+  position: relative;
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+
+.week-grid-col.is-today {
+  background: var(--accent-soft);
+}
+
+/* An hour of empty day. Invisible until you reach for it. */
+.week-grid-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.week-grid-slot:hover {
+  background: var(--wash-1, rgba(127, 127, 127, 0.08));
+}
+
+.week-grid-slot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.week-block {
+  position: absolute;
+  overflow: hidden;
+  text-align: left;
+  padding: 3px 5px;
+  border: 1px solid var(--block-colour, var(--border-2, var(--border)));
+  border-left: 3px solid var(--block-colour, var(--text-2));
+  border-radius: 5px;
+  /* The label colour at low opacity, so eight of these on one screen
+     stay readable rather than becoming eight solid slabs. */
+  background: color-mix(in srgb, var(--block-colour, var(--text-2)) 14%, var(--surface));
+  color: var(--text-1);
+  font-family: var(--font-body);
+  cursor: pointer;
+  display: block;
+  line-height: 1.25;
+}
+
+.week-block:hover {
+  background: color-mix(in srgb, var(--block-colour, var(--text-2)) 24%, var(--surface));
+}
+
+.week-block:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* A routine is drawn a little quieter than something booked for a
+   particular day — the diary entry is the thing that changes. */
+.week-block.is-repeating {
+  border-style: dashed;
+  border-left-style: solid;
+}
+
+.week-block-title {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-block-time {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-2);
+  margin-top: 1px;
+}
+
+.week-block-mark {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-3);
+}
+
+.week-block-shared {
+  top: auto;
+  bottom: 2px;
+  color: var(--accent);
+}
+
+/* A saved item, in the rail beside the grid. */
+.preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.preset-chip:hover {
+  border-color: var(--border-2, var(--text-3));
+}
+
+/* On a phone the seven columns cannot each be a usable width, so the
+   grid scrolls sideways instead of squeezing. */
+@media (max-width: 760px) {
+  .week-grid-head,
+  .week-grid {
+    grid-template-columns: 44px repeat(7, minmax(92px, 1fr));
+    min-width: 690px;
+  }
+  .week-grid-scroll {
+    max-height: 70vh;
+  }
+}
