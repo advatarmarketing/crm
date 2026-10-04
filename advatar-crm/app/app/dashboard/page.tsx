@@ -6,6 +6,7 @@ import { AttentionList, type AttentionItem } from "@/components/AttentionList";
 import { RevenueChart, type PaidInvoice } from "@/components/RevenueChart";
 import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
+import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { BarChart } from "@/components/BarChart";
 import { EmptyState } from "@/components/EmptyState";
@@ -276,7 +277,7 @@ export default async function DashboardPage() {
     return at >= today && at < weekEnd;
   });
 
-  const todoEntries: TodoEntry[] = openTasks.map((t) => ({
+  const allTodos: TodoEntry[] = openTasks.map((t) => ({
     id: t.id,
     text: t.text,
     due_date: t.due_date,
@@ -286,6 +287,33 @@ export default async function DashboardPage() {
     clientName: t.clients?.name ?? null,
     personName: t.assigned_to ? nameById.get(t.assigned_to) ?? null : null,
   }));
+
+  /**
+   * Yours, and everybody else's, as two lists rather than one.
+   *
+   * A dashboard that merges them answers "what is outstanding
+   * anywhere", which is a question you ask occasionally. The one you
+   * ask every morning is "what am I doing today", and that was being
+   * buried under other people's work.
+   *
+   * A task assigned to nobody counts as yours. It has no owner to file
+   * it under, and an unowned task is the thing most likely to be
+   * forgotten -- putting it in the collapsed half would hide the one
+   * item that most needs picking up.
+   */
+  const todoEntries = allTodos.filter((t) => !t.assigned_to || t.assigned_to === user?.id);
+
+  const staffTodos = allTodos
+    .filter((t) => t.assigned_to && t.assigned_to !== user?.id)
+    // Grouped by person, then by when it is due, so one person's work
+    // reads together instead of being interleaved with everyone's.
+    .sort((a, b) => {
+      const byPerson = (a.personName ?? "").localeCompare(b.personName ?? "");
+      if (byPerson !== 0) return byPerson;
+      return (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999");
+    });
+
+  const staffNames = new Set(staffTodos.map((t) => t.personName ?? "someone")).size;
 
   return (
     <main className="page">
@@ -335,11 +363,11 @@ export default async function DashboardPage() {
 
           <div style={{ minWidth: 0 }}>
             <div className="section-head">
-              <h2 className="section-title">To-do list</h2>
+              <h2 className="section-title">Your to-do list</h2>
               <p className="section-sub">
-                {openTasks.length === 0
+                {todoEntries.length === 0
                   ? "All clear"
-                  : `${openTasks.length} open${myTasks > 0 ? ` · ${myTasks} yours` : ""}`}
+                  : `${todoEntries.length} open`}
               </p>
             </div>
             <TodoPanel
@@ -350,6 +378,24 @@ export default async function DashboardPage() {
               showPerson
               emptyMessage="Nothing outstanding."
             />
+
+            {/* Everybody else's, folded away. Read and tick only --
+                the one place on this page that ADDS a task is the
+                panel above, which puts it on your own list, so there
+                is never a question of which form you are typing into. */}
+            <CollapsibleSection
+              title="Staff to-do list"
+              count={staffTodos.length}
+              countLabel={`not done${staffNames > 1 ? ` across ${staffNames} people` : ""}`}
+              emptyLabel="nothing outstanding"
+            >
+              <TodoPanel
+                initialTasks={staffTodos}
+                editable={false}
+                showPerson
+                emptyMessage="Nothing outstanding for anyone else."
+              />
+            </CollapsibleSection>
           </div>
         </div>
       </section>
