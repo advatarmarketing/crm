@@ -21,7 +21,7 @@ const STORAGE_KEY = "advatar-theme";
  * (rendering "Dark" on the server and "Light" on the client would be
  * a hydration mismatch).
  */
-export function ThemeToggle() {
+export function ThemeToggle({ size = 36 }: { size?: number }) {
   const [isDark, setIsDark] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -48,6 +48,8 @@ export function ThemeToggle() {
     setIsDark(!isDark);
   }
 
+  const iconPx = Math.max(11, Math.round(size * 0.42));
+
   return (
     <button
       type="button"
@@ -58,8 +60,8 @@ export function ThemeToggle() {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: 36,
-        height: 36,
+        width: size,
+        height: size,
         borderRadius: "50%",
         border: "1px solid var(--border)",
         background: "var(--surface)",
@@ -69,22 +71,25 @@ export function ThemeToggle() {
         padding: 0,
       }}
     >
-      {mounted && (isDark ? <SunIcon /> : <MoonIcon />)}
+      {/* The glyph keeps its proportion when the button is made smaller,
+          so a 28px toggle beside a wordmark doesn't end up with a
+          full-size moon rattling around inside it. */}
+      {mounted && (isDark ? <SunIcon px={iconPx} /> : <MoonIcon px={iconPx} />)}
     </button>
   );
 }
 
-function MoonIcon() {
+function MoonIcon({ px = 15 }: { px?: number }) {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={px} height={px} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
     </svg>
   );
 }
 
-function SunIcon() {
+function SunIcon({ px = 15 }: { px?: number }) {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={px} height={px} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="4" />
       <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
     </svg>

@@ -2,6 +2,7 @@
 
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { submitEnquiry } from "./actions";
 import {
   BUSINESS_TYPE,
@@ -171,7 +172,7 @@ export function EnquiryFlow() {
         )}
 
         {screen === 1 && (
-          <Question heading="What are you looking for?" helper="Pick whichever sounds most like you.">
+          <Question heading="What are you looking for?" helper="Pick whichever sounds best for you.">
             <Options
               options={LOOKING_FOR}
               selected={answers.lookingFor}
@@ -324,9 +325,15 @@ function Card({ children }: { children: ReactNode }) {
     <main className="login-shell">
       <div className="enquire-card">
         {/* The same wordmark, the same size, in the same place as the
-            sign-in card — this is the same company, one page along. */}
-        <div style={{ marginBottom: 22 }}>
+            sign-in card — this is the same company, one page along.
+            The light/dark switch sits beside it rather than off in the
+            corner: this page has no nav bar to hide it in, and nobody
+            is going to hunt for it. Deliberately smaller than the one
+            in the app, so it reads as a setting next to the name
+            rather than a second thing to click. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22 }}>
           <Logo height={34} variant="full" />
+          <ThemeToggle size={28} />
         </div>
         {children}
       </div>
@@ -490,10 +497,14 @@ const headingStyle: CSSProperties = {
   margin: "0 0 8px",
 };
 
+// --text-2 rather than --text-3, for the same reason as the option
+// descriptions in globals.css: this is a sentence, not a timestamp,
+// and the faintest grey in the palette was not readable against the
+// dark card.
 const helperStyle: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: 13,
-  color: "var(--text-3)",
+  color: "var(--text-2)",
   margin: "0 0 20px",
 };
 
