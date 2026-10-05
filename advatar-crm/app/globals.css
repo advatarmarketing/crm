@@ -1388,11 +1388,30 @@ textarea:focus-visible {
   color: #ffffff;
 }
 
+/* --text-3 is the app's faintest grey, meant for a date stamp or a
+   unit beside a number. A whole sentence of it on #181818 came out at
+   about 2.5:1 — technically present, practically unreadable. These
+   descriptions are what someone reads to choose, so they get a grey
+   that clears AA at this size in both themes (7.4:1 light, 8.6:1
+   dark) while still sitting a step behind the title. */
 .enquire-option-desc {
   font-family: var(--font-body);
   font-size: 12px;
   line-height: 1.35;
-  color: var(--text-3);
+  color: var(--text-2);
+}
+
+/* Both rules are needed and both are this file's existing pattern:
+   the first for a visitor whose device is set to dark, the second for
+   someone who chose dark with the toggle. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .enquire-option-desc {
+    color: #b8b8b8;
+  }
+}
+
+:root[data-theme="dark"] .enquire-option-desc {
+  color: #b8b8b8;
 }
 
 /* Out of sight, out of the tab order, and hidden from screen readers:
