@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { EnquiryFlow } from "./EnquiryFlow";
 
 /**
@@ -15,6 +15,20 @@ import { EnquiryFlow } from "./EnquiryFlow";
 export const metadata: Metadata = {
   title: "Work with Advatar",
   description: "Tell us what you're looking for and we'll be in touch within 48 hours.",
+};
+
+/**
+ * The root layout tints the phone's browser bar to match whichever
+ * theme the device prefers. This page opens light whatever the device
+ * prefers (see the theme script in app/layout.tsx), so without this
+ * override a visitor on a dark phone would get a light card under a
+ * black browser bar.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#f5f5f3",
+  viewportFit: "cover",
 };
 
 export default function EnquirePage() {

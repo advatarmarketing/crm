@@ -77,6 +77,14 @@ export const viewport: Viewport = {
  * leaving the attribute off is what lets the CSS fall through to the
  * operating system's own preference for anyone who has never used the
  * toggle.
+ *
+ * The one exception is /enquire. That page is the brochure, not the
+ * app: it is the first thing a stranger sees of Advatar, and it should
+ * look the same for all of them rather than depending on how their
+ * phone happens to be set. So with no stored choice it opens light,
+ * and the switch beside the wordmark is there for anyone who wants it
+ * otherwise. A choice already made still wins -- someone who picked
+ * dark and came back is not overruled.
  */
 const themeScript = `
 (function () {
@@ -84,6 +92,13 @@ const themeScript = `
     var t = localStorage.getItem("advatar-theme");
     if (t === "dark" || t === "light") {
       document.documentElement.setAttribute("data-theme", t);
+      return;
+    }
+  } catch (e) {}
+  try {
+    var p = location.pathname.replace(/\\/+$/, "");
+    if (p === "/enquire") {
+      document.documentElement.setAttribute("data-theme", "light");
     }
   } catch (e) {}
 })();
