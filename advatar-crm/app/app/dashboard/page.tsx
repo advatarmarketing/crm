@@ -6,6 +6,7 @@ import { AttentionList, type AttentionItem } from "@/components/AttentionList";
 import { RevenueChart, type PaidInvoice } from "@/components/RevenueChart";
 import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
+import { withTaskPriorities } from "@/lib/tasks";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { BarChart } from "@/components/BarChart";
@@ -311,16 +312,19 @@ export default async function DashboardPage() {
     return at >= today && at < weekEnd;
   });
 
-  const allTodos: TodoEntry[] = openTasks.map((t) => ({
-    id: t.id,
-    text: t.text,
-    due_date: t.due_date,
-    done: t.done,
-    client_id: t.client_id,
-    assigned_to: t.assigned_to,
-    clientName: t.clients?.name ?? null,
-    personName: t.assigned_to ? nameById.get(t.assigned_to) ?? null : null,
-  }));
+  const { tasks: allTodos, priorityAvailable } = await withTaskPriorities<TodoEntry>(
+    supabase,
+    openTasks.map((t) => ({
+      id: t.id,
+      text: t.text,
+      due_date: t.due_date,
+      done: t.done,
+      client_id: t.client_id,
+      assigned_to: t.assigned_to,
+      clientName: t.clients?.name ?? null,
+      personName: t.assigned_to ? nameById.get(t.assigned_to) ?? null : null,
+    }))
+  );
 
   /**
    * Yours, and everybody else's, as two lists rather than one.
@@ -422,6 +426,7 @@ export default async function DashboardPage() {
               defaultAssignee={user?.id ?? null}
               clients={clientChoices}
               showPerson
+              priorityAvailable={priorityAvailable}
               emptyMessage="Nothing outstanding."
             />
 
@@ -438,6 +443,11 @@ export default async function DashboardPage() {
               <TodoPanel
                 initialTasks={staffTodos}
                 editable={false}
+                // Read and tick only, for the same reason the panel
+                // above is the only one that ADDS: reword somebody's
+                // task from the To-do tab, where you have picked
+                // whose list you are in.
+                canEdit={false}
                 showPerson
                 emptyMessage="Nothing outstanding for anyone else."
               />

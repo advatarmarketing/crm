@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
+import { withTaskPriorities } from "@/lib/tasks";
 import { PersonPicker, type Person } from "@/components/PersonPicker";
 import { StatTile } from "@/components/StatTile";
 import { NoteTodoList } from "@/components/notes/NoteTodoList";
@@ -81,11 +82,14 @@ export default async function TodoPage({ searchParams }: { searchParams: { perso
   }));
   const personNameById = new Map(personList.map((p) => [p.id, p.name]));
 
-  const entries: TodoEntry[] = ((tasks ?? []) as unknown as TodoEntry[]).map((t) => ({
-    ...t,
-    clientName: t.client_id ? clientNameById.get(t.client_id) ?? null : null,
-    personName: t.assigned_to ? personNameById.get(t.assigned_to) ?? null : null,
-  }));
+  const { tasks: entries, priorityAvailable } = await withTaskPriorities<TodoEntry>(
+    supabase,
+    ((tasks ?? []) as unknown as TodoEntry[]).map((t) => ({
+      ...t,
+      clientName: t.client_id ? clientNameById.get(t.client_id) ?? null : null,
+      personName: t.assigned_to ? personNameById.get(t.assigned_to) ?? null : null,
+    }))
+  );
 
   const open = entries.filter((t) => !t.done);
   const today = startOfToday();
@@ -167,6 +171,7 @@ export default async function TodoPage({ searchParams }: { searchParams: { perso
           clients={clientChoices}
           showPerson={everyone}
           showClientLink={showClientLink}
+          priorityAvailable={priorityAvailable}
           emptyMessage={
             everyone ? "Nothing outstanding anywhere. " : whose ? `${whose} has nothing outstanding.` : "Nothing outstanding. Enjoy it."
           }
