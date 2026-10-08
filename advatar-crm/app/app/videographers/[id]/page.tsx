@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SchedulePanel, type ScheduleEntry, type ClientChoice, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
+import { withTaskPriorities } from "@/lib/tasks";
 import { ResourcesPanel, type ResourceEntry } from "@/components/ResourcesPanel";
 import { AvailabilityPanel } from "@/components/AvailabilityPanel";
 import { loadAvailability } from "@/lib/availability";
@@ -121,10 +122,13 @@ export default async function VideographerDetailPage({ params }: { params: { id:
     clientName: e.client_id ? clientNameById.get(e.client_id) ?? null : null,
   }));
 
-  const todoEntries: TodoEntry[] = ((tasks ?? []) as unknown as TodoEntry[]).map((t) => ({
-    ...t,
-    clientName: t.client_id ? clientNameById.get(t.client_id) ?? null : null,
-  }));
+  const { tasks: todoEntries, priorityAvailable } = await withTaskPriorities<TodoEntry>(
+    supabase,
+    ((tasks ?? []) as unknown as TodoEntry[]).map((t) => ({
+      ...t,
+      clientName: t.client_id ? clientNameById.get(t.client_id) ?? null : null,
+    }))
+  );
 
   // Checklist steps for the SOPs above, so the editor shows what is
   // already there rather than appearing empty every time.
@@ -242,6 +246,7 @@ export default async function VideographerDetailPage({ params }: { params: { id:
           editable
           defaultAssignee={params.id}
           clients={clients}
+          priorityAvailable={priorityAvailable}
           emptyMessage="Nothing assigned to them right now."
         />
       </section>

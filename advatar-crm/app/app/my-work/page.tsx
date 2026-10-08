@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
+import { withTaskPriorities } from "@/lib/tasks";
 import { StatTile } from "@/components/StatTile";
 import { EmptyState } from "@/components/EmptyState";
 import { loadSubmissions } from "@/lib/submissions";
@@ -58,15 +59,18 @@ export default async function MyWorkPage() {
   const allTasks = (tasks ?? []) as unknown as TaskRow[];
   const openTasks = allTasks.filter((t) => !t.done);
 
-  const todoEntries: TodoEntry[] = allTasks.map((t) => ({
-    id: t.id,
-    text: t.text,
-    due_date: t.due_date,
-    done: t.done,
-    client_id: t.client_id,
-    assigned_to: t.assigned_to,
-    clientName: t.clients?.name ?? null,
-  }));
+  const { tasks: todoEntries, priorityAvailable } = await withTaskPriorities<TodoEntry>(
+    supabase,
+    allTasks.map((t) => ({
+      id: t.id,
+      text: t.text,
+      due_date: t.due_date,
+      done: t.done,
+      client_id: t.client_id,
+      assigned_to: t.assigned_to,
+      clientName: t.clients?.name ?? null,
+    }))
+  );
 
   const overdue = openTasks.filter((t) => t.due_date && isPast(t.due_date));
   const dueThisWeek = openTasks.filter((t) => {
@@ -194,6 +198,7 @@ export default async function MyWorkPage() {
         <TodoPanel
           initialTasks={todoEntries}
           editable={false}
+          priorityAvailable={priorityAvailable}
           emptyMessage="Nothing assigned to you right now."
           showClientLink={false}
         />

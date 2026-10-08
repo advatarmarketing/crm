@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SchedulePanel, type ScheduleEntry, type EventCategory } from "@/components/SchedulePanel";
 import { TodoPanel, type TodoEntry } from "@/components/TodoPanel";
+import { withTaskPriorities } from "@/lib/tasks";
 import { StatTile } from "@/components/StatTile";
 import { UpcomingStrip } from "@/components/UpcomingStrip";
 import { MonthCalendar } from "@/components/MonthCalendar";
@@ -104,15 +105,18 @@ export default async function MyDashboardPage() {
   };
   const myTasks = (tasks ?? []) as unknown as TaskRow[];
 
-  const todoEntries: TodoEntry[] = myTasks.map((t) => ({
-    id: t.id,
-    text: t.text,
-    due_date: t.due_date,
-    done: t.done,
-    client_id: t.client_id,
-    assigned_to: t.assigned_to,
-    clientName: t.clients?.name ?? null,
-  }));
+  const { tasks: todoEntries, priorityAvailable } = await withTaskPriorities<TodoEntry>(
+    supabase,
+    myTasks.map((t) => ({
+      id: t.id,
+      text: t.text,
+      due_date: t.due_date,
+      done: t.done,
+      client_id: t.client_id,
+      assigned_to: t.assigned_to,
+      clientName: t.clients?.name ?? null,
+    }))
+  );
 
   const overdue = myTasks.filter((t) => t.due_date && isPast(t.due_date));
   const dueToday = myTasks.filter(
@@ -365,6 +369,7 @@ export default async function MyDashboardPage() {
         <TodoPanel
           initialTasks={todoEntries}
           editable={false}
+          priorityAvailable={priorityAvailable}
           emptyMessage="Nothing assigned to you right now."
           showClientLink={false}
         />
