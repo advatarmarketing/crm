@@ -34,7 +34,13 @@ export function ClientTeamThread({
   initialMessages: TeamMessage[];
   currentUserId: string | null;
 }) {
-  const [messages, setMessages] = useState(initialMessages);
+  // Coerced rather than trusted: a caller passing null here — a query
+  // that came back empty, a mapping that produced nothing — used to
+  // throw on `messages.length` during render and take the whole client
+  // page with it, rather than showing an empty thread.
+  const [messages, setMessages] = useState(() =>
+    Array.isArray(initialMessages) ? initialMessages : []
+  );
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
