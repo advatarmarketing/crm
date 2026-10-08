@@ -1,10 +1,17 @@
 import Link from "next/link";
+import { Suspense, type ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PlannerDocument } from "@/components/PlannerDocument";
 import { DocumentsList } from "@/components/DocumentsList";
-import { BrandKitPanel, emptyBrandKit, type BrandKit } from "@/components/BrandKitPanel";
+import { BrandKitPanel } from "@/components/BrandKitPanel";
+// emptyBrandKit from the plain module, NOT from BrandKitPanel: this is
+// a server component, and calling a function imported from a
+// "use client" module here throws and takes the page down. That was
+// the bug — see lib/brand-kit.ts.
+import { emptyBrandKit, type BrandKit } from "@/lib/brand-kit";
 import { ClientTeamThread, type TeamMessage } from "@/components/ClientTeamThread";
+import { SectionBoundary } from "@/components/SectionBoundary";
 import { loadNamesById } from "@/lib/people";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +28,46 @@ export const dynamic = "force-dynamic";
  * migrations (`client_brand_kits` and `client_team_messages` arrived
  * in 0020) — on a database that is behind the code, a videographer
  * should still be able to read the plan and the documents.
+ *
+ * Settling the queries was only half of it. A panel that RENDERS
+ * badly — a null where it assumed a list, a planner saved in an older
+ * shape — throws straight past all of this and out to the route's
+ * error boundary, which is how a videographer opening a client still
+ * got "that page didn't load" with every query having succeeded. So
+ * each panel below is wrapped in `Panel`: a panel that throws now
+ * costs that panel, names itself, and leaves the rest of the page
+ * alone.
  */
 type Settled<T> = { data: T | null; error: string | null };
+
+/**
+ * One panel, fenced off.
+ *
+ * The Suspense is not decoration and cannot be dropped. React 18 does
+ * not run error boundaries during server rendering — a throw there
+ * goes straight out to the route, which is exactly the 500 this is
+ * meant to prevent. With a Suspense boundary above it, React gives up
+ * on that subtree on the server, streams the fallback, and renders it
+ * again in the browser, where the boundary is live and catches it.
+ * Verified both ways in a browser: without the Suspense the page
+ * still 500s; with it the page is fine and the one panel explains
+ * itself.
+ */
+function Panel({ what, context, children }: { what: string; context: string; children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-3)" }}>
+          Loading {what}…
+        </p>
+      }
+    >
+      <SectionBoundary what={what} context={context}>
+        {children}
+      </SectionBoundary>
+    </Suspense>
+  );
+}
 
 async function settle<T>(query: PromiseLike<{ data: T | null; error: { message: string } | null }>): Promise<Settled<T>> {
   try {
@@ -61,7 +106,13 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
     // team_directory, not profiles: a videographer cannot read
     // anybody else's profile row, so every message in this thread
     // used to be from "Someone". See lib/people.ts.
-    loadNamesById(supabase),
+    //
+    // Caught here as well, even though it has its own fallback
+    // inside: it is the one entry in this list that is not a settled
+    // query, so a throw in it would reject the whole Promise.all and
+    // undo every other guard on this page. Names are the most
+    // expendable thing here — without them the thread still reads.
+    loadNamesById(supabase).catch(() => new Map<string, string | null>()),
   ]);
 
   // Missing here means either the client doesn't exist, or (far more
@@ -112,7 +163,9 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         {brandKit.error ? (
           <SectionProblem what="brand kit" detail={brandKit.error} />
         ) : (
-          <BrandKitPanel initialKit={brandKit.data ?? emptyBrandKit(params.id)} editable={false} />
+          <Panel what="brand kit" context={`client ${params.id}`}>
+            <BrandKitPanel initialKit={brandKit.data ?? emptyBrandKit(params.id)} editable={false} />
+          </Panel>
         )}
       </section>
 
@@ -126,7 +179,9 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         {teamMessages.error ? (
           <SectionProblem what="team thread" detail={teamMessages.error} />
         ) : (
-          <ClientTeamThread clientId={params.id} initialMessages={teamThread} currentUserId={user?.id ?? null} />
+          <Panel what="team thread" context={`client ${params.id}`}>
+            <ClientTeamThread clientId={params.id} initialMessages={teamThread} currentUserId={user?.id ?? null} />
+          </Panel>
         )}
       </section>
 
@@ -140,11 +195,13 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
             edit it yet). See PlannerDocument.tsx's requirePublished
             prop doc comment for why this differs from the client
             portal's usage. */}
-        <PlannerDocument
-          clientId={clientRow.id}
-          editable={false}
-          emptyMessage="No plan has been started for this client yet."
-        />
+        <Panel what="content plan" context={`client ${clientRow.id}`}>
+          <PlannerDocument
+            clientId={clientRow.id}
+            editable={false}
+            emptyMessage="No plan has been started for this client yet."
+          />
+        </Panel>
       </section>
 
       <section className="section" style={{ maxWidth: 760 }}>
@@ -156,7 +213,9 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         {documents.error ? (
           <SectionProblem what="documents" detail={documents.error} />
         ) : (
-          <DocumentsList initialDocuments={(documents.data ?? []) as never[]} editable={false} />
+          <Panel what="documents" context={`client ${params.id}`}>
+            <DocumentsList initialDocuments={(documents.data ?? []) as never[]} editable={false} />
+          </Panel>
         )}
       </section>
 

@@ -3,30 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { normaliseBrandKit, type BrandKit } from "@/lib/brand-kit";
 
-export interface BrandKit {
-  client_id: string;
-  colours: string[];
-  fonts: string[];
-  platforms: string[];
-  logo_urls: string[];
-  tone_of_voice: string | null;
-  dos: string | null;
-  donts: string | null;
-}
-
-export function emptyBrandKit(clientId: string): BrandKit {
-  return {
-    client_id: clientId,
-    colours: [],
-    fonts: [],
-    platforms: [],
-    logo_urls: [],
-    tone_of_voice: null,
-    dos: null,
-    donts: null,
-  };
-}
+// Re-exported so the many files that already import the type from
+// here keep working. `emptyBrandKit` is deliberately NOT re-exported:
+// a server component importing it from a "use client" module is the
+// bug this move fixes, and a re-export would quietly allow it again.
+// Import it from "@/lib/brand-kit".
+export type { BrandKit } from "@/lib/brand-kit";
 
 /**
  * A client's brand kit: logos, colours, fonts, tone of voice,
@@ -41,6 +25,17 @@ export function emptyBrandKit(clientId: string): BrandKit {
  * anyone fills anything in, so nothing has to pre-create an empty kit
  * for every client.
  */
+/**
+ * Forces a kit into the shape the rest of this file assumes.
+ *
+ * See lib/brand-kit.ts for why: every `.length` and `.map` below used
+ * to run straight off the row, so one null list threw during render
+ * and took the whole client page with it.
+ */
+function normalise(kit: Partial<BrandKit> | null | undefined, clientId?: string): BrandKit {
+  return normaliseBrandKit(kit, clientId);
+}
+
 export function BrandKitPanel({
   initialKit,
   editable = false,
@@ -48,7 +43,7 @@ export function BrandKitPanel({
   initialKit: BrandKit;
   editable?: boolean;
 }) {
-  const [kit, setKit] = useState(initialKit);
+  const [kit, setKit] = useState(() => normalise(initialKit));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
