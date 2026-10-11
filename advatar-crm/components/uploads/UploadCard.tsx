@@ -25,6 +25,21 @@ export interface UploadAbilities {
   /** Add a new cut and work the checklist — the videographer who made it. */
   canSubmit: boolean;
   /**
+   * Hand a video in, and add a version to one.
+   *
+   * Separate from `canSubmit` because it is a wider group. A
+   * videographer uploads their own work; management uploads too —
+   * the CEO shoots and edits as well, and had no way to put anything
+   * in from here.
+   *
+   * Staff are deliberately NOT in it. `submissions: staff assigned`
+   * (0020) would let them create the row, but
+   * `submission_versions: staff assigned` is select-only, so the link
+   * would fail to attach and leave a submission with no video on it.
+   * Showing them the form would be offering a button that half works.
+   */
+  canUpload: boolean;
+  /**
    * Write in the client-facing thread: a reviewer, or the client.
    *
    * NOT the videographer. Feedback on a video comes from the people
@@ -309,7 +324,7 @@ export function UploadCard({
               </button>
             )}
 
-            {abilities.canSubmit && status !== "approved" && !addingVersion && (
+            {abilities.canUpload && status !== "approved" && !addingVersion && (
               <button type="button" onClick={() => setAddingVersion(true)} className="btn">
                 + Upload a new version
               </button>
@@ -361,7 +376,7 @@ export function UploadCard({
             </p>
           )}
 
-          {abilities.canSubmit && addingVersion && (
+          {abilities.canUpload && addingVersion && (
             <div style={{ marginBottom: 16 }}>
               <input
                 value={newUrl}

@@ -63,9 +63,24 @@ export function UploadsWorkspace({
   const canReview = role === "ceo" || role === "operations_manager" || role === "staff";
   const canSubmit = role === "videographer";
 
+  // Who may hand a video in. Wider than canSubmit: the CEO and the
+  // operations manager shoot and edit too, and until now the Uploads
+  // tab gave them nowhere to put anything — the form was shown to
+  // videographers only, even though `submissions` and
+  // `submission_versions` have granted management full access since
+  // 0020 (0029 for the current wording). This was a gate in the page,
+  // not in the database.
+  //
+  // Staff are left out on purpose. They can create a `submissions`
+  // row on a client they are assigned, but `submission_versions` only
+  // grants them SELECT, so the submission would save and the link
+  // would not attach. That needs a migration, not a flag.
+  const canUpload = canSubmit || role === "ceo" || role === "operations_manager";
+
   const abilities: UploadAbilities = {
     canReview,
     canSubmit,
+    canUpload,
     // Feedback comes from the people reviewing the work and from the
     // client. A videographer reads both threads and answers by
     // re-cutting — the checklist is where they act, not the comment
@@ -264,13 +279,17 @@ export function UploadsWorkspace({
             </p>
           ) : uploads.length === 0 ? (
             <EmptyState
-              title={isClient ? "No videos yet" : canSubmit ? "Nothing uploaded yet" : "Nothing to review"}
+              title={isClient ? "No videos yet" : canUpload ? "Nothing uploaded yet" : "Nothing to review"}
               body={
                 isClient
                   ? "When your team shares a cut with you it appears here, and you can comment on it."
                   : canSubmit
                     ? "Upload a cut and it goes to the team for review. Once it's approved it lands in your Portfolio."
-                    : "Videos appear here as soon as a videographer uploads them."
+                    : canUpload
+                      ? // Reads straight into the form below it, which is
+                        // the next thing on the page for this role.
+                        "Videos appear here as soon as a videographer uploads them — or put one in yourself below."
+                      : "Videos appear here as soon as a videographer uploads them."
               }
             />
           ) : visible.length === 0 ? (
@@ -303,8 +322,16 @@ export function UploadsWorkspace({
             </>
           )}
 
-          {canSubmit && (
-            <NewUploadForm clients={clients} onDone={() => undefined} />
+          {canUpload && (
+            <NewUploadForm
+              clients={clients}
+              // The Portfolio line below the button is a
+              // videographer's: approved work lands in THEIR portfolio
+              // tab, which management does not have. Promising it to
+              // the CEO would be promising a page they cannot open.
+              ownsPortfolio={canSubmit}
+              onDone={() => undefined}
+            />
           )}
         </>
       ) : (
@@ -332,7 +359,15 @@ export function UploadsWorkspace({
  * (`notifications` grants insert to nobody). See
  * app/app/uploads/actions.ts.
  */
-function NewUploadForm({ clients, onDone }: { clients: ClientChoice[]; onDone: () => void }) {
+function NewUploadForm({
+  clients,
+  ownsPortfolio,
+  onDone,
+}: {
+  clients: ClientChoice[];
+  ownsPortfolio: boolean;
+  onDone: () => void;
+}) {
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState(clients.length === 1 ? clients[0].id : "");
@@ -375,8 +410,9 @@ function NewUploadForm({ clients, onDone }: { clients: ClientChoice[]; onDone: (
           + Upload a video
         </button>
         <p style={{ ...meta, margin: "10px 0 0", maxWidth: "60ch", lineHeight: 1.5 }}>
-          Once a cut is approved it appears in your Portfolio automatically — there&rsquo;s
-          nothing to copy across.
+          {ownsPortfolio
+            ? "Once a cut is approved it appears in your Portfolio automatically — there\u2019s nothing to copy across."
+            : "Goes in as team-only. Tick it onto the client\u2019s side here, or share it later once it has been reviewed."}
         </p>
       </div>
     );
