@@ -475,7 +475,18 @@ export const PLANNER_CSS = `
 .planner-doc .slot-set-count{
   font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
 }
-.planner-doc .slot-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:var(--shadow-sm);}
+.planner-doc .slot-card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:var(--shadow-sm);}
+/* The per-slot remove button. Quiet until the card is hovered or
+   the button itself is focused, so a page of twenty slots is not a
+   page of twenty crosses -- but reachable by keyboard regardless. */
+.planner-doc .slot-remove{position:absolute;top:10px;right:10px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:13px;line-height:1;cursor:pointer;opacity:0;transition:opacity .12s ease,color .12s ease,border-color .12s ease;}
+.planner-doc .slot-card:hover .slot-remove,.planner-doc .slot-remove:focus-visible{opacity:1;}
+.planner-doc .slot-remove:hover,.planner-doc .slot-remove:focus-visible{color:var(--danger,#a13b3b);border-color:var(--line);}
+/* Asking before deleting a slot somebody has written a brief into. */
+.planner-doc .slot-confirm{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:6px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--card);box-shadow:var(--shadow-sm);z-index:2;}
+.planner-doc .slot-confirm span{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);}
+.planner-doc .slot-confirm button{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;padding:3px 7px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;}
+.planner-doc .slot-confirm button.yes{border-color:var(--danger,#a13b3b);color:var(--danger,#a13b3b);}
 .planner-doc .slot-num{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px;}
 .planner-doc .slot-title{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.01em;line-height:1.15;margin-bottom:6px;}
 .planner-doc .slot-desc{font-family:var(--body);font-size:12.5px;line-height:1.5;color:var(--body-text);margin-bottom:12px;}

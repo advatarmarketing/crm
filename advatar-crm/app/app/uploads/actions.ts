@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { displayName } from "@/lib/names";
 import type { SubmissionVisibility } from "@/lib/supabase/types";
+import type { PlanSlotChoice } from "@/lib/uploads";
 
 /**
  * These were `/app/my-work`'s actions until the Uploads tab took the
@@ -18,6 +19,21 @@ export interface SubmitWorkInput {
   url: string;
   notes: string;
   visibility: SubmissionVisibility;
+  /**
+   * Which slot on the client's content plan this video is.
+   *
+   * A slot id puts it in that exact slot. "new" adds a slot for it.
+   * "" leaves the plan alone — not every upload is a planned video.
+   *
+   * Before this, the plan was filled by guessing: the slot whose
+   * wording overlapped the submission's title most. That guess is
+   * still the fallback for a video handed in without a choice (and
+   * for everything submitted before this existed), but a guess is a
+   * poor thing to have standing between a finished video and the
+   * client's plan — it could fill in the wrong one, which silently
+   * marks a video they are still waiting for as delivered.
+   */
+  plannerSlotId?: string;
 }
 
 export type SubmitWorkResult =
@@ -100,16 +116,69 @@ export async function submitWorkAction(input: SubmitWorkInput): Promise<SubmitWo
     return { ok: false, error: `Saved, but the link didn't attach: ${versionError.message}` };
   }
 
+  const chosenSlot = (input.plannerSlotId ?? "").trim();
+
   let note: string | null = null;
 
   if (visibility === "team_and_client") {
-    note = await fillPlannerSlot({ clientId, submissionId, title, url });
+    note = await fillPlannerSlot({ clientId, submissionId, title, url, chosenSlot });
     await notifyClient({ clientId, title, actorId: user.id });
+  } else if (chosenSlot && chosenSlot !== "new") {
+    // Team-only: the plan is the CLIENT's document, and work still
+    // being reviewed has no business appearing on it as delivered.
+    // The choice is remembered on the submission instead, so sharing
+    // it later fills the slot that was picked now rather than falling
+    // back to guessing from the title.
+    await createAdminClient()
+      .from("submissions")
+      .update({ planner_slot_id: chosenSlot })
+      .eq("id", submissionId);
+
+    note = "Saved. It'll go into that slot on their plan when you share it.";
   }
 
   revalidatePath("/app/uploads");
 
   return { ok: true, note };
+}
+
+/**
+ * The slots on a client's content plan, for the upload form's picker.
+ *
+ * Read as the caller so the plan's own RLS decides: management sees
+ * every client's, a videographer only the clients they are on, and
+ * nobody gets a plan they could not already open. Returns an empty
+ * list rather than an error when there is no plan yet — the form
+ * simply offers "add it as a new video" in that case.
+ */
+export async function planSlotsAction(clientId: string): Promise<PlanSlotChoice[]> {
+  if (!clientId.trim()) return [];
+
+  const supabase = createClient();
+
+  const { data: planner } = await supabase
+    .from("planners")
+    .select("content")
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  const content = ((planner as { content?: unknown } | null)?.content ?? {}) as Record<string, unknown>;
+  const slots = content.slots as { items?: PlannerSlotRow[] } | undefined;
+  const items = Array.isArray(slots?.items) ? slots!.items! : [];
+
+  return items
+    .filter((slot): slot is PlannerSlotRow => Boolean(slot && typeof slot.id === "string" && slot.id))
+    .map((slot, i) => {
+      const number = String(i + 1).padStart(2, "0");
+      const name = (slot.title ?? "").trim() || (slot.description ?? "").trim().slice(0, 48);
+      return {
+        id: slot.id,
+        // Numbered the way the plan numbers them, so the thing picked
+        // here is findable by eye on the plan itself.
+        label: name ? `${number} \u00b7 ${name}` : `${number} \u00b7 (untitled slot)`,
+        filled: Boolean((slot.link ?? "").trim()),
+      };
+    });
 }
 
 /**
@@ -138,13 +207,18 @@ export async function shareWithClientAction(submissionId: string): Promise<Submi
     .from("submissions")
     .update({ visibility: "team_and_client" })
     .eq("id", submissionId)
-    .select("id, title, client_id")
+    .select("id, title, client_id, planner_slot_id")
     .maybeSingle();
 
   if (error) return { ok: false, error: error.message };
   if (!updated) return { ok: false, error: "You don't have permission to share that." };
 
-  const row = updated as { id: string; title: string; client_id: string | null };
+  const row = updated as {
+    id: string;
+    title: string;
+    client_id: string | null;
+    planner_slot_id: string | null;
+  };
   if (!row.client_id) return { ok: false, error: "That submission has no client on it." };
 
   const { data: latest } = await supabase
@@ -158,7 +232,17 @@ export async function shareWithClientAction(submissionId: string): Promise<Submi
   const url = (latest as { url: string | null } | null)?.url ?? null;
 
   const note = url
-    ? await fillPlannerSlot({ clientId: row.client_id, submissionId: row.id, title: row.title, url })
+    ? await fillPlannerSlot({
+        clientId: row.client_id,
+        submissionId: row.id,
+        title: row.title,
+        url,
+        // The slot picked when it was handed in, if there was one.
+        // Without this, sharing a team-only upload later went back to
+        // guessing from the title and could ignore a choice already
+        // made.
+        chosenSlot: row.planner_slot_id ?? "",
+      })
     : null;
 
   // No notifyClient() here any more. The update above trips
@@ -193,12 +277,19 @@ async function fillPlannerSlot({
   submissionId,
   title,
   url,
+  chosenSlot = "",
 }: {
   clientId: string;
   submissionId: string;
   title: string;
   url: string;
+  /** A slot id, "new", or "" to fall back to matching on the title. */
+  chosenSlot?: string;
 }): Promise<string | null> {
+  // Nothing on the plan, by choice. Not every upload is one of the
+  // planned videos -- a re-cut for internal use, a one-off ad.
+  if (chosenSlot === "none") return null;
+
   const admin = createAdminClient();
 
   const { data: planner } = await admin
@@ -215,7 +306,17 @@ async function fillPlannerSlot({
 
   if (!items) return null;
 
-  const index = bestMatch(items, title);
+  // What the person actually picked wins over the guess. "new" skips
+  // the search outright and appends; a slot id is honoured even when
+  // that slot already has a link on it, because replacing a delivered
+  // video with a better cut is a normal thing to want and the person
+  // choosing it can see it is already filled.
+  const index =
+    chosenSlot === "new"
+      ? -1
+      : chosenSlot
+        ? items.findIndex((slot) => slot.id === chosenSlot)
+        : bestMatch(items, title);
 
   if (index >= 0) {
     items[index] = { ...items[index], link: url };
