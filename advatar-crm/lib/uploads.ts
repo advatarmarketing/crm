@@ -384,3 +384,20 @@ export function parseTimecode(input: string): number | null {
   if (!Number.isFinite(seconds) || seconds < 0 || seconds > 86400) return null;
   return seconds;
 }
+
+/**
+ * One line in the "which video on their plan is this?" picker.
+ *
+ * Deliberately not the whole PlannerSlot: the picker needs a label and
+ * whether the slot is already delivered, and nothing else. Sending the
+ * full brief (hook, body, CTA, scenery…) down to a dropdown would ship
+ * a client's entire content plan into a form that shows four words of
+ * it.
+ */
+export interface PlanSlotChoice {
+  id: string;
+  /** "03 · Founder interview", already numbered the way the plan is. */
+  label: string;
+  /** True when the slot already has a video link on it. */
+  filled: boolean;
+}

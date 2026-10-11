@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ProfileRole, SubmissionVisibility } from "@/lib/supabase/types";
-import type { AssetEntry, UploadEntry } from "@/lib/uploads";
+import type { AssetEntry, PlanSlotChoice, UploadEntry } from "@/lib/uploads";
 import type { ClientChoice } from "@/components/SchedulePanel";
 import { EmptyState } from "@/components/EmptyState";
 import { UploadCard, type UploadAbilities } from "./UploadCard";
 import { AssetsPanel } from "./AssetsPanel";
-import { submitWorkAction } from "@/app/app/uploads/actions";
+import { planSlotsAction, submitWorkAction } from "@/app/app/uploads/actions";
 import { field, subheading, meta, errorText } from "./styles";
 
 type SubTab = "videos" | "assets";
@@ -378,14 +378,52 @@ function NewUploadForm({
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
+  // Which video on the client's plan this is. Loaded when a client is
+  // picked rather than all at once up front: the plans belong to
+  // different clients and only one of them is ever being filled in.
+  const [slots, setSlots] = useState<PlanSlotChoice[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotId, setSlotId] = useState("");
+
   const router = useRouter();
+
+  useEffect(() => {
+    if (!clientId) {
+      setSlots([]);
+      setSlotId("");
+      return;
+    }
+
+    // Guards against the answers arriving out of order when somebody
+    // changes the client twice quickly -- the earlier request's slots
+    // would otherwise land last and show the wrong plan.
+    let current = true;
+    setSlotsLoading(true);
+    setSlotId("");
+
+    planSlotsAction(clientId)
+      .then((found) => {
+        if (!current) return;
+        setSlots(found);
+      })
+      .catch(() => {
+        if (current) setSlots([]);
+      })
+      .finally(() => {
+        if (current) setSlotsLoading(false);
+      });
+
+    return () => {
+      current = false;
+    };
+  }, [clientId]);
 
   async function submit() {
     setBusy(true);
     setError(null);
     setNote(null);
 
-    const result = await submitWorkAction({ title, clientId, url, notes, visibility });
+    const result = await submitWorkAction({ title, clientId, url, notes, visibility, plannerSlotId: slotId });
 
     setBusy(false);
 
@@ -396,6 +434,7 @@ function NewUploadForm({
     setUrl("");
     setNotes("");
     setVisibility("team_only");
+    setSlotId("");
     setCreating(false);
     setNote(result.note);
     onDone();
@@ -456,6 +495,53 @@ function NewUploadForm({
         placeholder="Link to the video (Drive, Frame.io, Dropbox…)"
         style={{ ...field, width: "100%", marginBottom: 10 }}
       />
+
+      {/* Which video on their plan this is.
+          Only once a client is chosen, because the plan belongs to
+          them -- before that there is nothing to choose from. */}
+      {clientId && (
+        <div style={{ marginBottom: 10 }}>
+          <label htmlFor="planSlot" style={{ ...subheading, display: "block", padding: 0, marginBottom: 6 }}>
+            Which video on their plan
+          </label>
+          <select
+            id="planSlot"
+            value={slotId}
+            onChange={(e) => setSlotId(e.target.value)}
+            disabled={slotsLoading}
+            style={{ ...field, width: "100%" }}
+          >
+            {slotsLoading ? (
+              <option value="">Loading their plan…</option>
+            ) : (
+              <>
+                <option value="">
+                  {slots.length > 0 ? "Pick the slot it fills…" : "They have no plan slots yet"}
+                </option>
+                {slots.map((slot) => (
+                  <option key={slot.id} value={slot.id}>
+                    {slot.label}
+                    {slot.filled ? " — already has a video" : ""}
+                  </option>
+                ))}
+                <option value="new">Add it to their plan as a new video</option>
+                <option value="none">Don’t put it on their plan</option>
+              </>
+            )}
+          </select>
+          <p style={{ ...meta, margin: "6px 0 0", lineHeight: 1.5 }}>
+            {slotId === "none"
+              ? "It won’t appear on their content plan."
+              : slotId === "new"
+                ? "A new video will be added to the bottom of their plan."
+                : slotId
+                  ? visibility === "team_and_client"
+                    ? "The link goes straight into that slot on their plan."
+                    : "The link goes into that slot when you share it with the client."
+                  : "Leave this and we’ll match it to a slot by its title, as before."}
+          </p>
+        </div>
+      )}
 
       <textarea
         value={notes}

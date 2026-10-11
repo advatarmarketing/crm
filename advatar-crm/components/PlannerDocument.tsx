@@ -40,6 +40,19 @@ function setDeep(obj: any, path: (string | number)[], value: any): any {
   return { ...obj, [key]: setDeep(obj?.[key], rest, value) };
 }
 
+/**
+ * Whether a slot has anything worth confirming before it goes.
+ *
+ * Only the id is structural; everything else is something a person
+ * typed. The link counts too -- a slot whose only content is a
+ * delivered video is the one you least want to lose by accident.
+ */
+function slotIsEmpty(slot: PlannerSlot): boolean {
+  return (Object.entries(slot) as [string, unknown][]).every(
+    ([key, value]) => key === "id" || typeof value !== "string" || value.trim() === ""
+  );
+}
+
 function isValidHttpUrl(value: string) {
   try {
     const u = new URL(value.trim());
@@ -436,7 +449,13 @@ export function PlannerDocument({
       <nav className="page-nav">
         <div className="page-nav-inner">
           <a href={`#${sid("top")}`} className="page-nav-top">
-            {content.hero.brand.replace(/\.$/, "") || "Top"} ↑
+            {/* `?? ""` is not belt and braces. The masthead's fields were
+                renamed when it was rebuilt, so a plan last saved before
+                that has a hero with no `brand` on it at all — and an
+                unguarded .replace here threw while rendering, which took
+                the whole content plan down rather than losing one word
+                of a "back to top" link. */}
+            {(content.hero.brand ?? "").replace(/\.$/, "") || "Top"} ↑
           </a>
           {NAV_SECTIONS.map((s) => (
             <a
@@ -724,6 +743,15 @@ export function PlannerDocument({
             if (!prev) return prev;
             const existing = prev.slots.items;
             const items = Array.from({ length: count }, (_, i) => existing[i] ?? { id: makeId("slot"), title: "", description: "", pillar: "", link: "", hook: "", body: "", cta: "", wms: "", scenery: "", set: "" });
+            const next = { ...prev, slots: { ...prev.slots, items } };
+            scheduleSave(next);
+            return next;
+          })
+        }
+        onSlotRemove={(index) =>
+          setContent((prev) => {
+            if (!prev) return prev;
+            const items = prev.slots.items.filter((_, i) => i !== index);
             const next = { ...prev, slots: { ...prev.slots, items } };
             scheduleSave(next);
             return next;
@@ -1039,6 +1067,7 @@ function SlotPlannerSection({
   onHeadCommit,
   onSlotChange,
   onGenerate,
+  onSlotRemove,
 }: {
   id: string;
   editable: boolean;
@@ -1047,8 +1076,22 @@ function SlotPlannerSection({
   onHeadCommit: (field: "tag" | "heading" | "desc", value: string) => void;
   onSlotChange: (index: number, field: SlotFieldName, value: string) => void;
   onGenerate: (count: number) => void;
+  onSlotRemove: (index: number) => void;
 }) {
   const [countInput, setCountInput] = useState(String(section.items.length));
+  /**
+   * Which slot is asking "are you sure".
+   *
+   * "Generate slots" could already drop slots off the END by lowering
+   * the count, but there was no way to remove slot 3 of 12 -- the only
+   * route was to retype eleven briefs one card to the left. This is
+   * that missing control.
+   *
+   * A slot with anything written in it asks first. An empty one goes
+   * straight away: there is nothing to lose and a confirm on an empty
+   * card is just a second click.
+   */
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   return (
     <section id={id} style={{ paddingTop: 0 }}>
@@ -1108,6 +1151,36 @@ function SlotPlannerSection({
           return (
             <div className="slot-card" key={slot.id}>
               <span className="slot-num">{String(i + 1).padStart(2, "0")}</span>
+
+              {editable &&
+                (confirming === slot.id ? (
+                  <div className="slot-confirm">
+                    <span>Remove?</span>
+                    <button
+                      type="button"
+                      className="yes"
+                      onClick={() => {
+                        setConfirming(null);
+                        onSlotRemove(i);
+                      }}
+                    >
+                      Remove
+                    </button>
+                    <button type="button" onClick={() => setConfirming(null)}>
+                      Keep
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="slot-remove"
+                    title="Remove this video"
+                    aria-label={`Remove video ${i + 1}${slot.title ? `, ${slot.title}` : ""}`}
+                    onClick={() => (slotIsEmpty(slot) ? onSlotRemove(i) : setConfirming(slot.id))}
+                  >
+                    &#215;
+                  </button>
+                ))}
               <Editable as="div" className="slot-title" editable={editable} value={slot.title} onCommit={(v) => onSlotChange(i, "title", v)} placeholder={PLANNER_PH.slots.title} />
               <Editable as="div" className="slot-desc" editable={editable} value={slot.description} onCommit={(v) => onSlotChange(i, "description", v)} placeholder={PLANNER_PH.slots.description} />
               {editable ? (
