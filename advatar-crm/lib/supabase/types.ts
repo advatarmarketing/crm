@@ -818,6 +818,54 @@ export interface Database {
         };
       };
 
+      // 0039_client_credentials.sql — a client's social media logins.
+      // secret_cipher and notes_cipher are AES-256-GCM envelopes, not
+      // readable text; see lib/credentials.ts.
+      client_credentials: {
+        Row: {
+          id: string;
+          client_id: string;
+          platform: string;
+          label: string | null;
+          username: string | null;
+          url: string | null;
+          secret_cipher: string | null;
+          notes_cipher: string | null;
+          key_id: string | null;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          platform: string;
+          label?: string | null;
+          username?: string | null;
+          url?: string | null;
+          secret_cipher?: string | null;
+          notes_cipher?: string | null;
+          key_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          platform?: string;
+          label?: string | null;
+          username?: string | null;
+          url?: string | null;
+          secret_cipher?: string | null;
+          notes_cipher?: string | null;
+          key_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+      };
+
       // Phase 20 — 0019_event_categories.sql
       event_categories: {
         Row: {
