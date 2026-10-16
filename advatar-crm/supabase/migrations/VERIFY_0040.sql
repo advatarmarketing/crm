@@ -1,0 +1,84 @@
+-- VERIFY 0040 — run this after 0040_share_note_folder_with_client.sql.
+--
+-- Checks 1 to 6 read the database's own catalogue and are safe to run
+-- before the migration too: they report rather than crash. Checks 7
+-- and 8 read note_folders, which exists from 0032.
+--
+-- Check 5 is the one to read first. It is the promise this migration
+-- has to keep: a client can READ a shared folder and can change
+-- nothing.
+
+select '1. the tick box exists' as check,
+       case when exists (
+         select 1 from information_schema.columns
+         where table_schema = 'public' and table_name = 'note_folders'
+           and column_name = 'shared_with_client'
+       ) then 'OK' else 'PROBLEM - 0040 did not run' end as result;
+
+select '2. nothing can be shared with nobody' as check,
+       case when exists (
+         select 1 from pg_constraint
+         where conrelid = to_regclass('public.note_folders')
+           and conname = 'note_folders_shared_needs_client'
+       ) then 'OK' else 'PROBLEM - the guard is missing, or 0040 did not run' end as result;
+
+select '3. the sharing test exists' as check,
+       case when exists (
+         select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public' and p.proname = 'note_folder_shared_with_me' and p.prosecdef
+       ) then 'OK' else 'PROBLEM - the helper is missing or is not security definer, or 0040 did not run' end as result;
+
+select '4. the three read policies are there' as check,
+       case when (
+         select count(*) from pg_policies
+         where schemaname = 'public'
+           and tablename in ('note_folders', 'notes', 'note_checklist_items')
+           and policyname like '%client reads shared%'
+       ) = 3 then 'OK'
+       else 'PROBLEM - expected 3, found ' || (
+         select count(*) from pg_policies
+         where schemaname = 'public'
+           and tablename in ('note_folders', 'notes', 'note_checklist_items')
+           and policyname like '%client reads shared%'
+       ) || ', or 0040 did not run' end as result;
+
+select '5. a client can read a shared note and change nothing' as check,
+       case when (
+         select count(*) from pg_policies
+         where schemaname = 'public'
+           and tablename in ('note_folders', 'notes', 'note_checklist_items')
+           and policyname like '%client reads shared%'
+           and cmd <> 'SELECT'
+       ) = 0 then 'OK'
+       else 'PROBLEM - a sharing policy allows more than reading' end as result;
+
+select '6. nothing else on notes was loosened' as check,
+       case when (
+         select count(*) from pg_policies
+         where schemaname = 'public'
+           and tablename in ('note_folders', 'notes', 'note_checklist_items')
+           and coalesce(qual, '') not like '%owner_id%'
+           and policyname not like '%client reads shared%'
+       ) = 0 then 'OK'
+       else 'PROBLEM - a policy on your notes no longer checks the owner' end as result;
+
+-- ------------------------------------------------------------------
+-- Below here reads your folders. No note bodies are printed.
+-- ------------------------------------------------------------------
+
+select '7. how much is shared right now' as check,
+       case when count(*) = 0 then 'nothing is shared with any client'
+            else count(*) || ' folder(s) are shared' end as result
+from public.note_folders f
+where coalesce((to_jsonb(f) ->> 'shared_with_client')::boolean, false);
+
+select coalesce(p.full_name, 'someone') as folder_owner,
+       f.name as folder,
+       coalesce(c.name, '(not connected to a client)') as connected_to,
+       case when coalesce((to_jsonb(f) ->> 'shared_with_client')::boolean, false)
+            then 'SHARED - this client can read these notes'
+            else 'private' end as sharing
+from public.note_folders f
+left join public.profiles p on p.id = f.owner_id
+left join public.clients c on c.id = (to_jsonb(f) ->> 'client_id')::uuid
+order by (coalesce((to_jsonb(f) ->> 'shared_with_client')::boolean, false)) desc, c.name, f.name;

@@ -92,6 +92,13 @@ export function NotesWorkspace({
    */
   const canLinkClient = initial.clientLinkAvailable && clients.length > 0;
 
+  /**
+   * Whether 0040 has been run. Without it the tick is hidden and
+   * nothing is shared with anybody — which is exactly the state of a
+   * database that has not run it.
+   */
+  const canShare = canLinkClient && initial.shareAvailable;
+
   const clientNameById = useMemo(
     () => new Map(clients.map((c) => [c.id, c.name])),
     [clients]
@@ -191,8 +198,10 @@ export function NotesWorkspace({
       parent_id: row.parent_id ?? parentId,
       color: row.color ?? null,
       // A brand new folder is connected to nobody; the control below
-      // is how it gets a client, not the create form.
+      // is how it gets a client, not the create form. And connected
+      // to nobody it cannot be shared with anybody.
       client_id: null,
+      shared_with_client: false,
     };
     setFolders((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     setView(created.id);
@@ -213,16 +222,21 @@ export function NotesWorkspace({
   /**
    * Connects a folder to a client, or disconnects it.
    *
-   * Only a label on your own folder: note_folders is owner-only
-   * (0032), and 0038 added no policy, so this shows the folder to
-   * nobody — not the client, not whoever runs that client.
+   * Connecting shares nothing. note_folders is owner-only (0032) and
+   * 0038 added no policy; the only thing that shows a folder to a
+   * client is the tick below, and connecting leaves it off.
+   *
+   * Disconnecting turns that tick off in the same write. A folder
+   * marked shared with nobody attached would be a share waiting to
+   * happen to whoever was connected next — 0040 forbids the state
+   * outright, so the two have to move together.
    */
   async function setFolderClient(folder: NoteFolder, clientId: string | null) {
     setError(null);
-    const { error: e } = await supabase
-      .from("note_folders")
-      .update({ client_id: clientId })
-      .eq("id", folder.id);
+    const patch: { client_id: string | null; shared_with_client?: boolean } = { client_id: clientId };
+    if (canShare && clientId === null) patch.shared_with_client = false;
+
+    const { error: e } = await supabase.from("note_folders").update(patch).eq("id", folder.id);
 
     if (e) {
       // 23505 here is the one-folder-per-client index (0038), which
@@ -236,7 +250,44 @@ export function NotesWorkspace({
       return;
     }
 
-    setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, client_id: clientId } : f)));
+    setFolders((prev) =>
+      prev.map((f) =>
+        f.id === folder.id
+          ? { ...f, client_id: clientId, shared_with_client: clientId === null ? false : f.shared_with_client }
+          : f
+      )
+    );
+  }
+
+  /**
+   * Turns sharing on or off for one folder.
+   *
+   * The client reads; they never write. 0040 grants them SELECT and
+   * nothing else, so there is no version of this where a client
+   * edits, deletes or ticks off something in here.
+   */
+  async function setFolderShared(folder: NoteFolder, shared: boolean) {
+    setError(null);
+
+    // The tick moves now and goes back if the write fails. A box that
+    // sits still until the server answers reads as broken on a slow
+    // connection, and gets clicked again.
+    const mark = (value: boolean) =>
+      setFolders((prev) =>
+        prev.map((f) => (f.id === folder.id ? { ...f, shared_with_client: value } : f))
+      );
+
+    mark(shared);
+
+    const { error: e } = await supabase
+      .from("note_folders")
+      .update({ shared_with_client: shared })
+      .eq("id", folder.id);
+
+    if (e) {
+      mark(folder.shared_with_client);
+      fail(e.message);
+    }
   }
 
   async function renameFolder(folder: NoteFolder) {
@@ -603,9 +654,49 @@ export function NotesWorkspace({
                   lineHeight: 1.5,
                 }}
               >
-                Just a label for you — connecting a folder does not show these
-                notes to the client or to anyone else.
+                {canShare
+                  ? "Connecting is just a label — it shows these notes to nobody. Tick the box below if you want the client to read them."
+                  : "Just a label for you — connecting a folder does not show these notes to the client or to anyone else."}
               </span>
+
+              {/* The share itself. Only offered once a client is
+                  connected, because there is otherwise nobody for it
+                  to mean anything about — and 0040 refuses the row
+                  outright in that state. */}
+              {canShare && currentFolder.client_id && (
+                <label
+                  style={{
+                    flexBasis: "100%",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 9,
+                    marginTop: 2,
+                    paddingTop: 10,
+                    borderTop: "1px solid var(--border)",
+                    fontFamily: "var(--font-body)",
+                    fontSize: 12.5,
+                    lineHeight: 1.55,
+                    color: "var(--text-2)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={currentFolder.shared_with_client}
+                    onChange={(e) => setFolderShared(currentFolder, e.target.checked)}
+                    style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0 }}
+                  />
+                  <span>
+                    Let {clientNameById.get(currentFolder.client_id) ?? "this client"} read these notes in
+                    their portal
+                    <span style={{ display: "block", fontSize: 11.5, color: "var(--text-3)", marginTop: 2 }}>
+                      {currentFolder.shared_with_client
+                        ? "They can read this folder and anything filed inside it. They cannot edit, delete or tick anything off, and nothing else in your notes is visible to them."
+                        : "They would see this folder and anything filed inside it, read-only. Nothing else in your notes."}
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
           )}
         </div>
@@ -808,6 +899,7 @@ function FolderBar({
               folder
               colour={f.color}
               clientName={f.client_id ? clientNameById.get(f.client_id) ?? null : null}
+              shared={f.shared_with_client}
             />
             {rich && (
               <>
@@ -845,7 +937,10 @@ function FolderBar({
                 onClick={() => onSelect(child.id)}
                 folder
                 colour={child.color}
+                // A subfolder of a shared folder is shared too (0040),
+                // so it is marked that way rather than looking private.
                 clientName={child.client_id ? clientNameById.get(child.client_id) ?? null : null}
+                shared={child.shared_with_client || f.shared_with_client}
               />
               {rich && (
                 <IconBtn
@@ -992,6 +1087,7 @@ function Chip({
   folder = false,
   colour = null,
   clientName = null,
+  shared = false,
 }: {
   label: string;
   count: number;
@@ -1001,6 +1097,8 @@ function Chip({
   colour?: NoteColour | null;
   /** Shown after the name when the folder is connected to a client. */
   clientName?: string | null;
+  /** The connected client can read this folder (0040). */
+  shared?: boolean;
 }) {
   return (
     <button
@@ -1032,6 +1130,16 @@ function Chip({
           }}
         >
           · {clientName}
+        </span>
+      )}
+      {/* Worth seeing without opening the folder: it is the one thing
+          here that somebody outside the business can read. */}
+      {shared && (
+        <span
+          title="This client can read these notes"
+          style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.06em", opacity: 0.75 }}
+        >
+          SHARED
         </span>
       )}
       <span style={{ opacity: 0.6 }}>{count}</span>

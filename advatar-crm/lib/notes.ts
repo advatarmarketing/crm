@@ -31,13 +31,23 @@ export interface NoteFolder {
   /**
    * The client this folder is about, or null (0038).
    *
-   * A label on your own folder, not a share: note_folders is still
-   * owner-only, so connecting a folder to a client shows it to
-   * nobody — not the client, not whoever runs that client, not the
-   * CEO. Two people may each keep their own folder for the same
-   * client.
+   * A label on your own folder, not a share: connecting a folder to
+   * a client shows it to nobody. Sharing is the separate, explicit
+   * tick below. Two people may each keep their own folder for the
+   * same client.
    */
   client_id: string | null;
+  /**
+   * Ticked, the connected client's login can READ the notes in this
+   * folder, and in any folder inside it, from their portal (0040).
+   *
+   * The one exception to owner-only in the whole notebook. It is off
+   * until somebody ticks it for that one folder, it cannot be ticked
+   * on a folder with no client, and it never lets the client change
+   * anything. False on a database that has not run 0040 — which is
+   * also what it means there.
+   */
+  shared_with_client: boolean;
 }
 
 export interface NoteItem {
@@ -83,6 +93,12 @@ export interface Notebook {
    * about?" control is then hidden rather than offered and refused.
    */
   clientLinkAvailable: boolean;
+  /**
+   * False when 0040 has not been run. The "let them see these notes"
+   * tick is then hidden rather than offered and refused, and nothing
+   * is shared with anybody.
+   */
+  shareAvailable: boolean;
   folders: NoteFolder[];
   notes: Note[];
 }
@@ -93,27 +109,36 @@ function isMissingTable(error: { code?: string } | null | undefined): boolean {
 }
 
 /**
- * Everything in the signed-in person's notebook.
+ * Everything in the signed-in person's OWN notebook.
  *
- * No owner filter, and none needed: every policy on these three tables
- * is "owner only" (0032), so the database returns this person's rows
- * and nobody else's whoever is asking — the CEO included. Filtering
- * here as well would suggest the filter is what keeps notes private,
- * and it is not.
+ * `ownerId` is not what keeps notes private — RLS is, and it always
+ * was. It is here because 0040 added one deliberate exception to
+ * owner-only: a client can read a folder that has been shared with
+ * them. Without this filter those folders would arrive mixed into
+ * that client's own notebook, where every button would offer to edit
+ * notes the database will not let them touch. They belong in their
+ * own read-only section, which loadSharedNotes() below returns.
+ *
+ * Pass null to mean "whatever this session can see", which is what
+ * the team's pages always got.
  *
  * Notes come back most recently updated first, which is the order the
  * page shows them in. Folders come back alphabetically.
  */
-export async function loadNotebook(supabase: QueryableClient): Promise<Notebook> {
+export async function loadNotebook(
+  supabase: QueryableClient,
+  ownerId: string | null = null
+): Promise<Notebook> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mine = (query: any) => (ownerId ? query.eq("owner_id", ownerId) : query);
+
   const [folders, notes, items, extras] = await Promise.all([
-    supabase.from("note_folders").select("id, name, created_at").order("name"),
-    supabase
-      .from("notes")
-      .select("id, folder_id, title, body, created_at, updated_at")
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("note_checklist_items")
-      .select("id, note_id, text, done, position")
+    mine(supabase.from("note_folders").select("id, name, created_at")).order("name"),
+    mine(supabase.from("notes").select("id, folder_id, title, body, created_at, updated_at")).order(
+      "updated_at",
+      { ascending: false }
+    ),
+    mine(supabase.from("note_checklist_items").select("id, note_id, text, done, position"))
       .order("position")
       .order("created_at"),
     // 0035's columns, asked for separately and allowed to fail.
@@ -128,7 +153,14 @@ export async function loadNotebook(supabase: QueryableClient): Promise<Notebook>
   ]);
 
   if (isMissingTable(folders.error) || isMissingTable(notes.error) || isMissingTable(items.error)) {
-    return { available: false, richAvailable: false, clientLinkAvailable: false, folders: [], notes: [] };
+    return {
+      available: false,
+      richAvailable: false,
+      clientLinkAvailable: false,
+      shareAvailable: false,
+      folders: [],
+      notes: [],
+    };
   }
 
   const itemsByNote = new Map<string, NoteItem[]>();
@@ -142,11 +174,13 @@ export async function loadNotebook(supabase: QueryableClient): Promise<Notebook>
     available: true,
     richAvailable: extras.available,
     clientLinkAvailable: extras.clientLinkAvailable,
+    shareAvailable: extras.shareAvailable,
     folders: ((folders.data ?? []) as { id: string; name: string; created_at: string }[]).map((f) => ({
       ...f,
       parent_id: extras.folders.get(f.id)?.parent_id ?? null,
       color: extras.folders.get(f.id)?.color ?? null,
       client_id: extras.clientByFolder.get(f.id) ?? null,
+      shared_with_client: extras.sharedByFolder.get(f.id) ?? false,
     })),
     notes: (
       (notes.data ?? []) as Omit<Note, "items" | "color" | "body_format">[]
@@ -167,9 +201,12 @@ interface NoteExtras {
   available: boolean;
   /** False when note_folders.client_id is missing, i.e. 0038 is not run. */
   clientLinkAvailable: boolean;
+  /** False when note_folders.shared_with_client is missing, i.e. 0040 is not run. */
+  shareAvailable: boolean;
   folders: Map<string, { parent_id: string | null; color: NoteColour | null }>;
   notes: Map<string, { color: NoteColour | null; body_format: "plain" | "html" }>;
   clientByFolder: Map<string, string | null>;
+  sharedByFolder: Map<string, boolean>;
 }
 
 /** 0035's and 0038's columns, or empty maps where they do not exist. */
@@ -177,9 +214,11 @@ async function loadNoteExtras(supabase: QueryableClient): Promise<NoteExtras> {
   const empty: NoteExtras = {
     available: false,
     clientLinkAvailable: false,
+    shareAvailable: false,
     folders: new Map(),
     notes: new Map(),
     clientByFolder: new Map(),
+    sharedByFolder: new Map(),
   };
 
   // 0038's column asked for on its own rather than added to the
@@ -188,18 +227,30 @@ async function loadNoteExtras(supabase: QueryableClient): Promise<NoteExtras> {
   // over one unknown column. Rolled in with 0035's, a database that
   // had run 0035 but not 0038 would lose its subfolders and colours
   // too — one missing column taking out a feature that is present.
-  const [f, n, c] = await Promise.all([
+  // 0040's column gets a query of its own for the same reason, one
+  // migration further on: a database with 0038 and not 0040 must
+  // keep its client connections rather than lose them to a column
+  // that is not there yet.
+  const [f, n, c, s] = await Promise.all([
     supabase.from("note_folders").select("id, parent_id, color"),
     supabase.from("notes").select("id, color, body_format"),
     supabase.from("note_folders").select("id, client_id"),
+    supabase.from("note_folders").select("id, shared_with_client"),
   ]);
 
   empty.available = !f.error && !n.error;
   empty.clientLinkAvailable = !c.error;
+  empty.shareAvailable = !s.error;
 
   if (!c.error) {
     for (const row of (c.data ?? []) as { id: string; client_id: string | null }[]) {
       empty.clientByFolder.set(row.id, row.client_id ?? null);
+    }
+  }
+
+  if (!s.error) {
+    for (const row of (s.data ?? []) as { id: string; shared_with_client: boolean | null }[]) {
+      empty.sharedByFolder.set(row.id, row.shared_with_client === true);
     }
   }
 
@@ -224,6 +275,90 @@ async function loadNoteExtras(supabase: QueryableClient): Promise<NoteExtras> {
   return empty;
 }
 
+export interface SharedNoteGroup {
+  folderId: string;
+  folderName: string;
+  notes: Note[];
+}
+
+/**
+ * The notes somebody at the agency has shared with this client
+ * (0040), grouped by the folder they are in.
+ *
+ * Read-only, and returned separately from the client's own notebook
+ * rather than mixed into it: these are somebody else's notes, shown
+ * because they were deliberately shared, and nothing about them is
+ * the client's to change.
+ *
+ * `viewerId` is what tells the two apart. Both sets come back from
+ * the same tables — the database decides which shared rows this
+ * client may see, and everything that is not theirs is, by
+ * definition, shared with them.
+ *
+ * Empty, never an error, on a database that has not run 0040: there
+ * is then no policy granting a client anything but their own rows,
+ * so the queries below simply return nothing.
+ */
+export async function loadSharedNotes(
+  supabase: QueryableClient,
+  viewerId: string
+): Promise<SharedNoteGroup[]> {
+  const [folders, notes, items, extras] = await Promise.all([
+    supabase.from("note_folders").select("id, name").neq("owner_id", viewerId).order("name"),
+    supabase
+      .from("notes")
+      .select("id, folder_id, title, body, created_at, updated_at")
+      .neq("owner_id", viewerId)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("note_checklist_items")
+      .select("id, note_id, text, done, position")
+      .neq("owner_id", viewerId)
+      .order("position"),
+    loadNoteExtras(supabase),
+  ]);
+
+  if (folders.error || notes.error) return [];
+
+  const itemsByNote = new Map<string, NoteItem[]>();
+  for (const item of (items.data ?? []) as NoteItem[]) {
+    const list = itemsByNote.get(item.note_id) ?? [];
+    list.push(item);
+    itemsByNote.set(item.note_id, list);
+  }
+
+  const names = new Map(
+    ((folders.data ?? []) as { id: string; name: string }[]).map((f) => [f.id, f.name])
+  );
+
+  const byFolder = new Map<string, Note[]>();
+  for (const row of (notes.data ?? []) as Omit<Note, "items" | "color" | "body_format">[]) {
+    // A shared note always sits in a folder — that is what made it
+    // shared. Anything else here would be a row the policy should
+    // not have returned, so it is dropped rather than displayed.
+    if (!row.folder_id || !names.has(row.folder_id)) continue;
+
+    const note: Note = {
+      ...row,
+      items: itemsByNote.get(row.id) ?? [],
+      color: extras.notes.get(row.id)?.color ?? null,
+      body_format: extras.notes.get(row.id)?.body_format ?? "plain",
+    };
+
+    const list = byFolder.get(row.folder_id) ?? [];
+    list.push(note);
+    byFolder.set(row.folder_id, list);
+  }
+
+  return [...byFolder.entries()]
+    .map(([folderId, folderNotes]) => ({
+      folderId,
+      folderName: names.get(folderId) ?? "Shared notes",
+      notes: folderNotes,
+    }))
+    .sort((a, b) => a.folderName.localeCompare(b.folderName));
+}
+
 export interface NoteTodo {
   id: string;
   note_id: string;
@@ -244,15 +379,27 @@ export interface NoteTodo {
  * this when someone is looking at their OWN list, but even if it asked
  * while a manager was viewing a colleague's, it would get the
  * manager's items back, not the colleague's.
+ *
+ * `ownerId` is the same safeguard loadNotebook() takes, for the same
+ * reason: since 0040 a client can read the to-do items inside a note
+ * shared with them, and the agency's working list has no business
+ * appearing on the client's own To-do tab. Pass null for the
+ * behaviour the team's pages always had.
  */
-export async function loadNoteTodos(supabase: QueryableClient): Promise<NoteTodo[]> {
+export async function loadNoteTodos(
+  supabase: QueryableClient,
+  ownerId: string | null = null
+): Promise<NoteTodo[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mine = (query: any) => (ownerId ? query.eq("owner_id", ownerId) : query);
+
   const [items, notes] = await Promise.all([
-    supabase
-      .from("note_checklist_items")
-      .select("id, note_id, text, done, position")
+    mine(supabase.from("note_checklist_items").select("id, note_id, text, done, position"))
       .order("position")
       .order("created_at"),
-    supabase.from("notes").select("id, title, updated_at").order("updated_at", { ascending: false }),
+    mine(supabase.from("notes").select("id, title, updated_at")).order("updated_at", {
+      ascending: false,
+    }),
   ]);
 
   if (items.error || notes.error) return [];

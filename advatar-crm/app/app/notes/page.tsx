@@ -31,7 +31,7 @@ export default async function NotesPage({ searchParams }: { searchParams: { note
   // are assigned, the CEO gets all of them. An empty list simply
   // means the control has nothing to offer and hides itself.
   const [notebook, { data: clients }] = await Promise.all([
-    loadNotebook(supabase),
+    loadNotebook(supabase, user.id),
     supabase.from("clients").select("id, name").order("name"),
   ]);
 
