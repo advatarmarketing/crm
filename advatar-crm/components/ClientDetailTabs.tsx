@@ -17,6 +17,8 @@ import { FathomLinkPanel, type LinkedMeeting } from "./FathomLinkPanel";
 import { ActivityTimeline, type ActivityEntry } from "./ActivityTimeline";
 import { ClientCalendarPanel } from "./ClientCalendarPanel";
 import { OnboardingChecklist, type ChecklistItem, type TemplateOption } from "./OnboardingChecklist";
+import { CredentialsPanel } from "./CredentialsPanel";
+import type { CredentialSummary } from "@/app/app/clients/[id]/credential-actions";
 import type { Database } from "@/lib/supabase/types";
 
 type Client = Database["public"]["Tables"]["clients"]["Row"];
@@ -26,6 +28,11 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 const TABS = [
   { id: "info", label: "Info" },
   { id: "plan", label: "Content Plan" },
+  // Only rendered for the people 0039 lets near a login — management
+  // and assigned staff. A videographer who typed ?tab=passwords
+  // would land on Info, and would see an empty list even if they
+  // didn't, because the table is empty for them.
+  { id: "passwords", label: "Passwords" },
   // Sits beside the plan because it is the half of the plan that has
   // dates on it. The shooting schedule that used to be typed into the
   // content plan was removed in favour of this: a booking that can be
@@ -56,6 +63,12 @@ export function ClientDetailTabs({
   brandKit,
   teamMessages = [],
   currentUserId = null,
+  credentials = [],
+  canSeeCredentials = false,
+  credentialsAvailable = false,
+  credentialsKeyProblem = null,
+  suggestedCredentialsKey = "",
+  isCeo = false,
 }: {
   client: Client;
   documents: Document[];
@@ -88,6 +101,17 @@ export function ClientDetailTabs({
   checklist?: ChecklistItem[];
   /** Phase 17: task templates available to apply. */
   templates?: TemplateOption[];
+  /** 0039: this client's social media logins. Never the passwords
+   * themselves — only what each row is for, and whether a password is
+   * saved on it. */
+  credentials?: CredentialSummary[];
+  /** Management and assigned staff. False hides the tab outright. */
+  canSeeCredentials?: boolean;
+  /** False until database update 0039 has been run. */
+  credentialsAvailable?: boolean;
+  credentialsKeyProblem?: "missing" | "too-short" | null;
+  suggestedCredentialsKey?: string;
+  isCeo?: boolean;
   /** Phase 18: the client's payment agreement. CEO-only, so undefined for everyone else. */
   finance?: {
     monthly_value: number | null;
@@ -97,6 +121,8 @@ export function ClientDetailTabs({
   };
 }) {
   const [tab, setTab] = useState<TabId>(initialTab);
+
+  const tabs = TABS.filter((t) => t.id !== "passwords" || canSeeCredentials);
 
   return (
     <div>
@@ -121,7 +147,7 @@ export function ClientDetailTabs({
           scrollbarWidth: "none",
         }}
       >
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             role="tab"
@@ -241,6 +267,18 @@ export function ClientDetailTabs({
       {/* Mounted with the tab, like the planner above — its two
           queries are only worth making when somebody looks. */}
       {tab === "calendar" && <ClientCalendarPanel clientId={client.id} />}
+
+      {tab === "passwords" && canSeeCredentials && (
+        <CredentialsPanel
+          clientId={client.id}
+          clientName={client.name}
+          initial={credentials}
+          available={credentialsAvailable}
+          keyProblem={credentialsKeyProblem}
+          suggestedKey={suggestedCredentialsKey}
+          isCeo={isCeo}
+        />
+      )}
 
       {tab === "activity" && (
         <div style={{ maxWidth: 720 }}>

@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ClientDetailTabs } from "@/components/ClientDetailTabs";
+import { credentialsKeyProblem, currentKeyId, suggestKey } from "@/lib/credentials";
+import type { CredentialSummary } from "./credential-actions";
 import type { AssignedTeamMember, AssignableProfile } from "@/components/AssignedTeamPanel";
 import type { BrandKit } from "@/components/BrandKitPanel";
 import type { TeamMessage } from "@/components/ClientTeamThread";
@@ -33,6 +35,7 @@ export default async function ClientDetailPage({
     { data: brandKit },
     { data: teamMessages },
     { data: allProfiles },
+    { data: credentialRows, error: credentialsError },
   ] = await Promise.all([
       supabase.from("clients").select("*").eq("id", params.id).single(),
       supabase
@@ -117,6 +120,20 @@ export default async function ClientDetailPage({
       // staff and videographers, and a CEO or ops manager posting here
       // would otherwise show as "Someone".
       supabase.from("profiles").select("id, full_name, role"),
+      // 0039. Its own query rather than part of anything above, so
+      // that a database where 0039 has not been run yet reports
+      // "Passwords aren't switched on" on that one tab instead of
+      // taking the whole client page down with it.
+      //
+      // The ciphertext is selected but never passed on: the page
+      // needs to know whether a password is saved and which key it
+      // was saved with, and the browser needs neither the password
+      // nor its encrypted form. See the mapping below.
+      supabase
+        .from("client_credentials")
+        .select("id, platform, label, username, url, secret_cipher, notes_cipher, key_id, updated_at")
+        .eq("client_id", params.id)
+        .order("platform"),
     ]);
 
   // A missing client here means either it doesn't exist, or RLS
@@ -187,6 +204,44 @@ export default async function ClientDetailPage({
 
   const canAssign = callerRole === "ceo" || callerRole === "operations_manager";
 
+  // Mirrors client_credentials' policies in 0039. The database is
+  // what actually enforces this — a videographer gets an empty list
+  // and a refused write whatever this says — but there is no sense
+  // showing somebody a tab that will always be empty for them.
+  const canSeeCredentials =
+    callerRole === "ceo" || callerRole === "operations_manager" || callerRole === "staff";
+
+  const keyId = currentKeyId();
+
+  const credentials: CredentialSummary[] = (
+    (credentialRows ?? []) as unknown as {
+      id: string;
+      platform: string;
+      label: string | null;
+      username: string | null;
+      url: string | null;
+      secret_cipher: string | null;
+      notes_cipher: string | null;
+      key_id: string | null;
+      updated_at: string;
+    }[]
+  ).map((row) => ({
+    id: row.id,
+    platform: row.platform,
+    label: row.label,
+    username: row.username,
+    url: row.url,
+    hasPassword: Boolean(row.secret_cipher),
+    hasNotes: Boolean(row.notes_cipher),
+    // Saved under a key that is no longer the one in Vercel, so it
+    // cannot be unlocked and needs typing in again. Only worth
+    // flagging when there is something to unlock.
+    staleKey: Boolean(
+      (row.secret_cipher || row.notes_cipher) && keyId && row.key_id && row.key_id !== keyId
+    ),
+    updatedAt: row.updated_at,
+  }));
+
   const assignableHere =
     callerRole === "ceo"
       ? assignable
@@ -207,7 +262,8 @@ export default async function ClientDetailPage({
         initialTab={
           searchParams?.tab === "plan" ||
           searchParams?.tab === "calendar" ||
-          searchParams?.tab === "activity"
+          searchParams?.tab === "activity" ||
+          (searchParams?.tab === "passwords" && canSeeCredentials)
             ? searchParams.tab
             : "info"
         }
@@ -223,6 +279,15 @@ export default async function ClientDetailPage({
         brandKit={(brandKit as BrandKit | null) ?? null}
         teamMessages={teamThread}
         currentUserId={user?.id ?? null}
+        credentials={credentials}
+        canSeeCredentials={canSeeCredentials}
+        credentialsAvailable={!credentialsError}
+        credentialsKeyProblem={credentialsKeyProblem()}
+        // Generated per request and only used when there is no key
+        // yet — it is a suggestion to paste into Vercel, not a key
+        // this page has stored anywhere.
+        suggestedCredentialsKey={suggestKey()}
+        isCeo={callerRole === "ceo"}
       />
     </main>
   );
