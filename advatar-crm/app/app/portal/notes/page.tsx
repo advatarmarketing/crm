@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { loadNotebook } from "@/lib/notes";
+import { loadNotebook, loadSharedNotes } from "@/lib/notes";
 import { NotesWorkspace } from "@/components/notes/NotesWorkspace";
+import { SharedNotes } from "@/components/notes/SharedNotes";
 import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
@@ -27,11 +28,24 @@ export default async function PortalNotesPage({ searchParams }: { searchParams: 
 
   if (!user) redirect("/login");
 
-  const notebook = await loadNotebook(supabase);
+  // Two sets, loaded apart and shown apart: what the team has shared
+  // with this client (0040, read-only) and the client's own notebook
+  // (theirs alone, as it always was). Mixing them would put edit and
+  // delete buttons on notes the database will not let them touch.
+  const [notebook, shared] = await Promise.all([
+    loadNotebook(supabase, user.id),
+    loadSharedNotes(supabase, user.id),
+  ]);
 
   return (
     <main className="page page-md">
       <h1 className="page-title page-title-accent">Notes</h1>
+
+      <SharedNotes groups={shared} />
+
+      {shared.length > 0 && notebook.available && (
+        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Your notes</h2>
+      )}
 
       {notebook.available ? (
         <NotesWorkspace initial={notebook} openNoteId={searchParams.note ?? null} todoHref="/app/portal/todo" />

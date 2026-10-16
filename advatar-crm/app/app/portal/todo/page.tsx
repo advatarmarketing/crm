@@ -67,7 +67,10 @@ export default async function PortalTodoPage() {
   // list above, these ARE theirs to tick: the rows are owned by this
   // login, so the owner-only policy that keeps them private is also
   // what lets the client change them. Empty until 0032 is run.
-  const noteTodos = await loadNoteTodos(supabase);
+  // Filtered to this login's own items: since 0040 a client can
+  // read the to-do list inside a note the agency shared with them,
+  // and the agency's working list is not the client's to-do list.
+  const noteTodos = await loadNoteTodos(supabase, user.id);
 
   return (
     <main className="page">

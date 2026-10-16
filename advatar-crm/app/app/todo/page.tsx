@@ -103,7 +103,7 @@ export default async function TodoPage({ searchParams }: { searchParams: { perso
   // viewing a colleague's list or everyone's does not see these — and
   // could not if they tried, because every note policy is owner-only.
   // Empty rather than an error when 0032 has not been run yet.
-  const noteTodos = !everyone && !lookingAtSomeoneElse ? await loadNoteTodos(supabase) : [];
+  const noteTodos = !everyone && !lookingAtSomeoneElse ? await loadNoteTodos(supabase, user.id) : [];
   const whose = lookingAtSomeoneElse ? personNameById.get(selectedPerson) ?? "them" : null;
 
   // Clients and staff can only link through to a client page that

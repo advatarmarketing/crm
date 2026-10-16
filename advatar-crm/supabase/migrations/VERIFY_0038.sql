@@ -36,11 +36,17 @@ select '4. one folder per client, per person' as check,
            and indexname = 'note_folders_owner_one_per_client'
        ) then 'OK' else 'PROBLEM - the index is missing, or 0038 did not run' end as result;
 
+-- 0040 added the one deliberate exception to owner-only: a folder
+-- you have connected to a client and then ticked as shared can be
+-- READ by that client. It is named here so this check keeps failing
+-- for anything else, which is what it is for. VERIFY_0040 checks
+-- that policy itself — that it is read-only, and off by default.
 select '5. notes are still private' as check,
        case when (
          select count(*) from pg_policies
          where schemaname = 'public' and tablename = 'note_folders'
            and coalesce(qual, '') not like '%owner_id%'
+           and policyname <> 'note_folders: client reads shared'
        ) = 0 then 'OK'
        else 'PROBLEM - a policy on note_folders does not check the owner' end as result;
 
