@@ -1,0 +1,1 @@
+alter table public.note_folders add column if not exists client_id uuid references public.clients(id) on delete set null; create unique index if not exists note_folders_owner_one_per_client on public.note_folders (owner_id, client_id) where client_id is not null;
