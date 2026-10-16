@@ -34,6 +34,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/notes", label: "Notes", icon: "notes" },
     { href: "/app/clients", label: "Clients", icon: "clients" },
+    { href: "/app/passwords", label: "Passwords", icon: "password" },
     { href: "/app/uploads", label: "Uploads", icon: "uploads" },
     { href: "/app/videographers", label: "Videographers", icon: "videographers" },
     { href: "/app/leads", label: "Leads", icon: "leads" },
@@ -64,6 +65,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/notes", label: "Notes", icon: "notes" },
     { href: "/app/clients", label: "Clients", icon: "clients" },
+    { href: "/app/passwords", label: "Passwords", icon: "password" },
     { href: "/app/uploads", label: "Uploads", icon: "uploads" },
     { href: "/app/videographers", label: "Videographers", icon: "videographers" },
     { href: "/app/leads", label: "Leads", icon: "leads" },
@@ -88,6 +90,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/notes", label: "Notes", icon: "notes" },
     { href: "/app/clients", label: "Clients", icon: "clients" },
+    { href: "/app/passwords", label: "Passwords", icon: "password" },
     { href: "/app/uploads", label: "Uploads", icon: "uploads" },
     { href: "/app/leads", label: "Leads", icon: "leads" },
     { href: "/app/tools", label: "Tools", icon: "tools" },
@@ -104,6 +107,9 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/todo", label: "To-do", icon: "todo" },
     { href: "/app/notes", label: "Notes", icon: "notes" },
     { href: "/app/my-work", label: "My Work", icon: "work" },
+    // No Passwords here, deliberately: 0039 gives videographers no
+    // access to client_credentials at all, so the tab would open on
+    // an empty list. Middleware blocks the route for them too.
     { href: "/app/uploads", label: "Uploads", icon: "uploads" },
     { href: "/app/my-clients", label: "My Clients", icon: "clients" },
     { href: "/app/tools", label: "Tools", icon: "tools" },

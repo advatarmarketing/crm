@@ -171,6 +171,7 @@ export async function saveCredentialAction(input: CredentialInput): Promise<Save
     });
 
     revalidatePath(`/app/clients/${input.clientId}`);
+    revalidatePath(`/app/passwords/${input.clientId}`);
     return { error: null, id: existingId };
   }
 
@@ -190,6 +191,7 @@ export async function saveCredentialAction(input: CredentialInput): Promise<Save
   });
 
   revalidatePath(`/app/clients/${input.clientId}`);
+  revalidatePath(`/app/passwords/${input.clientId}`);
   return { error: null, id: (data as { id: string }).id };
 }
 
@@ -225,6 +227,7 @@ export async function deleteCredentialAction(
   });
 
   revalidatePath(`/app/clients/${clientId}`);
+  revalidatePath(`/app/passwords/${clientId}`);
   return { error: null };
 }
 

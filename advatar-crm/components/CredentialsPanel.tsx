@@ -590,7 +590,7 @@ export function CredentialsPanel({
  * "generate 32 random characters" is not a reasonable thing to ask
  * of somebody who just wants the Instagram login saved.
  */
-function KeyWarning({
+export function KeyWarning({
   problem,
   suggestedKey,
   isCeo,
