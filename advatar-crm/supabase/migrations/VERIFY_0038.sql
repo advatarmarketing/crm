@@ -1,0 +1,72 @@
+-- VERIFY 0038 — run this after 0038_note_folder_client.sql.
+--
+-- Safe to run BEFORE the migration too: every check reports rather
+-- than crashing. The data checks read the column through to_jsonb()
+-- instead of naming it, because Postgres resolves a column name when
+-- it reads the statement, long before any CASE could guard it.
+
+select '1. the column is there' as check,
+       case when exists (
+         select 1 from information_schema.columns
+         where table_schema = 'public' and table_name = 'note_folders' and column_name = 'client_id'
+       ) then 'OK' else 'PROBLEM - 0038 did not run' end as result;
+
+select '2. it points at a real client' as check,
+       case when exists (
+         select 1 from pg_constraint
+         where conrelid = to_regclass('public.note_folders')
+           and contype = 'f'
+           and confrelid = to_regclass('public.clients')
+       ) then 'OK' else 'PROBLEM - the link is missing, or 0038 did not run' end as result;
+
+select '3. closing a client keeps the folder' as check,
+       case when exists (
+         select 1 from pg_constraint
+         where conrelid = to_regclass('public.note_folders')
+           and contype = 'f'
+           and confrelid = to_regclass('public.clients')
+           and confdeltype = 'n'
+       ) then 'OK'
+       else 'PROBLEM - deleting a client would take the folder with it, or 0038 did not run' end as result;
+
+select '4. one folder per client, per person' as check,
+       case when exists (
+         select 1 from pg_indexes
+         where schemaname = 'public' and tablename = 'note_folders'
+           and indexname = 'note_folders_owner_one_per_client'
+       ) then 'OK' else 'PROBLEM - the index is missing, or 0038 did not run' end as result;
+
+select '5. notes are still private' as check,
+       case when (
+         select count(*) from pg_policies
+         where schemaname = 'public' and tablename = 'note_folders'
+           and coalesce(qual, '') not like '%owner_id%'
+       ) = 0 then 'OK'
+       else 'PROBLEM - a policy on note_folders does not check the owner' end as result;
+
+-- ------------------------------------------------------------------
+-- Below here reads your actual folders.
+-- ------------------------------------------------------------------
+
+select '6. nothing was lost' as check,
+       'you have ' || count(*) || ' folder(s), all still named' as result
+from public.note_folders f
+where coalesce(btrim(f.name), '') <> '';
+
+select '7. no folder points at a client that is gone' as check,
+       case when count(*) = 0 then 'OK'
+            else 'PROBLEM - ' || count(*) || ' folder(s) point at a missing client' end as result
+from public.note_folders f
+where to_jsonb(f) ->> 'client_id' is not null
+  and not exists (
+    select 1 from public.clients c where c.id = (to_jsonb(f) ->> 'client_id')::uuid
+  );
+
+select x.folder,
+       coalesce(x.client, '(not connected to a client)') as connected_to
+from (
+  select f.name as folder,
+         (select c.name from public.clients c where c.id = (to_jsonb(f) ->> 'client_id')::uuid) as client
+  from public.note_folders f
+) x
+order by (x.client is null), x.client, x.folder;

@@ -17,6 +17,7 @@ import {
   type Notebook,
 } from "@/lib/notes";
 import { RichNoteEditor, type RichNoteEditorHandle } from "./RichNoteEditor";
+import type { ClientChoice } from "@/components/SchedulePanel";
 
 /** "all" and "none" are views, not folders: every note, and notes in no folder. */
 type FolderView = "all" | "none" | string;
@@ -58,12 +59,22 @@ export function NotesWorkspace({
   initial,
   openNoteId = null,
   todoHref,
+  clients = [],
+  clientHrefBase = "/app/clients",
 }: {
   initial: Notebook;
   /** From ?note= — the To-do tab links straight to the note an item came from. */
   openNoteId?: string | null;
   /** Where this person's To-do tab lives: /app/todo, or /app/portal/todo for a client. */
   todoHref: string;
+  /**
+   * The clients a folder may be connected to (0038). Empty for a
+   * client's own notebook in the portal, which has nothing to connect
+   * a folder to, so the control never appears there.
+   */
+  clients?: ClientChoice[];
+  /** /app/clients, or /app/my-clients for a videographer. */
+  clientHrefBase?: string;
 }) {
   const supabase = useMemo(() => createClient(), []);
 
@@ -74,6 +85,17 @@ export function NotesWorkspace({
    * gets the notebook it had before and no broken buttons.
    */
   const rich = initial.richAvailable;
+
+  /**
+   * Whether 0038 has been run AND there is anything to connect to.
+   * Same reasoning as `rich`: hidden rather than offered and refused.
+   */
+  const canLinkClient = initial.clientLinkAvailable && clients.length > 0;
+
+  const clientNameById = useMemo(
+    () => new Map(clients.map((c) => [c.id, c.name])),
+    [clients]
+  );
 
   const [folders, setFolders] = useState<NoteFolder[]>(initial.folders);
   const [notes, setNotes] = useState<Note[]>(initial.notes);
@@ -168,6 +190,9 @@ export function NotesWorkspace({
       created_at: row.created_at,
       parent_id: row.parent_id ?? parentId,
       color: row.color ?? null,
+      // A brand new folder is connected to nobody; the control below
+      // is how it gets a client, not the create form.
+      client_id: null,
     };
     setFolders((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     setView(created.id);
@@ -183,6 +208,35 @@ export function NotesWorkspace({
       return;
     }
     setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, color } : f)));
+  }
+
+  /**
+   * Connects a folder to a client, or disconnects it.
+   *
+   * Only a label on your own folder: note_folders is owner-only
+   * (0032), and 0038 added no policy, so this shows the folder to
+   * nobody — not the client, not whoever runs that client.
+   */
+  async function setFolderClient(folder: NoteFolder, clientId: string | null) {
+    setError(null);
+    const { error: e } = await supabase
+      .from("note_folders")
+      .update({ client_id: clientId })
+      .eq("id", folder.id);
+
+    if (e) {
+      // 23505 here is the one-folder-per-client index (0038), which
+      // has a fix worth naming: the client is already on another of
+      // your folders.
+      fail(
+        e.code === "23505"
+          ? "Another of your folders is already connected to that client. Disconnect that one first."
+          : e.message
+      );
+      return;
+    }
+
+    setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, client_id: clientId } : f)));
   }
 
   async function renameFolder(folder: NoteFolder) {
@@ -462,16 +516,98 @@ export function NotesWorkspace({
         onCreate={createFolder}
         rich={rich}
         onColour={setFolderColour}
+        clientNameById={clientNameById}
       />
 
       {currentFolder && (
-        <div style={{ display: "flex", gap: 14, margin: "-6px 0 18px" }}>
-          <button type="button" onClick={() => renameFolder(currentFolder)} style={linkButton}>
-            Rename folder
-          </button>
-          <button type="button" onClick={() => deleteFolder(currentFolder)} style={{ ...linkButton, color: "var(--danger-fg)" }}>
-            Delete folder
-          </button>
+        <div style={{ margin: "-6px 0 18px" }}>
+          <div style={{ display: "flex", gap: 14 }}>
+            <button type="button" onClick={() => renameFolder(currentFolder)} style={linkButton}>
+              Rename folder
+            </button>
+            <button type="button" onClick={() => deleteFolder(currentFolder)} style={{ ...linkButton, color: "var(--danger-fg)" }}>
+              Delete folder
+            </button>
+          </div>
+
+          {/* Which client this folder is about. Sits with the folder's
+              other settings rather than in the folder list, because it
+              is something you set once and then read off the chip in
+              the list afterwards. */}
+          {canLinkClient && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                marginTop: 12,
+                padding: "9px 12px",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+              }}
+            >
+              <label
+                htmlFor="folderClient"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10.5,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: "var(--text-3)",
+                }}
+              >
+                Client
+              </label>
+
+              <select
+                id="folderClient"
+                value={currentFolder.client_id ?? ""}
+                onChange={(e) => setFolderClient(currentFolder, e.target.value || null)}
+                style={{
+                  flex: "1 1 180px",
+                  minWidth: 0,
+                  padding: "7px 9px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface-2)",
+                  color: "var(--text-1)",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 13,
+                }}
+              >
+                <option value="">Not connected to a client</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              {currentFolder.client_id && (
+                <Link
+                  href={`${clientHrefBase}/${currentFolder.client_id}`}
+                  style={{ ...linkButton, textDecoration: "none" }}
+                >
+                  Open their page →
+                </Link>
+              )}
+
+              <span
+                style={{
+                  flexBasis: "100%",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 11.5,
+                  color: "var(--text-3)",
+                  lineHeight: 1.5,
+                }}
+              >
+                Just a label for you — connecting a folder does not show these
+                notes to the client or to anyone else.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -585,6 +721,7 @@ function FolderBar({
   onSelect,
   onCreate,
   onColour,
+  clientNameById,
 }: {
   folders: NoteFolder[];
   notes: Note[];
@@ -594,6 +731,8 @@ function FolderBar({
   onSelect: (view: FolderView) => void;
   onCreate: (name: string, parentId: string | null) => Promise<boolean>;
   onColour: (folder: NoteFolder, color: NoteColour | null) => void;
+  /** Client names by id, for the chip. Empty when 0038 is not run. */
+  clientNameById: Map<string, string>;
 }) {
   /** null = not adding; "" = adding at the top level; an id = inside it. */
   const [addingIn, setAddingIn] = useState<string | null>(null);
@@ -668,6 +807,7 @@ function FolderBar({
               onClick={() => onSelect(f.id)}
               folder
               colour={f.color}
+              clientName={f.client_id ? clientNameById.get(f.client_id) ?? null : null}
             />
             {rich && (
               <>
@@ -705,6 +845,7 @@ function FolderBar({
                 onClick={() => onSelect(child.id)}
                 folder
                 colour={child.color}
+                clientName={child.client_id ? clientNameById.get(child.client_id) ?? null : null}
               />
               {rich && (
                 <IconBtn
@@ -850,6 +991,7 @@ function Chip({
   onClick,
   folder = false,
   colour = null,
+  clientName = null,
 }: {
   label: string;
   count: number;
@@ -857,6 +999,8 @@ function Chip({
   onClick: () => void;
   folder?: boolean;
   colour?: NoteColour | null;
+  /** Shown after the name when the folder is connected to a client. */
+  clientName?: string | null;
 }) {
   return (
     <button
@@ -873,6 +1017,23 @@ function Chip({
     >
       {colour ? <span className="note-dot" style={swatchVar(colour)} /> : folder && <FolderIcon />}
       <span style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      {/* Quieter than the folder's own name, because it is what the
+          folder is ABOUT rather than what it is called. */}
+      {clientName && (
+        <span
+          style={{
+            maxWidth: 130,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            opacity: 0.7,
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+          }}
+        >
+          · {clientName}
+        </span>
+      )}
       <span style={{ opacity: 0.6 }}>{count}</span>
     </button>
   );

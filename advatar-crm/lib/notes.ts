@@ -28,6 +28,16 @@ export interface NoteFolder {
   /** Null for a top-level folder. Folders go two levels deep (0035). */
   parent_id: string | null;
   color: NoteColour | null;
+  /**
+   * The client this folder is about, or null (0038).
+   *
+   * A label on your own folder, not a share: note_folders is still
+   * owner-only, so connecting a folder to a client shows it to
+   * nobody — not the client, not whoever runs that client, not the
+   * CEO. Two people may each keep their own folder for the same
+   * client.
+   */
+  client_id: string | null;
 }
 
 export interface NoteItem {
@@ -68,6 +78,11 @@ export interface Notebook {
    * rest of the notebook works exactly as it did before.
    */
   richAvailable: boolean;
+  /**
+   * False when 0038 has not been run. The "which client is this
+   * about?" control is then hidden rather than offered and refused.
+   */
+  clientLinkAvailable: boolean;
   folders: NoteFolder[];
   notes: Note[];
 }
@@ -113,7 +128,7 @@ export async function loadNotebook(supabase: QueryableClient): Promise<Notebook>
   ]);
 
   if (isMissingTable(folders.error) || isMissingTable(notes.error) || isMissingTable(items.error)) {
-    return { available: false, richAvailable: false, folders: [], notes: [] };
+    return { available: false, richAvailable: false, clientLinkAvailable: false, folders: [], notes: [] };
   }
 
   const itemsByNote = new Map<string, NoteItem[]>();
@@ -126,10 +141,12 @@ export async function loadNotebook(supabase: QueryableClient): Promise<Notebook>
   return {
     available: true,
     richAvailable: extras.available,
+    clientLinkAvailable: extras.clientLinkAvailable,
     folders: ((folders.data ?? []) as { id: string; name: string; created_at: string }[]).map((f) => ({
       ...f,
       parent_id: extras.folders.get(f.id)?.parent_id ?? null,
       color: extras.folders.get(f.id)?.color ?? null,
+      client_id: extras.clientByFolder.get(f.id) ?? null,
     })),
     notes: (
       (notes.data ?? []) as Omit<Note, "items" | "color" | "body_format">[]
@@ -148,20 +165,43 @@ export async function loadNotebook(supabase: QueryableClient): Promise<Notebook>
 interface NoteExtras {
   /** False when either column set is missing, i.e. 0035 is not run. */
   available: boolean;
+  /** False when note_folders.client_id is missing, i.e. 0038 is not run. */
+  clientLinkAvailable: boolean;
   folders: Map<string, { parent_id: string | null; color: NoteColour | null }>;
   notes: Map<string, { color: NoteColour | null; body_format: "plain" | "html" }>;
+  clientByFolder: Map<string, string | null>;
 }
 
-/** 0035's columns, or empty maps on a database that has not run it. */
+/** 0035's and 0038's columns, or empty maps where they do not exist. */
 async function loadNoteExtras(supabase: QueryableClient): Promise<NoteExtras> {
-  const empty: NoteExtras = { available: false, folders: new Map(), notes: new Map() };
+  const empty: NoteExtras = {
+    available: false,
+    clientLinkAvailable: false,
+    folders: new Map(),
+    notes: new Map(),
+    clientByFolder: new Map(),
+  };
 
-  const [f, n] = await Promise.all([
+  // 0038's column asked for on its own rather than added to the
+  // folders query beside it, for the same reason that query is
+  // separate from the main one: PostgREST rejects the WHOLE query
+  // over one unknown column. Rolled in with 0035's, a database that
+  // had run 0035 but not 0038 would lose its subfolders and colours
+  // too — one missing column taking out a feature that is present.
+  const [f, n, c] = await Promise.all([
     supabase.from("note_folders").select("id, parent_id, color"),
     supabase.from("notes").select("id, color, body_format"),
+    supabase.from("note_folders").select("id, client_id"),
   ]);
 
   empty.available = !f.error && !n.error;
+  empty.clientLinkAvailable = !c.error;
+
+  if (!c.error) {
+    for (const row of (c.data ?? []) as { id: string; client_id: string | null }[]) {
+      empty.clientByFolder.set(row.id, row.client_id ?? null);
+    }
+  }
 
   if (!f.error) {
     for (const row of (f.data ?? []) as { id: string; parent_id: string | null; color: string | null }[]) {
