@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ClientDetailTabs } from "@/components/ClientDetailTabs";
 import { credentialsKeyProblem, currentKeyId, suggestKey } from "@/lib/credentials";
 import type { CredentialSummary } from "./credential-actions";
+import { packageFromRow, type ClientPackage, type PackagePreset } from "@/lib/packages";
 import type { AssignedTeamMember, AssignableProfile } from "@/components/AssignedTeamPanel";
 import type { BrandKit } from "@/components/BrandKitPanel";
 import type { TeamMessage } from "@/components/ClientTeamThread";
@@ -36,6 +37,8 @@ export default async function ClientDetailPage({
     { data: teamMessages },
     { data: allProfiles },
     { data: credentialRows, error: credentialsError },
+    { data: packageRow, error: packageError },
+    { data: presetRows },
   ] = await Promise.all([
       supabase.from("clients").select("*").eq("id", params.id).single(),
       supabase
@@ -134,6 +137,11 @@ export default async function ClientDetailPage({
         .select("id, platform, label, username, url, secret_cipher, notes_cipher, key_id, updated_at")
         .eq("client_id", params.id)
         .order("platform"),
+      // 0041. Their own queries for the same reason: before the
+      // migration they fail, and only the Package tab says so.
+      supabase.from("client_packages").select("*").eq("client_id", params.id).maybeSingle(),
+      // Management only under RLS — empty for staff, who never edit.
+      supabase.from("package_presets").select("*").order("name"),
     ]);
 
   // A missing client here means either it doesn't exist, or RLS
@@ -242,6 +250,20 @@ export default async function ClientDetailPage({
     updatedAt: row.updated_at,
   }));
 
+  const clientPackage: ClientPackage | null = packageRow
+    ? {
+        ...packageFromRow(packageRow as Record<string, unknown>),
+        client_id: params.id,
+        preset_id: (packageRow as { preset_id?: string | null }).preset_id ?? null,
+        updated_at: (packageRow as { updated_at?: string | null }).updated_at ?? null,
+      }
+    : null;
+  const presets: PackagePreset[] = ((presetRows ?? []) as Record<string, unknown>[]).map((row) => ({
+    ...packageFromRow(row),
+    id: String(row.id),
+    name: String(row.name),
+  }));
+
   const assignableHere =
     callerRole === "ceo"
       ? assignable
@@ -263,6 +285,7 @@ export default async function ClientDetailPage({
           searchParams?.tab === "plan" ||
           searchParams?.tab === "calendar" ||
           searchParams?.tab === "activity" ||
+          searchParams?.tab === "package" ||
           (searchParams?.tab === "passwords" && canSeeCredentials)
             ? searchParams.tab
             : "info"
@@ -288,6 +311,12 @@ export default async function ClientDetailPage({
         // this page has stored anywhere.
         suggestedCredentialsKey={suggestKey()}
         isCeo={callerRole === "ceo"}
+        clientPackage={clientPackage}
+        packagePresets={presets}
+        packageAvailable={!packageError}
+        // The database decides (0041: CEO, or an operations manager
+        // on this client); this only avoids drawing refused controls.
+        canEditPackage={canAssign}
       />
     </main>
   );

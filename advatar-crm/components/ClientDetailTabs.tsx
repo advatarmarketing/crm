@@ -18,6 +18,8 @@ import { ActivityTimeline, type ActivityEntry } from "./ActivityTimeline";
 import { ClientCalendarPanel } from "./ClientCalendarPanel";
 import { OnboardingChecklist, type ChecklistItem, type TemplateOption } from "./OnboardingChecklist";
 import { CredentialsPanel } from "./CredentialsPanel";
+import { PackagePanel } from "./PackagePanel";
+import type { ClientPackage, PackagePreset } from "@/lib/packages";
 import type { CredentialSummary } from "@/app/app/clients/[id]/credential-actions";
 import type { Database } from "@/lib/supabase/types";
 
@@ -27,6 +29,10 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 const TABS = [
   { id: "info", label: "Info" },
+  // 0041: what this client gets and when we post. Everything the
+  // client later sees — review buttons, extras, the video schedule —
+  // is decided from here.
+  { id: "package", label: "Package" },
   { id: "plan", label: "Content Plan" },
   // Only rendered for the people 0039 lets near a login — management
   // and assigned staff. A videographer who typed ?tab=passwords
@@ -69,6 +75,10 @@ export function ClientDetailTabs({
   credentialsKeyProblem = null,
   suggestedCredentialsKey = "",
   isCeo = false,
+  clientPackage = null,
+  packagePresets = [],
+  packageAvailable = false,
+  canEditPackage = false,
 }: {
   client: Client;
   documents: Document[];
@@ -112,6 +122,12 @@ export function ClientDetailTabs({
   credentialsKeyProblem?: "missing" | "too-short" | null;
   suggestedCredentialsKey?: string;
   isCeo?: boolean;
+  /** 0041: null when nobody has set this client's package yet. */
+  clientPackage?: ClientPackage | null;
+  packagePresets?: PackagePreset[];
+  /** False until database update 0041 has been run. */
+  packageAvailable?: boolean;
+  canEditPackage?: boolean;
   /** Phase 18: the client's payment agreement. CEO-only, so undefined for everyone else. */
   finance?: {
     monthly_value: number | null;
@@ -267,6 +283,17 @@ export function ClientDetailTabs({
       {/* Mounted with the tab, like the planner above — its two
           queries are only worth making when somebody looks. */}
       {tab === "calendar" && <ClientCalendarPanel clientId={client.id} />}
+
+      {tab === "package" && (
+        <PackagePanel
+          clientId={client.id}
+          clientName={client.name}
+          initial={clientPackage}
+          presets={packagePresets}
+          available={packageAvailable}
+          editable={canEditPackage}
+        />
+      )}
 
       {tab === "passwords" && canSeeCredentials && (
         <CredentialsPanel

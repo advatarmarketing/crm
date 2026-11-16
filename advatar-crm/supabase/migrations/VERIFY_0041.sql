@@ -1,0 +1,75 @@
+-- VERIFY 0041 — run this after 0041_client_packages.sql.
+--
+-- Safe to run BEFORE the migration too: every check reports rather
+-- than crashing.
+
+select '1. the tables are there' as check,
+       case when to_regclass('public.client_packages') is not null
+             and to_regclass('public.package_presets') is not null
+            then 'OK' else 'PROBLEM - 0041 did not run' end as result;
+
+select '2. both tables are locked down' as check,
+       case when (
+         select count(*) from pg_class
+         where oid in (to_regclass('public.client_packages'), to_regclass('public.package_presets'))
+           and relrowsecurity
+       ) = 2 then 'OK' else 'PROBLEM - row level security is off, or 0041 did not run' end as result;
+
+select '3. only management can change a package' as check,
+       case when (
+         select count(*) from pg_policies
+         where schemaname = 'public' and tablename = 'client_packages'
+           and cmd <> 'SELECT'
+       ) = 1
+       and exists (
+         select 1 from pg_policies
+         where schemaname = 'public' and tablename = 'client_packages'
+           and policyname = 'client_packages: management'
+           and qual like '%can_manage_client%'
+       ) then 'OK' else 'PROBLEM - something other than management can change a package, or 0041 did not run' end as result;
+
+select '4. a client never sees the presets' as check,
+       case when to_regclass('public.package_presets') is not null and not exists (
+         select 1 from pg_policies
+         where schemaname = 'public' and tablename = 'package_presets'
+           and coalesce(qual, '') not like '%is_management%'
+       ) then 'OK' else 'PROBLEM - a preset policy is wider than management, or 0041 did not run' end as result;
+
+select '5. a client sees only their own package' as check,
+       case when exists (
+         select 1 from pg_policies
+         where schemaname = 'public' and tablename = 'client_packages'
+           and policyname = 'client_packages: client reads own'
+           and cmd = 'SELECT'
+           and qual like '%current_client_id%'
+       ) then 'OK' else 'PROBLEM - the client policy is missing or not limited to their own row' end as result;
+
+select '6. closing a client removes their package' as check,
+       case when exists (
+         select 1 from pg_constraint
+         where conrelid = to_regclass('public.client_packages')
+           and contype = 'f'
+           and confrelid = to_regclass('public.clients')
+           and confdeltype = 'c'
+       ) then 'OK' else 'PROBLEM - the link to clients is missing, or 0041 did not run' end as result;
+
+-- ------------------------------------------------------------------
+-- Below here reads your actual data. The tables are named inside a
+-- string so this still runs, and reports, before the migration.
+-- ------------------------------------------------------------------
+
+select '7. clients with a package set' as check,
+       case when to_regclass('public.client_packages') is null then 'not yet - 0041 did not run'
+            else (xpath('/row/n/text()', query_to_xml(
+                    'select count(*) as n from public.client_packages', false, true, '')))[1]::text
+                 || ' of '
+                 || (select count(*) from public.clients)::text
+                 || ' clients (the rest use the standard package until someone sets theirs)'
+       end as result;
+
+select '8. saved presets' as check,
+       case when to_regclass('public.package_presets') is null then 'not yet - 0041 did not run'
+            else (xpath('/row/n/text()', query_to_xml(
+                    'select count(*) as n from public.package_presets', false, true, '')))[1]::text
+                 || ' preset(s) saved'
+       end as result;
