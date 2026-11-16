@@ -1,6 +1,6 @@
 import { Sparkline } from "./Sparkline";
 
-export type StatTone = "neutral" | "ok" | "warn" | "danger" | "accent";
+export type StatTone = "neutral" | "ok" | "warn" | "danger" | "accent" | "info" | "violet";
 
 const TONE_FG: Record<StatTone, string> = {
   neutral: "var(--text-1)",
@@ -8,14 +8,29 @@ const TONE_FG: Record<StatTone, string> = {
   warn: "var(--warn-fg)",
   danger: "var(--danger-fg)",
   accent: "var(--accent)",
+  info: "var(--info-fg)",
+  violet: "var(--violet-fg)",
 };
 
 const TONE_RULE: Record<StatTone, string> = {
   neutral: "var(--border-2)",
-  ok: "var(--ok-fg)",
-  warn: "var(--warn-fg)",
-  danger: "var(--danger-fg)",
-  accent: "var(--accent)",
+  ok: "var(--grad-ok)",
+  warn: "var(--grad-warn)",
+  danger: "var(--grad-danger)",
+  accent: "var(--grad-accent)",
+  info: "var(--grad-info)",
+  violet: "var(--grad-violet)",
+};
+
+/** The corner tint behind a tile (see .stat-tile in globals.css). */
+const TONE_TINT: Record<StatTone, string> = {
+  neutral: "transparent",
+  ok: "var(--ok-bg)",
+  warn: "var(--warn-bg)",
+  danger: "var(--danger-bg)",
+  accent: "var(--accent-soft)",
+  info: "var(--info-bg)",
+  violet: "var(--violet-bg)",
 };
 
 /**
@@ -54,8 +69,9 @@ export function StatTile({
 
   return (
     <div
-      className="card card-pad"
+      className="card card-pad stat-tile"
       style={{
+        ["--tile-tint" as string]: TONE_TINT[tone],
         flex: "1 1 180px",
         minWidth: 170,
         display: "flex",
@@ -67,8 +83,8 @@ export function StatTile({
         aria-hidden="true"
         style={{
           display: "block",
-          width: tone === "neutral" ? 20 : 28,
-          height: 3,
+          width: tone === "neutral" ? 20 : 32,
+          height: 4,
           borderRadius: "var(--radius-pill)",
           background: TONE_RULE[tone],
           opacity: tone === "neutral" ? 0.5 : 1,

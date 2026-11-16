@@ -196,11 +196,11 @@ export function ClientVideoReview({
 
           {canApprove && decision !== "approved" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <button type="button" className="btn btn-primary" onClick={() => decide("approved")} disabled={busy}>
+              <button type="button" className="btn btn-ok" onClick={() => decide("approved")} disabled={busy}>
                 ✓ Approved — no changes needed
               </button>
               {canChange && !writing && (
-                <button type="button" className="btn" onClick={() => (knowsTime ? noteHere() : setWriting(true))} disabled={busy}>
+                <button type="button" className="btn btn-warn" onClick={() => (knowsTime ? noteHere() : setWriting(true))} disabled={busy}>
                   {knowsTime ? "⏸ Leave a note at this point" : "Ask for a change"}
                 </button>
               )}

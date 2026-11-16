@@ -16,82 +16,97 @@
    ================================================================= */
 
 :root {
-  --bg: #f5f5f3;
-  --surface: #ffffff;
-  --surface-2: #f0f0ee;
-  --surface-3: #e8e8e6;
-  --border: #e0e0de;
-  --border-2: #cacaca;
-  --text-1: #111111;
-  --text-2: #555555;
-  --text-3: #909090;
+  /* GLASS. --bg is the solid colour under everything (and the text
+     colour on dark buttons, so it must stay opaque). Surfaces are
+     translucent and sit on the soft colour wash drawn behind the page;
+     --pop is the nearly-solid version for anything that floats over
+     content (menus, dialogs), where see-through would hurt reading. */
+  --bg: #f3f3f8;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-2: rgba(22, 22, 48, 0.04);
+  --surface-3: rgba(22, 22, 48, 0.085);
+  --pop: rgba(255, 255, 255, 0.93);
+  --glass-hi: rgba(255, 255, 255, 0.9);
+  --border: rgba(22, 22, 48, 0.1);
+  --border-2: rgba(22, 22, 48, 0.2);
+  --text-1: #0e0e14;
+  --text-2: #43434f;
+  --text-3: #6b6b78;
   --text-on-accent: #ffffff;
+
+  --wash:
+    radial-gradient(60% 50% at 8% 0%, rgba(240, 190, 90, 0.3) 0%, transparent 70%),
+    radial-gradient(50% 45% at 95% 5%, rgba(96, 165, 250, 0.24) 0%, transparent 70%),
+    radial-gradient(55% 50% at 80% 100%, rgba(167, 139, 250, 0.22) 0%, transparent 70%),
+    radial-gradient(45% 45% at 0% 95%, rgba(45, 212, 191, 0.16) 0%, transparent 70%);
 
   --chrome-lo: #b8b8b8;
   --chrome-hi: #f5f5f5;
   --chrome-beam: linear-gradient(135deg, #e8e8e8 0%, #ffffff 45%, #a8a8a8 55%, #f0f0f0 100%);
   --chrome-text: linear-gradient(135deg, #6b6b6b 0%, #1a1a1a 40%, #6b6b6b 60%, #1a1a1a 100%);
 
-  --status-active: #4a7c59;
-  --status-warm: #8a6220;
-  --status-closed: #a64a4a;
+  --status-active: #15803d;
+  --status-warm: #a16207;
+  --status-closed: #b91c1c;
 
-  /* -----------------------------------------------------------------
-     SEMANTIC STATUS — foreground / tinted background / border.
-     Outline-only chips made every state look like the same grey
-     rectangle. A tinted fill lets a genuinely urgent row carry visual
-     weight while everything calm stays quiet, which is the whole point
-     of using colour at all.
-     ----------------------------------------------------------------- */
-  --ok-fg: #2f6b47;
-  --ok-bg: #e9f3ed;
-  --ok-border: #b7d5c3;
+  /* SEMANTIC COLOUR: foreground / tinted fill / border. One meaning
+     each, used the same way on every screen:
+       ok      done, approved, paid, active
+       warn    waiting on someone, due soon
+       danger  overdue, changes wanted, a problem
+       info    scheduled, in progress, for information
+       violet  video and creative work
+       accent  the brand gold: money, and the main action */
+  --ok-fg: #15803d;
+  --ok-bg: rgba(22, 163, 74, 0.12);
+  --ok-border: rgba(22, 163, 74, 0.32);
 
-  --warn-fg: #8a6220;
-  --warn-bg: #fbf2e0;
-  --warn-border: #e5d1a6;
+  --warn-fg: #a15c07;
+  --warn-bg: rgba(245, 158, 11, 0.16);
+  --warn-border: rgba(217, 119, 6, 0.36);
 
-  --danger-fg: #a13b3b;
-  --danger-bg: #fbebeb;
-  --danger-border: #edc2c2;
+  --danger-fg: #b91c1c;
+  --danger-bg: rgba(239, 68, 68, 0.11);
+  --danger-border: rgba(220, 38, 38, 0.32);
 
-  --info-fg: #3f6280;
-  --info-bg: #eaf1f7;
-  --info-border: #c0d5e4;
+  --info-fg: #1d4ed8;
+  --info-bg: rgba(59, 130, 246, 0.11);
+  --info-border: rgba(37, 99, 235, 0.3);
 
-  --neutral-fg: #5b5b5b;
-  --neutral-bg: #f0f0ee;
-  --neutral-border: #dcdcda;
+  --violet-fg: #6d28d9;
+  --violet-bg: rgba(139, 92, 246, 0.12);
+  --violet-border: rgba(124, 58, 237, 0.32);
 
-  /* Accent: one colour for what the eye should land on — the active
-     nav item, a focused field, a primary figure. Deliberately the only
-     saturated hue in the chrome, so it keeps meaning something. */
-  --accent: #8a6a1f;
-  --accent-hover: #6f5518;
+  --neutral-fg: #4d4d5a;
+  --neutral-bg: rgba(22, 22, 48, 0.055);
+  --neutral-border: rgba(22, 22, 48, 0.13);
+
+  --accent: #8f6400;
+  --accent-hover: #744f00;
   --accent-fg: #ffffff;
-  --accent-soft: rgba(138, 106, 31, 0.1);
-  --accent-ring: rgba(138, 106, 31, 0.35);
+  --accent-soft: rgba(224, 168, 62, 0.18);
+  --accent-ring: rgba(190, 135, 20, 0.45);
 
   /* Charts. Ordered by how distinguishable adjacent pairs are, since
      series are usually read two or three at a time. */
-  --chart-1: #c9884f;
-  --chart-2: #6b8aa6;
-  --chart-3: #8fa37f;
-  --chart-4: #9a6fa0;
-  --chart-5: #d4af6a;
-  --chart-6: #7a9ba8;
-  --chart-grid: rgba(17, 17, 17, 0.07);
-  --chart-track: #ececea;
+  --chart-1: #e08a2c;
+  --chart-2: #3b82f6;
+  --chart-3: #16a34a;
+  --chart-4: #8b5cf6;
+  --chart-5: #d9a520;
+  --chart-6: #0ea5a4;
+  --chart-grid: rgba(22, 22, 48, 0.08);
+  --chart-track: rgba(22, 22, 48, 0.08);
 
-  --overlay: rgba(0, 0, 0, 0.32);
-  --shadow-sm: 0 1px 2px rgba(17, 17, 17, 0.05), 0 1px 3px rgba(17, 17, 17, 0.04);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 12px 32px rgba(17, 17, 17, 0.1);
+  --overlay: rgba(20, 20, 40, 0.32);
+  --shadow-sm: 0 1px 2px rgba(22, 22, 48, 0.05), 0 6px 20px rgba(22, 22, 48, 0.06);
+  --shadow-md: 0 10px 30px rgba(22, 22, 48, 0.12);
+  --shadow-lg: 0 20px 50px rgba(22, 22, 48, 0.18);
 
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
   --radius-pill: 999px;
 
   /* Spacing scale. Every gap in the app should be one of these, so
@@ -105,142 +120,180 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  --font-display: "Bebas Neue", sans-serif;
-  --font-body: "DM Sans", sans-serif;
-  --font-mono: "Space Mono", monospace;
+  /* SF Pro on Apple devices, Helvetica where it exists, the system
+     sans everywhere else. Nothing is downloaded. The three names are
+     kept because every component asks for one of them: display is
+     headings and figures, mono is the small labels (no longer a
+     monospace face; see the attribute rules at the end of this file). */
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* One gradient per meaning. Used on bars, rules and the primary
+     button, never on text-bearing panels. */
+  --grad-accent: linear-gradient(135deg, #f5d37f 0%, #e0a83e 100%);
+  --grad-ok: linear-gradient(90deg, #34d399 0%, #22c1a7 100%);
+  --grad-warn: linear-gradient(90deg, #fbbf24 0%, #fb923c 100%);
+  --grad-danger: linear-gradient(90deg, #fb7185 0%, #ef4444 100%);
+  --grad-info: linear-gradient(90deg, #60a5fa 0%, #38bdf8 100%);
+  --grad-violet: linear-gradient(90deg, #a78bfa 0%, #e879f9 100%);
+  --on-grad-accent: #1d1503;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0e0e0e;
-    --surface: #181818;
-    --surface-2: #222222;
-    --surface-3: #2c2c2c;
-    --border: #2e2e2e;
-    --border-2: #3c3c3c;
-    --text-1: #f4f4f2;
-    --text-2: #9a9a9a;
-    --text-3: #5e5e5e;
-    --text-on-accent: #0e0e0e;
+    --bg: #0a0a10;
+    --surface: rgba(255, 255, 255, 0.07);
+    --surface-2: rgba(255, 255, 255, 0.07);
+    --surface-3: rgba(255, 255, 255, 0.12);
+    --pop: rgba(26, 26, 36, 0.92);
+    --glass-hi: rgba(255, 255, 255, 0.12);
+    --border: rgba(255, 255, 255, 0.13);
+    --border-2: rgba(255, 255, 255, 0.22);
+    --text-1: #f6f6f8;
+    --text-2: #bdbdc8;
+    --text-3: #8c8c99;
+    --text-on-accent: #0a0a10;
+
+    --wash:
+      radial-gradient(75% 60% at 5% 0%, rgba(232, 180, 80, 0.3) 0%, transparent 72%),
+      radial-gradient(65% 55% at 100% 0%, rgba(59, 130, 246, 0.26) 0%, transparent 72%),
+      radial-gradient(70% 60% at 85% 100%, rgba(139, 92, 246, 0.28) 0%, transparent 72%),
+      radial-gradient(60% 55% at 0% 100%, rgba(20, 184, 166, 0.2) 0%, transparent 72%);
 
     --chrome-lo: #3a3a3a;
     --chrome-hi: #6a6a6a;
     --chrome-beam: linear-gradient(135deg, #3a3a3a 0%, #6a6a6a 45%, #2a2a2a 55%, #4a4a4a 100%);
     --chrome-text: linear-gradient(135deg, #d4d4d4 0%, #8a8a8a 40%, #d4d4d4 60%, #8a8a8a 100%);
 
-    --status-active: #6fa07d;
-    --status-warm: #d0a256;
-    --status-closed: #cc7a7a;
+    --status-active: #4ade80;
+    --status-warm: #fbbf24;
+    --status-closed: #f87171;
 
-    /* Dark tints are near-black with a hue rather than a lightened
-       version of the light-mode fill — a pale green panel on a dark
-       page glows and pulls the eye harder than the content does. */
-    --ok-fg: #7cc194;
-    --ok-bg: #16271c;
-    --ok-border: #2b4433;
+    --ok-fg: #4ade80;
+    --ok-bg: rgba(74, 222, 128, 0.13);
+    --ok-border: rgba(74, 222, 128, 0.34);
 
-    --warn-fg: #e0b063;
-    --warn-bg: #292115;
-    --warn-border: #493820;
+    --warn-fg: #fbbf24;
+    --warn-bg: rgba(251, 191, 36, 0.13);
+    --warn-border: rgba(251, 191, 36, 0.36);
 
-    --danger-fg: #e28c8c;
-    --danger-bg: #2a1818;
-    --danger-border: #4b2b2b;
+    --danger-fg: #fb8585;
+    --danger-bg: rgba(248, 113, 113, 0.14);
+    --danger-border: rgba(248, 113, 113, 0.38);
 
-    --info-fg: #8fb6d6;
-    --info-bg: #15212b;
-    --info-border: #2a4054;
+    --info-fg: #7ab8ff;
+    --info-bg: rgba(96, 165, 250, 0.14);
+    --info-border: rgba(96, 165, 250, 0.36);
 
-    --neutral-fg: #9a9a9a;
-    --neutral-bg: #222222;
-    --neutral-border: #333333;
+    --violet-fg: #b9a2ff;
+    --violet-bg: rgba(167, 139, 250, 0.15);
+    --violet-border: rgba(167, 139, 250, 0.38);
 
-    --accent: #d4af6a;
-    --accent-hover: #e3c58c;
-    --accent-fg: #14100a;
-    --accent-soft: rgba(212, 175, 106, 0.14);
-    --accent-ring: rgba(212, 175, 106, 0.4);
+    --neutral-fg: #bdbdc8;
+    --neutral-bg: rgba(255, 255, 255, 0.07);
+    --neutral-border: rgba(255, 255, 255, 0.15);
 
-    --chart-1: #e0a06a;
-    --chart-2: #86a6c2;
-    --chart-3: #a5bb94;
-    --chart-4: #b489b9;
-    --chart-5: #e6c489;
-    --chart-6: #92b4c1;
-    --chart-grid: rgba(244, 244, 242, 0.08);
-    --chart-track: #2a2a2a;
+    --accent: #ecc266;
+    --accent-hover: #f5d48a;
+    --accent-fg: #1d1503;
+    --accent-soft: rgba(236, 194, 102, 0.15);
+    --accent-ring: rgba(236, 194, 102, 0.45);
 
-    --overlay: rgba(0, 0, 0, 0.6);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+    --chart-1: #fb923c;
+    --chart-2: #60a5fa;
+    --chart-3: #4ade80;
+    --chart-4: #a78bfa;
+    --chart-5: #ecc266;
+    --chart-6: #2dd4bf;
+    --chart-grid: rgba(255, 255, 255, 0.08);
+    --chart-track: rgba(255, 255, 255, 0.1);
+
+    --overlay: rgba(4, 4, 10, 0.62);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.22);
+    --shadow-md: 0 12px 34px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.6);
 
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #0e0e0e;
-  --surface: #181818;
-  --surface-2: #222222;
-  --surface-3: #2c2c2c;
-  --border: #2e2e2e;
-  --border-2: #3c3c3c;
-  --text-1: #f4f4f2;
-  --text-2: #9a9a9a;
-  --text-3: #5e5e5e;
-  --text-on-accent: #0e0e0e;
+  --bg: #0a0a10;
+  --surface: rgba(255, 255, 255, 0.07);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --surface-3: rgba(255, 255, 255, 0.12);
+  --pop: rgba(26, 26, 36, 0.92);
+  --glass-hi: rgba(255, 255, 255, 0.12);
+  --border: rgba(255, 255, 255, 0.13);
+  --border-2: rgba(255, 255, 255, 0.22);
+  --text-1: #f6f6f8;
+  --text-2: #bdbdc8;
+  --text-3: #8c8c99;
+  --text-on-accent: #0a0a10;
+
+  --wash:
+    radial-gradient(75% 60% at 5% 0%, rgba(232, 180, 80, 0.3) 0%, transparent 72%),
+    radial-gradient(65% 55% at 100% 0%, rgba(59, 130, 246, 0.26) 0%, transparent 72%),
+    radial-gradient(70% 60% at 85% 100%, rgba(139, 92, 246, 0.28) 0%, transparent 72%),
+    radial-gradient(60% 55% at 0% 100%, rgba(20, 184, 166, 0.2) 0%, transparent 72%);
 
   --chrome-lo: #3a3a3a;
   --chrome-hi: #6a6a6a;
   --chrome-beam: linear-gradient(135deg, #3a3a3a 0%, #6a6a6a 45%, #2a2a2a 55%, #4a4a4a 100%);
   --chrome-text: linear-gradient(135deg, #d4d4d4 0%, #8a8a8a 40%, #d4d4d4 60%, #8a8a8a 100%);
 
-  --status-active: #6fa07d;
-  --status-warm: #d0a256;
-  --status-closed: #cc7a7a;
+  --status-active: #4ade80;
+  --status-warm: #fbbf24;
+  --status-closed: #f87171;
 
-  --ok-fg: #7cc194;
-  --ok-bg: #16271c;
-  --ok-border: #2b4433;
+  --ok-fg: #4ade80;
+  --ok-bg: rgba(74, 222, 128, 0.13);
+  --ok-border: rgba(74, 222, 128, 0.34);
 
-  --warn-fg: #e0b063;
-  --warn-bg: #292115;
-  --warn-border: #493820;
+  --warn-fg: #fbbf24;
+  --warn-bg: rgba(251, 191, 36, 0.13);
+  --warn-border: rgba(251, 191, 36, 0.36);
 
-  --danger-fg: #e28c8c;
-  --danger-bg: #2a1818;
-  --danger-border: #4b2b2b;
+  --danger-fg: #fb8585;
+  --danger-bg: rgba(248, 113, 113, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.38);
 
-  --info-fg: #8fb6d6;
-  --info-bg: #15212b;
-  --info-border: #2a4054;
+  --info-fg: #7ab8ff;
+  --info-bg: rgba(96, 165, 250, 0.14);
+  --info-border: rgba(96, 165, 250, 0.36);
 
-  --neutral-fg: #9a9a9a;
-  --neutral-bg: #222222;
-  --neutral-border: #333333;
+  --violet-fg: #b9a2ff;
+  --violet-bg: rgba(167, 139, 250, 0.15);
+  --violet-border: rgba(167, 139, 250, 0.38);
 
-  --accent: #d4af6a;
-  --accent-hover: #e3c58c;
-  --accent-fg: #14100a;
-  --accent-soft: rgba(212, 175, 106, 0.14);
-  --accent-ring: rgba(212, 175, 106, 0.4);
+  --neutral-fg: #bdbdc8;
+  --neutral-bg: rgba(255, 255, 255, 0.07);
+  --neutral-border: rgba(255, 255, 255, 0.15);
 
-  --chart-1: #e0a06a;
-  --chart-2: #86a6c2;
-  --chart-3: #a5bb94;
-  --chart-4: #b489b9;
-  --chart-5: #e6c489;
-  --chart-6: #92b4c1;
-  --chart-grid: rgba(244, 244, 242, 0.08);
-  --chart-track: #2a2a2a;
+  --accent: #ecc266;
+  --accent-hover: #f5d48a;
+  --accent-fg: #1d1503;
+  --accent-soft: rgba(236, 194, 102, 0.15);
+  --accent-ring: rgba(236, 194, 102, 0.45);
 
-  --overlay: rgba(0, 0, 0, 0.6);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+  --chart-1: #fb923c;
+  --chart-2: #60a5fa;
+  --chart-3: #4ade80;
+  --chart-4: #a78bfa;
+  --chart-5: #ecc266;
+  --chart-6: #2dd4bf;
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-track: rgba(255, 255, 255, 0.1);
+
+  --overlay: rgba(4, 4, 10, 0.62);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 12px 34px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.6);
 
   color-scheme: dark;
 }
@@ -258,6 +311,27 @@ body {
   font-family: var(--font-body);
   /* Stops iOS Safari inflating text in landscape. */
   -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* The colour wash every glass surface sits on. Fixed, so it stays put
+   while the page scrolls over it, and painted once: no blur filter, no
+   animation, nothing for a phone to keep recomputing. */
+/* The wash sits behind the body, so the body itself must not paint
+   over it; the solid colour stays on <html>. */
+body {
+  background: transparent;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--wash);
+  pointer-events: none;
 }
 
 img {
@@ -293,6 +367,14 @@ textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-1);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+/* A see-through select would show its option list see-through too. */
+option,
+optgroup {
+  background: var(--bg);
+  color: var(--text-1);
 }
 
 input::placeholder,
@@ -312,8 +394,9 @@ textarea::placeholder {
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline-offset: 0;
+  outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -370,10 +453,11 @@ textarea:focus-visible {
 
 .page-title {
   font-family: var(--font-display);
-  font-size: 38px;
+  font-size: 34px;
+  font-weight: 700;
   margin: 0;
-  letter-spacing: 0.02em;
-  line-height: 1.05;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
 }
 
 /* A short accent rule under a page title. Cheap, but it stops every
@@ -382,9 +466,9 @@ textarea:focus-visible {
   content: "";
   display: block;
   width: 44px;
-  height: 3px;
+  height: 4px;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--grad-accent);
   margin-top: var(--space-3);
 }
 
@@ -406,7 +490,9 @@ textarea:focus-visible {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  /* The inset line is the lit top edge that makes a panel read as
+     glass rather than as a grey box. */
+  box-shadow: var(--shadow-sm), inset 0 1px 0 var(--glass-hi);
 }
 
 .card-pad {
@@ -424,13 +510,13 @@ textarea:focus-visible {
   display: block;
   text-decoration: none;
   color: inherit;
-  transition: box-shadow 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+  transition: box-shadow 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease), background 0.2s var(--ease);
 }
 
 .card-link:hover {
   border-color: var(--border-2);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-md), inset 0 1px 0 var(--glass-hi);
+  transform: translateY(-2px);
 }
 
 /* =================================================================
@@ -453,15 +539,17 @@ textarea:focus-visible {
 
 .section-title {
   font-family: var(--font-display);
-  font-size: 23px;
-  letter-spacing: 0.01em;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   margin: 0;
   color: var(--text-1);
 }
 
 .section-sub {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-3);
@@ -480,8 +568,9 @@ textarea:focus-visible {
   align-items: center;
   gap: var(--space-2);
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.05em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: var(--radius-pill);
@@ -515,6 +604,12 @@ textarea:focus-visible {
   color: var(--info-fg);
 }
 
+.pill-violet {
+  border-color: var(--violet-border);
+  background: var(--violet-bg);
+  color: var(--violet-fg);
+}
+
 .pill-accent {
   border-color: var(--accent-ring);
   background: var(--accent-soft);
@@ -537,7 +632,7 @@ textarea:focus-visible {
    ================================================================= */
 
 .meter {
-  height: 6px;
+  height: 8px;
   border-radius: var(--radius-pill);
   background: var(--chart-track);
   overflow: hidden;
@@ -546,20 +641,36 @@ textarea:focus-visible {
 .meter-fill {
   height: 100%;
   border-radius: var(--radius-pill);
-  background: var(--accent);
-  transition: width 0.3s ease;
+  background: var(--grad-accent);
+  transition: width 0.4s var(--ease);
+  transform-origin: left center;
+  animation: meter-grow 0.6s var(--ease) both;
+}
+
+@keyframes meter-grow {
+  from {
+    transform: scaleX(0);
+  }
 }
 
 .meter-fill-ok {
-  background: var(--ok-fg);
+  background: var(--grad-ok);
 }
 
 .meter-fill-warn {
-  background: var(--warn-fg);
+  background: var(--grad-warn);
 }
 
 .meter-fill-danger {
-  background: var(--danger-fg);
+  background: var(--grad-danger);
+}
+
+.meter-fill-info {
+  background: var(--grad-info);
+}
+
+.meter-fill-violet {
+  background: var(--grad-violet);
 }
 
 .row-2 {
@@ -596,20 +707,26 @@ textarea:focus-visible {
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0;
   text-decoration: none;
   cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease,
+    transform 0.12s ease, opacity 0.15s ease;
 }
 
 .btn:hover {
   border-color: var(--border-2);
   color: var(--text-1);
-  background: var(--surface-2);
+  background: var(--surface-3);
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .btn:disabled {
@@ -621,6 +738,7 @@ textarea:focus-visible {
   background: var(--text-1);
   border-color: var(--text-1);
   color: var(--bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
@@ -632,15 +750,18 @@ textarea:focus-visible {
 /* The one genuinely coloured button, for the single most important
    action on a screen. Used sparingly so it keeps its pull. */
 .btn-accent {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-fg);
+  background: var(--grad-accent);
+  border-color: transparent;
+  color: var(--on-grad-accent);
+  box-shadow: 0 6px 18px var(--accent-soft), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .btn-accent:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: var(--accent-fg);
+  background: var(--grad-accent);
+  border-color: transparent;
+  color: var(--on-grad-accent);
+  filter: brightness(1.06);
+  box-shadow: 0 8px 24px var(--accent-ring), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 @media (max-width: 700px) {
@@ -1129,7 +1250,7 @@ textarea:focus-visible {
   display: flex;
   justify-content: center;
   padding: 24px;
-  background: var(--bg);
+  background: transparent;
 
   /* 100vh on a phone is NOT what is on the screen: mobile Safari
      measures it against the viewport with the address bar and the
@@ -1904,7 +2025,7 @@ textarea:focus-visible {
 .onboard-steps li.now { color: var(--text-1); border-color: var(--text-1); }
 .onboard-steps li.now span { background: var(--text-1); color: var(--bg); }
 .onboard-steps li.done { color: var(--text-2); }
-.onboard-h { font-family: var(--font-display); font-size: 22px; margin: 0 0 6px; color: var(--text-1); }
+.onboard-h { font-family: var(--font-display); font-weight: 700; font-size: 22px; margin: 0 0 6px; color: var(--text-1); }
 .onboard-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
 .onboard-review { display: grid; gap: 12px; }
 .onboard-list { margin: 0; padding-left: 20px; font-family: var(--font-body); font-size: 14px; line-height: 1.7; color: var(--text-1); }
@@ -1914,3 +2035,286 @@ textarea:focus-visible {
 .todo-gaps { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .todo-gaps a, .todo-gaps span { display: inline-block; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; font-family: var(--font-body); font-size: 13px; color: var(--text-1); text-decoration: none; background: var(--surface-2); }
 .todo-gaps a:hover { border-color: var(--text-1); }
+
+
+/* =================================================================
+   GLASS, TYPE AND MOTION
+   Almost every component styles itself inline from the tokens at the
+   top of this file, so the look changes there. What is here is what a
+   token cannot say.
+   ================================================================= */
+
+/* Headings and figures. Components ask for the display face inline;
+   it used to be a condensed all-caps font, so none of them set a
+   weight. The attribute selector reaches them without touching two
+   hundred style props. */
+[style*="var(--font-display)"] {
+  font-weight: 700;
+  letter-spacing: -0.02em !important;
+}
+
+/* The small labels. Same reasoning: they were a monospace face. */
+[style*="var(--font-mono)"] {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+/* Anything that floats over content gets the nearly-solid surface and
+   real blur: this is where frosted glass earns its name, and where a
+   see-through panel would otherwise put text on top of text. Setting
+   the variable, rather than a background, lets each component keep
+   using var(--surface) and still come out right. */
+[role="dialog"],
+[role="menu"],
+[role="listbox"],
+.nav-panel,
+.glass-pop {
+  --surface: var(--pop);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+
+[role="dialog"] {
+  animation: fade-in 0.18s ease both;
+}
+
+[role="dialog"] > * {
+  animation: pop-in 0.22s var(--ease) both;
+}
+
+/* Bars that stay put while the page moves under them. */
+.glass-bar {
+  background: color-mix(in srgb, var(--bg) 62%, transparent) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  backdrop-filter: blur(22px) saturate(170%);
+}
+
+/* The main tabs. */
+.nav-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--text-3);
+  padding: 14px 12px;
+  transition: color 0.15s ease;
+}
+
+.nav-tab:hover {
+  color: var(--text-1);
+}
+
+.nav-tab::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--grad-accent);
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition: opacity 0.2s ease, transform 0.25s var(--ease);
+}
+
+.nav-tab[aria-current="page"] {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.nav-tab[aria-current="page"]::after {
+  opacity: 1;
+  transform: none;
+}
+
+/* A page arriving. Short enough that nobody waits for it. */
+.page-enter {
+  animation: rise-in 0.28s var(--ease);
+}
+
+/* Content swapped in place: a tab, a step, a panel. */
+.fade-in {
+  animation: fade-in 0.22s ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+
+/* Panels below the fold ease in as they are scrolled to. Set only by
+   components/ScrollReveal.tsx, and only on things that start off
+   screen, so with scripts off (or reduced motion on) nothing is ever
+   hidden. */
+[data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+[data-reveal="in"] {
+  transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
+}
+
+/* Stat tiles: a tint of the tile's own colour in one corner, so a row
+   of figures is told apart by colour before a label is read. */
+.stat-tile {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 100% 0%, var(--tile-tint, transparent) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.stat-tile > * {
+  position: relative;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal="pending"] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The one tab on the client's row that is a button: their videos. */
+.nav-feature {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--on-grad-accent);
+  background: var(--grad-accent);
+  border-radius: var(--radius-pill);
+  margin: 8px 6px;
+  padding: 7px 15px;
+  box-shadow: 0 4px 14px var(--accent-soft), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: box-shadow 0.2s ease, filter 0.15s ease;
+}
+
+.nav-feature:hover {
+  filter: brightness(1.06);
+}
+
+.nav-feature[data-active="true"] {
+  box-shadow: 0 0 0 3px var(--accent-ring), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.back-link:hover {
+  color: var(--text-1);
+}
+
+/* Buttons that say what they do by colour: green agrees, amber asks
+   for something back, red removes. */
+.btn-ok {
+  background: var(--grad-ok);
+  border-color: transparent;
+  color: #04261a;
+  box-shadow: 0 6px 18px var(--ok-bg), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn-ok:hover {
+  background: var(--grad-ok);
+  border-color: transparent;
+  color: #04261a;
+  filter: brightness(1.06);
+}
+
+.btn-warn {
+  background: var(--warn-bg);
+  border-color: var(--warn-border);
+  color: var(--warn-fg);
+}
+
+.btn-warn:hover {
+  background: var(--warn-bg);
+  border-color: var(--warn-fg);
+  color: var(--warn-fg);
+}
+
+.btn-danger {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger-fg);
+}
+
+.btn-danger:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger-fg);
+  color: var(--danger-fg);
+}
+
+/* Floating and pinned pieces styled in this file rather than inline. */
+.toast,
+.week-grid-head {
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+
+.toast {
+  background: var(--pop);
+}
+
+.week-grid-head {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.login-card,
+.enquire-card {
+  box-shadow: var(--shadow-lg), inset 0 1px 0 var(--glass-hi);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  animation: rise-in 0.4s var(--ease);
+}
+
+/* A plan section swapped in from its tab row. */
+.planner-doc section {
+  animation: fade-in 0.22s ease;
+}

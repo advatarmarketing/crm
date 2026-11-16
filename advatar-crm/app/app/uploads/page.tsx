@@ -93,7 +93,7 @@ export default async function UploadsPage({ searchParams }: { searchParams?: { c
       <MarkSectionSeen prefix="/app/uploads" />
 
       {allClientChoices.length > 1 && (
-        <Link href="/app/uploads" className="nav-back" style={{ display: "inline-block", marginBottom: 10 }}>
+        <Link href="/app/uploads" className="back-link">
           ← All clients
         </Link>
       )}
@@ -110,24 +110,24 @@ export default async function UploadsPage({ searchParams }: { searchParams?: { c
             <StatTile
               label="Awaiting review"
               value={String(awaiting)}
-              tone={awaiting > 0 ? "accent" : "neutral"}
+              tone={awaiting > 0 ? "warn" : "ok"}
               hint={awaiting > 0 ? "waiting on you" : "all caught up"}
             />
-            <StatTile label="With the videographer" value={String(needsChanges)} hint="changes requested" />
-            <StatTile label="Client comments" value={String(clientComments)} hint="across all videos" />
-            <StatTile label="Footage & assets" value={String(shownAssets.length)} hint="links and files" />
+            <StatTile label="With the videographer" value={String(needsChanges)} tone="info" hint="changes requested" />
+            <StatTile label="Client comments" value={String(clientComments)} tone="accent" hint="across all videos" />
+            <StatTile label="Footage & assets" value={String(shownAssets.length)} tone="violet" hint="links and files" />
           </>
         ) : (
           <>
-            <StatTile label="Uploads" value={String(shownUploads.length)} hint="all time" />
-            <StatTile label="Awaiting review" value={String(awaiting)} hint="with the reviewer" />
+            <StatTile label="Uploads" value={String(shownUploads.length)} tone="violet" hint="all time" />
+            <StatTile label="Awaiting review" value={String(awaiting)} tone="info" hint="with the reviewer" />
             <StatTile
               label="To fix"
               value={String(openItems)}
               tone={openItems > 0 ? "warn" : "neutral"}
               hint={openItems > 0 ? "on your checklists" : "nothing outstanding"}
             />
-            <StatTile label="Footage & assets" value={String(shownAssets.length)} hint="on your clients" />
+            <StatTile label="Footage & assets" value={String(shownAssets.length)} tone="accent" hint="on your clients" />
           </>
         )}
       </div>

@@ -214,6 +214,8 @@ export function ClientDetailTabs({
         ))}
       </div>
 
+      {/* Keyed by tab, so each one eases in as it is opened. */}
+      <div key={tab} className="fade-in">
       {tab === "info" && (
         <div style={{ maxWidth: 720 }} className="client-info-col">
           {justAdded && (
@@ -401,6 +403,7 @@ export function ClientDetailTabs({
           <ActivityTimeline clientId={client.id} entries={activity} />
         </div>
       )}
+      </div>
     </div>
   );
 }

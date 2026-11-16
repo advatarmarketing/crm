@@ -102,9 +102,9 @@ export default async function MyPortfolioPage() {
 
       {items.length > 0 && (
         <div className="stat-row">
-          <StatTile label="Videos completed" value={String(items.length)} tone="accent" hint="all time" />
-          <StatTile label="This year" value={String(thisYear)} />
-          <StatTile label="Clients worked with" value={String(clientCount)} />
+          <StatTile label="Videos completed" value={String(items.length)} tone="violet" hint="all time" />
+          <StatTile label="This year" value={String(thisYear)} tone="info" />
+          <StatTile label="Clients worked with" value={String(clientCount)} tone="accent" />
         </div>
       )}
 

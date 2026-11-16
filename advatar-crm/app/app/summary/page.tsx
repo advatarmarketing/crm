@@ -80,12 +80,12 @@ export default async function SummaryPage() {
       </p>
 
       <div className="stat-row">
-        <StatTile label="New leads" value={String(newClients.length)} />
-        <StatTile label="Deals won" value={String(wonThisWeek.length)} />
-        <StatTile label="Invoices raised" value={String(invoicesRaised.length)} />
-        <StatTile label="Money in" value={formatMoney(paidTotal)} hint={`${paidThisWeek.length} paid`} />
-        <StatTile label="Tasks completed" value={String((tasks ?? []).length)} />
-        <StatTile label="Overdue now" value={String(overdueNow)} />
+        <StatTile label="New leads" value={String(newClients.length)} tone="info" />
+        <StatTile label="Deals won" value={String(wonThisWeek.length)} tone="ok" />
+        <StatTile label="Invoices raised" value={String(invoicesRaised.length)} tone="accent" />
+        <StatTile label="Money in" value={formatMoney(paidTotal)} tone="ok" hint={`${paidThisWeek.length} paid`} />
+        <StatTile label="Tasks completed" value={String((tasks ?? []).length)} tone="violet" />
+        <StatTile label="Overdue now" value={String(overdueNow)} tone={overdueNow > 0 ? "danger" : "ok"} />
       </div>
 
       <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "8px 0 16px" }}>What happened</h2>

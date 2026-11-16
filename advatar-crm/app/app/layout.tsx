@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppNav } from "@/components/AppNav";
+import { ScrollReveal } from "@/components/ScrollReveal";
 import { loadMyAccess } from "@/lib/team-access";
 import { PreviewNavigation } from "@/components/PreviewNavigation";
 import { NotificationToasts } from "@/components/NotificationToasts";
@@ -54,7 +55,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const hiddenLinks = access.logins ? [] : ["/app/passwords"];
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+    <div style={{ minHeight: "100vh" }}>
+      <ScrollReveal />
       {isPreview && <PreviewNavigation />}
       <AppNav role={profile.role as ProfileRole} notifications={(notifications ?? []) as AppNotification[]} hidden={hiddenLinks} />
       {/* Not while previewing somebody else's login: their toasts are

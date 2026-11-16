@@ -184,9 +184,9 @@ export function AppNav({
 
   return (
     <nav
+      className="glass-bar"
       style={{
         borderBottom: "1px solid var(--border)",
-        background: "var(--surface)",
         position: "sticky",
         top: 0,
         zIndex: 40,
@@ -235,10 +235,8 @@ export function AppNav({
             className="nav-links"
             title="Your name, phone and photo"
             style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
+              fontSize: 12.5,
+              fontWeight: 500,
               color: isActive("/app/settings/profile") ? "var(--text-1)" : "var(--text-3)",
               textDecoration: "none",
               padding: "8px 4px",
@@ -253,10 +251,8 @@ export function AppNav({
             className="nav-links"
             title="Change your password"
             style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
+              fontSize: 12.5,
+              fontWeight: 500,
               color: isActive("/app/settings/password") ? "var(--text-1)" : "var(--text-3)",
               textDecoration: "none",
               padding: "8px 4px",
@@ -270,10 +266,8 @@ export function AppNav({
             <button
               type="submit"
               style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
+                fontSize: 12.5,
+                fontWeight: 500,
                 background: "none",
                 border: "none",
                 color: "var(--text-3)",
@@ -361,23 +355,7 @@ export function AppNav({
               key={link.href}
               href={link.href}
               aria-current={active ? "page" : undefined}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                textDecoration: "none",
-                whiteSpace: "nowrap",
-                // Inactive tabs drop to --text-3 rather than --text-2:
-                // the portal's contrast step is what makes the current
-                // tab read as selected at a glance.
-                color: active ? "var(--text-1)" : "var(--text-3)",
-                borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
-                padding: "15px 13px",
-                transition: "color 0.15s ease, border-color 0.15s ease",
-              }}
+              className="nav-tab"
             >
               {link.label}
               {link.href === "/app/messages" ? <MessagesNavBadge /> : <NavBadge prefix={link.href} />}
@@ -455,10 +433,8 @@ function menuRow(active: boolean) {
     display: "flex",
     alignItems: "center",
     gap: 13,
-    fontFamily: "var(--font-mono)",
-    fontSize: 13,
-    letterSpacing: "0.05em",
-    textTransform: "uppercase" as const,
+    fontSize: 15,
+    fontWeight: active ? 600 : 500,
     color: active ? "var(--text-1)" : "var(--text-2)",
     textDecoration: "none",
     padding: "14px 4px",
