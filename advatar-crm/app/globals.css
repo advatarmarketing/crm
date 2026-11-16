@@ -1886,3 +1886,31 @@ textarea:focus-visible {
   padding: 10px 12px;
   cursor: pointer;
 }
+
+/* Team access (0044) */
+.access-note { font-family: var(--font-body); font-size: 13px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; line-height: 1.5; }
+.access-muted { font-family: var(--font-body); font-size: 12.5px; color: var(--text-3); }
+.access-table { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+.access-row { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.access-person { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-family: var(--font-body); font-size: 14px; color: var(--text-1); }
+.access-switches { display: flex; flex-wrap: wrap; gap: 8px; }
+.access-switch { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; font-family: var(--font-body); font-size: 13px; color: var(--text-1); cursor: pointer; background: var(--surface-2); }
+.access-switch input { margin: 0; }
+
+/* Adding a client from a meeting */
+.onboard-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0 0 28px; }
+.onboard-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border: 1px solid var(--border); border-radius: 999px; font-family: var(--font-body); font-size: 13px; color: var(--text-3); }
+.onboard-steps li span { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2); font-size: 12px; }
+.onboard-steps li.now { color: var(--text-1); border-color: var(--text-1); }
+.onboard-steps li.now span { background: var(--text-1); color: var(--bg); }
+.onboard-steps li.done { color: var(--text-2); }
+.onboard-h { font-family: var(--font-display); font-size: 22px; margin: 0 0 6px; color: var(--text-1); }
+.onboard-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+.onboard-review { display: grid; gap: 12px; }
+.onboard-list { margin: 0; padding-left: 20px; font-family: var(--font-body); font-size: 14px; line-height: 1.7; color: var(--text-1); }
+.onboard-list.is-done { list-style: "✓  "; }
+.onboard-list.is-todo { list-style: "•  "; }
+.onboard-gaps { border-color: var(--gold, #c9a227); }
+.todo-gaps { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.todo-gaps a, .todo-gaps span { display: inline-block; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; font-family: var(--font-body); font-size: 13px; color: var(--text-1); text-decoration: none; background: var(--surface-2); }
+.todo-gaps a:hover { border-color: var(--text-1); }

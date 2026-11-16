@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { loadMyAccess } from "@/lib/team-access";
 import { credentialsKeyProblem, suggestKey } from "@/lib/credentials";
 import { KeyWarning } from "@/components/CredentialsPanel";
 import { EmptyState } from "@/components/EmptyState";
@@ -36,6 +37,10 @@ export default async function PasswordsPage() {
   const role = (profile as { role?: ProfileRole } | null)?.role;
 
   if (role !== "ceo" && role !== "operations_manager" && role !== "staff") {
+    redirect("/app/dashboard");
+  }
+  // 0044: the CEO can switch Logins off for a staff member.
+  if (role === "staff" && !(await loadMyAccess(supabase, user.id, role)).logins) {
     redirect("/app/dashboard");
   }
 

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppNav } from "@/components/AppNav";
+import { loadMyAccess } from "@/lib/team-access";
 import { PreviewNavigation } from "@/components/PreviewNavigation";
 import { NotificationToasts } from "@/components/NotificationToasts";
 import { VIEW_AS_HEADER } from "@/lib/view-as";
@@ -48,10 +49,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // is genuinely theirs.
   const isPreview = headers().get(VIEW_AS_HEADER) !== null;
 
+  // Staff whose Logins switch is off (0044) have nothing behind Passwords.
+  const access = await loadMyAccess(supabase, user.id, (profile as { role?: string }).role);
+  const hiddenLinks = access.logins ? [] : ["/app/passwords"];
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
       {isPreview && <PreviewNavigation />}
-      <AppNav role={profile.role as ProfileRole} notifications={(notifications ?? []) as AppNotification[]} />
+      <AppNav role={profile.role as ProfileRole} notifications={(notifications ?? []) as AppNotification[]} hidden={hiddenLinks} />
       {/* Not while previewing somebody else's login: their toasts are
           not yours to dismiss. */}
       {!isPreview && <NotificationToasts userId={user.id} />}

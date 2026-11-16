@@ -45,6 +45,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/messages", label: "Messages", icon: "messages" },
     { href: "/app/payments", label: "Payments", icon: "payments" },
     { href: "/app/settings/logins", label: "Logins", icon: "logins" },
+    { href: "/app/settings/access", label: "Team access", icon: "logins" },
   ],
   // Phase 12/14: runs sales and strategy alongside the CEO, so it gets
   // the CEO's nav minus "Payments" (what staff are paid) and "Team"
@@ -136,8 +137,17 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
  * which is supported — the function isn't bundled to the browser, only
  * a reference to it is, and it still executes on the server.
  */
-export function AppNav({ role, notifications = [] }: { role: ProfileRole; notifications?: AppNotification[] }) {
-  const links = NAV_BY_ROLE[role];
+export function AppNav({
+  role,
+  notifications = [],
+  hidden = [],
+}: {
+  role: ProfileRole;
+  notifications?: AppNotification[];
+  /** Links to leave out, e.g. Passwords for staff whose Logins switch is off (0044). */
+  hidden?: string[];
+}) {
+  const links = NAV_BY_ROLE[role].filter((l) => !hidden.includes(l.href));
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const tabStrip = useRef<HTMLDivElement>(null);

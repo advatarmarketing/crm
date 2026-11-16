@@ -22,6 +22,7 @@ import { PackagePanel } from "./PackagePanel";
 import { VideoSchedule } from "./videos/VideoSchedule";
 import { ClientAccountPanel } from "./ClientAccountPanel";
 import type { ClientPackage, PackagePreset } from "@/lib/packages";
+import type { Gap } from "@/lib/onboarding/gaps";
 import type { CredentialSummary } from "@/app/app/clients/[id]/credential-actions";
 import type { Database } from "@/lib/supabase/types";
 
@@ -75,6 +76,7 @@ export function ClientDetailTabs({
   currentUserId = null,
   credentials = [],
   canSeeCredentials = false,
+  canSeeDocuments = true,
   credentialsAvailable = false,
   credentialsKeyProblem = null,
   suggestedCredentialsKey = "",
@@ -85,6 +87,9 @@ export function ClientDetailTabs({
   canEditPackage = false,
   canEditVideos = false,
   account = null,
+  gaps = null,
+  justAdded = false,
+  notSaved = [],
 }: {
   client: Client;
   documents: Document[];
@@ -123,6 +128,8 @@ export function ClientDetailTabs({
   credentials?: CredentialSummary[];
   /** Management and assigned staff. False hides the tab outright. */
   canSeeCredentials?: boolean;
+  /** 0044: staff whose Contracts switch is off see no Documents section. */
+  canSeeDocuments?: boolean;
   /** False until database update 0039 has been run. */
   credentialsAvailable?: boolean;
   credentialsKeyProblem?: "missing" | "too-short" | null;
@@ -136,6 +143,12 @@ export function ClientDetailTabs({
   canEditPackage?: boolean;
   /** Management on this client and assigned staff (0042). */
   canEditVideos?: boolean;
+  /** What is still missing (lib/onboarding/gaps.ts); null for anyone who can't fill it in. */
+  gaps?: Gap[] | null;
+  /** Arrived straight from adding the client. */
+  justAdded?: boolean;
+  /** Parts of adding the client that failed to save. */
+  notSaved?: string[];
   /** 0043: the client-facing account details; null for non-management. */
   account?: { available: boolean; paymentDay: number | null; note: string | null } | null;
   /** Phase 18: the client's payment agreement. CEO-only, so undefined for everyone else. */
@@ -147,6 +160,7 @@ export function ClientDetailTabs({
   };
 }) {
   const [tab, setTab] = useState<TabId>(initialTab);
+  const [planSection, setPlanSection] = useState<string | undefined>(undefined);
 
   const tabs = TABS.filter((t) => t.id !== "passwords" || canSeeCredentials);
 
@@ -202,6 +216,42 @@ export function ClientDetailTabs({
 
       {tab === "info" && (
         <div style={{ maxWidth: 720 }} className="client-info-col">
+          {justAdded && (
+            <p className="access-note" role="status" style={{ marginBottom: 20 }}>
+              {client.name} is set up. Their content plan is a draft until you publish it from the Content Plan tab.
+              {notSaved.length > 0 && ` These didn't save, so set them up by hand: ${notSaved.join(", ")}.`}
+            </p>
+          )}
+          {gaps && gaps.length > 0 && (
+            <section className="card card-pad-sm onboard-gaps" style={{ marginBottom: 32 }} aria-label="Still to fill in">
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: 18, margin: "0 0 4px" }}>Still to fill in</h2>
+              <p style={{ fontSize: 13, color: "var(--text-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                Not covered yet. Each one disappears from this list once it&rsquo;s filled in.
+              </p>
+              <ul className="todo-gaps">
+                {gaps.map((g) => (
+                  <li key={`${g.where}-${g.label}`}>
+                    {g.where === "logins" ? (
+                      <a href="/app/settings/logins">{g.label}</a>
+                    ) : g.where === "info" ? (
+                      <span>{g.label}</span>
+                    ) : (
+                      <a
+                        href={`?tab=${g.where}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setPlanSection(g.section);
+                          setTab(g.where as TabId);
+                        }}
+                      >
+                        {g.label}
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section style={{ marginBottom: 36 }}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Info</h2>
             <ClientInfoForm client={client} />
@@ -254,11 +304,13 @@ export function ClientDetailTabs({
             </section>
           ) : null}
 
-          <section style={{ marginBottom: 36 }}>
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Documents</h2>
-            <DocumentsList initialDocuments={documents} clientId={client.id} />
-            <DocumentUpload clientId={client.id} />
-          </section>
+          {canSeeDocuments && (
+            <section style={{ marginBottom: 36 }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Documents</h2>
+              <DocumentsList initialDocuments={documents} clientId={client.id} />
+              <DocumentUpload clientId={client.id} />
+            </section>
+          )}
 
           <section style={{ marginBottom: 36 }}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Meetings</h2>
@@ -308,6 +360,7 @@ export function ClientDetailTabs({
         <PlannerDocument
           clientId={client.id}
           editable={true}
+          initialSection={planSection}
           videos={<VideoSchedule clientId={client.id} editable={canEditVideos} hasPackage={Boolean(clientPackage)} />}
         />
       )}

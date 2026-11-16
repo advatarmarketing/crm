@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Adding a client from a meeting document sends the file through a
+    // server action. Vercel itself caps a request at 4.5 MB.
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   typescript: {
     // TEMPORARY — see README "Deployment note on ignoreBuildErrors".
     //

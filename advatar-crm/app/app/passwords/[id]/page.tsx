@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { loadMyAccess } from "@/lib/team-access";
 import { credentialsKeyProblem, currentKeyId, suggestKey } from "@/lib/credentials";
 import { CredentialsPanel } from "@/components/CredentialsPanel";
 import type { CredentialSummary } from "@/app/app/clients/[id]/credential-actions";
@@ -38,6 +39,10 @@ export default async function ClientPasswordsPage({ params }: { params: { id: st
   const role = (profile as { role?: ProfileRole } | null)?.role;
 
   if (role !== "ceo" && role !== "operations_manager" && role !== "staff") {
+    redirect("/app/dashboard");
+  }
+  // 0044: the CEO can switch Logins off for a staff member.
+  if (role === "staff" && !(await loadMyAccess(supabase, user.id, role)).logins) {
     redirect("/app/dashboard");
   }
 

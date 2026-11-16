@@ -1,4 +1,7 @@
 import { notFound } from "next/navigation";
+import { loadMyAccess } from "@/lib/team-access";
+import { clientGaps, planGaps, type Gap } from "@/lib/onboarding/gaps";
+import type { PlannerContent } from "@/lib/planner/content";
 import { createClient } from "@/lib/supabase/server";
 import { ClientDetailTabs } from "@/components/ClientDetailTabs";
 import { credentialsKeyProblem, currentKeyId, suggestKey } from "@/lib/credentials";
@@ -13,7 +16,7 @@ export default async function ClientDetailPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { tab?: string };
+  searchParams: { tab?: string; added?: string; missing?: string };
 }) {
   const supabase = createClient();
 
@@ -40,6 +43,8 @@ export default async function ClientDetailPage({
     { data: packageRow, error: packageError },
     { data: presetRows },
     { data: accountRow, error: accountError },
+    { data: plannerRow },
+    { data: clientLogins },
   ] = await Promise.all([
       supabase.from("clients").select("*").eq("id", params.id).single(),
       supabase
@@ -145,6 +150,9 @@ export default async function ClientDetailPage({
       supabase.from("package_presets").select("*").order("name"),
       // 0043 — management only under RLS.
       supabase.from("client_accounts").select("payment_day, note").eq("client_id", params.id).maybeSingle(),
+      // For the "Still to fill in" list on the Info tab.
+      supabase.from("planners").select("content").eq("client_id", params.id).maybeSingle(),
+      supabase.from("profiles").select("id").eq("role", "client").eq("client_id", params.id).limit(1),
     ]);
 
   // A missing client here means either it doesn't exist, or RLS
@@ -219,8 +227,21 @@ export default async function ClientDetailPage({
   // what actually enforces this — a videographer gets an empty list
   // and a refused write whatever this says — but there is no sense
   // showing somebody a tab that will always be empty for them.
+  // 0044: for staff, the CEO's switches on Team access decide.
+  const myAccess = user ? await loadMyAccess(supabase, user.id, callerRole) : null;
   const canSeeCredentials =
-    callerRole === "ceo" || callerRole === "operations_manager" || callerRole === "staff";
+    callerRole === "ceo" || callerRole === "operations_manager" || (callerRole === "staff" && !!myAccess?.logins);
+  const canSeeDocuments = callerRole !== "staff" || !!myAccess?.contracts;
+
+  // What is still missing for this client (lib/onboarding/gaps.ts).
+  const gaps: Gap[] = [
+    ...clientGaps(
+      { contact_name: (client as { contact_name?: string | null } | null)?.contact_name ?? null, contact_email: (client as { contact_email?: string | null } | null)?.contact_email ?? null },
+      Boolean(packageRow) || Boolean(packageError),
+      ((clientLogins ?? []) as unknown[]).length > 0
+    ),
+    ...planGaps(((plannerRow as { content?: PlannerContent } | null)?.content ?? null) as PlannerContent | null),
+  ];
 
   const keyId = currentKeyId();
 
@@ -308,6 +329,7 @@ export default async function ClientDetailPage({
         currentUserId={user?.id ?? null}
         credentials={credentials}
         canSeeCredentials={canSeeCredentials}
+        canSeeDocuments={canSeeDocuments}
         credentialsAvailable={!credentialsError}
         credentialsKeyProblem={credentialsKeyProblem()}
         // Generated per request and only used when there is no key
@@ -321,7 +343,10 @@ export default async function ClientDetailPage({
         // The database decides (0041: CEO, or an operations manager
         // on this client); this only avoids drawing refused controls.
         canEditPackage={canAssign}
-        canEditVideos={canSeeCredentials}
+        canEditVideos={callerRole === "ceo" || callerRole === "operations_manager" || callerRole === "staff"}
+        gaps={canAssign ? gaps : null}
+        justAdded={searchParams?.added === "1"}
+        notSaved={searchParams?.missing ? searchParams.missing.split(",").slice(0, 5) : []}
         account={
           canAssign
             ? {
