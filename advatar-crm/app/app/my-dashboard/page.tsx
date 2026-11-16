@@ -1,3 +1,4 @@
+import { DueFromYou } from "@/components/videos/DueFromYou";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -209,6 +210,8 @@ export default async function MyDashboardPage() {
           {today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
         </p>
       </header>
+
+      <DueFromYou role="videographer" />
 
       <div className="stat-row">
         <StatTile

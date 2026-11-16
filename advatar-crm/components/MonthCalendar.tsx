@@ -1,7 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { EventCategory, ScheduleEntry } from "./SchedulePanel";
+
+/**
+ * Something that happens ON a day rather than at a time: a video going
+ * out (0042), a payment falling due. Drawn apart from bookings so the
+ * two read differently at a glance, and switchable off as a group.
+ */
+export interface CalendarMarker {
+  id: string;
+  /** YYYY-MM-DD. */
+  date: string;
+  kind: "video" | "payment";
+  title: string;
+  /** Second line in the day list — client, stage. */
+  detail?: string | null;
+  href?: string | null;
+  /** Can be dragged to another day. */
+  movable?: boolean;
+  /** Something is wrong with it (late, overdue). */
+  alert?: boolean;
+}
+
+const MARKER_COLOUR: Record<CalendarMarker["kind"], string> = {
+  video: "#d6452f",
+  payment: "#2f7d5b",
+};
+const MARKER_ICON: Record<CalendarMarker["kind"], string> = { video: "▶", payment: "£" };
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 // A literal, not a token: this value gets an alpha suffix appended
@@ -27,6 +54,9 @@ export function MonthCalendar({
   categories,
   initialMonth,
   showPerson = false,
+  markers = [],
+  videoToggle = false,
+  onMoveMarker,
 }: {
   events: ScheduleEntry[];
   categories: EventCategory[];
@@ -34,12 +64,67 @@ export function MonthCalendar({
   initialMonth?: string;
   /** Whose entry it is — only meaningful on a whole-team calendar. */
   showPerson?: boolean;
+  markers?: CalendarMarker[];
+  /** Draw the "Video schedule" switch above the grid. */
+  videoToggle?: boolean;
+  /** Returns an error message, or null once the move has saved. */
+  onMoveMarker?: (id: string, date: string) => Promise<string | null>;
 }) {
   const today = startOfDay(new Date());
   const opening = initialMonth ? new Date(initialMonth) : today;
 
   const [cursor, setCursor] = useState(new Date(opening.getFullYear(), opening.getMonth(), 1));
   const [selected, setSelected] = useState<string | null>(null);
+  const [showVideos, setShowVideos] = useState(true);
+  const [localMarkers, setLocalMarkers] = useState(markers);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropKey, setDropKey] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  useEffect(() => setLocalMarkers(markers), [markers]);
+
+  // Remembered per browser: the CEO who prefers the calendar without
+  // videos should not have to switch them off every visit.
+  useEffect(() => {
+    if (!videoToggle) return;
+    try {
+      if (window.localStorage.getItem("calendar.showVideos") === "0") setShowVideos(false);
+    } catch {
+      /* storage blocked — default on */
+    }
+  }, [videoToggle]);
+
+  function toggleVideos() {
+    const next = !showVideos;
+    setShowVideos(next);
+    try {
+      window.localStorage.setItem("calendar.showVideos", next ? "1" : "0");
+    } catch {
+      /* fine */
+    }
+  }
+
+  const visibleMarkers = localMarkers.filter((m) => m.kind !== "video" || showVideos);
+  const markersByDay = new Map<string, CalendarMarker[]>();
+  for (const m of visibleMarkers) {
+    if (!markersByDay.has(m.date)) markersByDay.set(m.date, []);
+    markersByDay.get(m.date)!.push(m);
+  }
+
+  async function drop(key: string) {
+    const id = dragId;
+    setDragId(null);
+    setDropKey(null);
+    if (!id || !onMoveMarker) return;
+    const before = localMarkers.find((m) => m.id === id);
+    if (!before || before.date === key) return;
+    setLocalMarkers((prev) => prev.map((m) => (m.id === id ? { ...m, date: key } : m)));
+    setMoveError(null);
+    const err = await onMoveMarker(id, key);
+    if (err) {
+      setLocalMarkers((prev) => prev.map((m) => (m.id === id ? { ...m, date: before.date } : m)));
+      setMoveError(err);
+    }
+  }
 
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const colourFor = (id: string | null) => categoryById.get(id ?? "")?.colour ?? FALLBACK_COLOUR;
@@ -60,6 +145,8 @@ export function MonthCalendar({
   const cells = buildGrid(cursor);
   const monthLabel = cursor.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
   const selectedEvents = selected ? byDay.get(selected) ?? [] : [];
+  const selectedMarkers = selected ? markersByDay.get(selected) ?? [] : [];
+  const videoCount = localMarkers.filter((m) => m.kind === "video").length;
 
   return (
     <div>
@@ -91,7 +178,34 @@ export function MonthCalendar({
         >
           Today
         </button>
+        {videoToggle && (
+          <button
+            type="button"
+            className="btn"
+            aria-pressed={showVideos}
+            onClick={toggleVideos}
+            style={{
+              marginLeft: "auto",
+              background: showVideos ? MARKER_COLOUR.video : undefined,
+              color: showVideos ? "#fff" : undefined,
+              borderColor: MARKER_COLOUR.video,
+            }}
+          >
+            {MARKER_ICON.video} Video schedule{videoCount ? ` (${videoCount})` : ""} {showVideos ? "on" : "off"}
+          </button>
+        )}
       </div>
+
+      {moveError && (
+        <p role="alert" style={{ color: "var(--danger-fg)", fontSize: 13, margin: "0 0 10px" }}>
+          {moveError}
+        </p>
+      )}
+      {onMoveMarker && showVideos && videoCount > 0 && (
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-3)", margin: "0 0 10px" }}>
+          Drag a video onto another day to move it.
+        </p>
+      )}
 
       {/* Key. Without it the colours are decoration rather than
           information. */}
@@ -121,15 +235,39 @@ export function MonthCalendar({
         {cells.map((cell) => {
           const key = dayKey(cell.date);
           const dayEvents = byDay.get(key) ?? [];
+          const dayMarkers = markersByDay.get(key) ?? [];
+          const total = dayEvents.length + dayMarkers.length;
           const isToday = cell.date.getTime() === today.getTime();
+          const open = () => setSelected(total > 0 ? (selected === key ? null : key) : null);
 
           return (
-            <button
-              type="button"
+            // A div, not a button: a draggable video inside a <button>
+            // cannot be picked up in every browser.
+            <div
+              role="button"
+              tabIndex={0}
               key={key}
-              onClick={() => setSelected(dayEvents.length > 0 ? (selected === key ? null : key) : null)}
-              aria-label={`${cell.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}, ${dayEvents.length} entries`}
+              data-day={key}
+              onClick={open}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  open();
+                }
+              }}
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                if (dropKey !== key) setDropKey(key);
+              }}
+              onDragLeave={() => dropKey === key && setDropKey(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                drop(key);
+              }}
+              aria-label={`${cell.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}, ${total} entries`}
               style={{
+                outline: dropKey === key ? `2px dashed ${MARKER_COLOUR.video}` : undefined,
                 textAlign: "left",
                 minHeight: 92,
                 padding: "6px 7px",
@@ -139,7 +277,7 @@ export function MonthCalendar({
                 background: cell.inMonth ? "var(--surface)" : "var(--surface-2)",
                 opacity: cell.inMonth ? 1 : 0.45,
                 transition: "border-color 0.15s ease, box-shadow 0.15s ease",
-                cursor: dayEvents.length > 0 ? "pointer" : "default",
+                cursor: total > 0 ? "pointer" : "default",
                 display: "flex",
                 flexDirection: "column",
                 gap: 3,
@@ -161,7 +299,45 @@ export function MonthCalendar({
                 {cell.date.getDate()}
               </span>
 
-              {dayEvents.slice(0, 3).map((e) => (
+              {dayMarkers.slice(0, 3).map((m) => (
+                <span
+                  key={m.id}
+                  data-marker-id={m.id}
+                  draggable={Boolean(m.movable && onMoveMarker)}
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", m.id);
+                    setDragId(m.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setDropKey(null);
+                  }}
+                  title={[m.title, m.detail].filter(Boolean).join(" — ")}
+                  style={{
+                    display: "block",
+                    fontFamily: "var(--font-body)",
+                    fontSize: 11,
+                    lineHeight: 1.3,
+                    color: "var(--text-1)",
+                    background: `${MARKER_COLOUR[m.kind]}1f`,
+                    border: `1px solid ${m.alert ? "var(--danger-fg)" : `${MARKER_COLOUR[m.kind]}66`}`,
+                    borderRadius: 999,
+                    padding: "1px 6px",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    cursor: m.movable && onMoveMarker ? "grab" : undefined,
+                    opacity: dragId === m.id ? 0.4 : 1,
+                  }}
+                >
+                  <span aria-hidden style={{ color: MARKER_COLOUR[m.kind], marginRight: 3 }}>{MARKER_ICON[m.kind]}</span>
+                  {m.title}
+                </span>
+              ))}
+
+              {dayEvents.slice(0, Math.max(0, 3 - dayMarkers.length)).map((e) => (
                 <span
                   key={e.id}
                   title={`${e.title} — ${nameFor(e.category_id)}`}
@@ -185,12 +361,12 @@ export function MonthCalendar({
                 </span>
               ))}
 
-              {dayEvents.length > 3 && (
+              {total > 3 && (
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-3)" }}>
-                  +{dayEvents.length - 3} more
+                  +{total - Math.min(3, dayMarkers.length) - Math.min(dayEvents.length, Math.max(0, 3 - dayMarkers.length))} more
                 </span>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
@@ -198,7 +374,7 @@ export function MonthCalendar({
       {/* Tapping a day opens its full list — three entries fit in a
           cell on a laptop, fewer on a phone, and a shoot day can
           easily have more. */}
-      {selected && selectedEvents.length > 0 && (
+      {selected && selectedEvents.length + selectedMarkers.length > 0 && (
         <div
           style={{
             marginTop: 24,
@@ -218,6 +394,38 @@ export function MonthCalendar({
           </h3>
 
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+            {selectedMarkers.map((m) => (
+              <li
+                key={m.id}
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  padding: "9px 11px",
+                  border: "1px solid var(--border)",
+                  borderLeft: `3px solid ${MARKER_COLOUR[m.kind]}`,
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--surface-2)",
+                }}
+              >
+                <span aria-hidden style={{ color: MARKER_COLOUR[m.kind], minWidth: 46, flexShrink: 0, fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                  {MARKER_ICON[m.kind]} {m.kind === "video" ? "video" : "due"}
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  {m.href ? (
+                    <Link href={m.href} style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-1)" }}>
+                      {m.title}
+                    </Link>
+                  ) : (
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-1)" }}>{m.title}</span>
+                  )}
+                  {m.detail && (
+                    <span style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 10.5, color: m.alert ? "var(--danger-fg)" : "var(--text-3)", marginTop: 2 }}>
+                      {m.detail}
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
             {selectedEvents.map((e) => (
               <li
                 key={e.id}

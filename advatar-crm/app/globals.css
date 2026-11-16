@@ -1684,6 +1684,11 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+.week-grid-slot.is-drop-target {
+  background: var(--accent-soft);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
 .week-grid-slot:hover {
   background: var(--wash-1, rgba(127, 127, 127, 0.08));
 }
@@ -1789,4 +1794,95 @@ textarea:focus-visible {
   .week-grid-scroll {
     max-height: 70vh;
   }
+}
+
+/* Client Videos page (0042): the player beside what you can do about
+   it, stacking on a phone. */
+.video-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .video-review {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+
+/* Pop-up notifications: top right on a computer, across the top on a
+   phone, sliding down like a message arriving. */
+.toast-stack {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 360px;
+  max-width: calc(100vw - 28px);
+  pointer-events: none;
+}
+@media (max-width: 600px) {
+  .toast-stack {
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    width: auto;
+    max-width: none;
+  }
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  background: var(--surface);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.18));
+  animation: toast-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  overflow: hidden;
+}
+@keyframes toast-in {
+  from { transform: translateY(-24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+.toast-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 12px 6px 12px 14px;
+  cursor: pointer;
+}
+.toast-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.toast-title { display: block; font-weight: 600; font-size: 14px; line-height: 1.35; }
+.toast-body { display: block; font-size: 13px; color: var(--text-2); line-height: 1.45; margin-top: 2px; }
+.toast-cta { display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-top: 6px; }
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 20px;
+  line-height: 1;
+  padding: 10px 12px;
+  cursor: pointer;
 }

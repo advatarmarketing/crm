@@ -26,6 +26,9 @@
 --
 -- Weekdays are stored as ISO numbers: 1 = Monday ... 7 = Sunday.
 --
+-- No defaults for the two big choices (how much say, when we post):
+-- every client's package is chosen by a person, never assumed.
+--
 -- Safe to run twice.
 
 -- ------------------------------------------------------------------
@@ -34,13 +37,13 @@
 create table if not exists public.package_presets (
   id                   uuid primary key default gen_random_uuid(),
   name                 text not null check (char_length(btrim(name)) between 1 and 60),
-  revisions            text not null default 'none'
+  revisions            text not null
                          check (revisions in ('none', 'approve', 'full')),
   revision_rounds      integer
                          check (revision_rounds is null or revision_rounds between 1 and 20),
   thumbnails           boolean not null default false,
   graphics             boolean not null default false,
-  posting_mode         text not null default 'weekdays'
+  posting_mode         text not null
                          check (posting_mode in ('weekdays', 'daily', 'per_week')),
   posting_weekdays     smallint[] not null default '{}'
                          check (posting_weekdays <@ array[1,2,3,4,5,6,7]::smallint[]),
@@ -76,13 +79,13 @@ create table if not exists public.client_packages (
   client_id            uuid primary key references public.clients (id) on delete cascade,
   -- Which preset it was started from, for the label only.
   preset_id            uuid references public.package_presets (id) on delete set null,
-  revisions            text not null default 'none'
+  revisions            text not null
                          check (revisions in ('none', 'approve', 'full')),
   revision_rounds      integer
                          check (revision_rounds is null or revision_rounds between 1 and 20),
   thumbnails           boolean not null default false,
   graphics             boolean not null default false,
-  posting_mode         text not null default 'weekdays'
+  posting_mode         text not null
                          check (posting_mode in ('weekdays', 'daily', 'per_week')),
   posting_weekdays     smallint[] not null default '{}'
                          check (posting_weekdays <@ array[1,2,3,4,5,6,7]::smallint[]),

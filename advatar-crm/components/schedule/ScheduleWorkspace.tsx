@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { WeekGrid } from "./WeekGrid";
+import { PRESET_DRAG_TYPE, WeekGrid } from "./WeekGrid";
 import {
   BLOCK_COLOURS,
   BLOCK_COLUMNS,
@@ -179,6 +179,37 @@ export function ScheduleWorkspace({
       onCalendar: Boolean(block.schedule_event_id),
       existingEventId: block.schedule_event_id,
     });
+  }
+
+  /**
+   * A saved item dragged onto the grid: saved straight away where it
+   * landed, at its usual length. Click it afterwards to change anything.
+   */
+  async function dropPreset(presetId: string, weekday: number, date: string, startMinute: number) {
+    const preset = presets.find((p) => p.id === presetId);
+    if (!preset) return;
+    setError(null);
+    setBusy(true);
+    const { data, error: e } = await supabase
+      .from("planner_blocks")
+      .insert({
+        owner_id: myId,
+        title: preset.name.slice(0, 120),
+        notes: "",
+        weekday,
+        start_minute: startMinute,
+        end_minute: Math.min(1440, startMinute + preset.default_minutes),
+        on_date: date,
+        repeats: false,
+        color: preset.color,
+        calendar_kind: preset.calendar_kind,
+        schedule_event_id: null,
+      })
+      .select(BLOCK_COLUMNS)
+      .single();
+    setBusy(false);
+    if (e || !data) return fail(e?.message ?? "Could not add that.");
+    setBlocks((prev) => [...prev, data as PlannerBlock]);
   }
 
   /** Drops a saved item onto the first free-looking hour of today. */
@@ -437,12 +468,33 @@ export function ScheduleWorkspace({
               marginBottom: 7,
             }}
           >
-            Saved items — tap to drop one in
+            Saved items — drag one onto the week, or tap to place it
           </span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
             {presets.map((p) => (
               <span key={p.id} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                <button type="button" className="preset-chip" onClick={() => usePreset(p)}>
+                {/* A span acting as a button, not a <button>: Chrome
+                    will not start a drag from a form control. Still
+                    reachable and pressable from the keyboard. */}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="preset-chip"
+                  onClick={() => usePreset(p)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      usePreset(p);
+                    }
+                  }}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "copy";
+                    e.dataTransfer.setData(PRESET_DRAG_TYPE, p.id);
+                    e.dataTransfer.setData("text/plain", p.name);
+                  }}
+                  style={{ cursor: "grab" }}
+                >
                   <span
                     className="note-dot"
                     style={p.color ? ({ "--note-label": `var(--label-${p.color})` } as React.CSSProperties) : {}}
@@ -451,7 +503,7 @@ export function ScheduleWorkspace({
                   <span style={{ color: "var(--text-3)", fontFamily: "var(--font-mono)", fontSize: 10 }}>
                     {p.default_minutes}m
                   </span>
-                </button>
+                </span>
                 <button
                   type="button"
                   onClick={() => removePreset(p)}
@@ -482,6 +534,7 @@ export function ScheduleWorkspace({
         today={today}
         onPickSlot={openSlot}
         onPickBlock={openBlock}
+        onDropPreset={dropPreset}
       />
 
       {draft && (

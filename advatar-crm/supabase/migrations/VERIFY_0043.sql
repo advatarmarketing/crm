@@ -1,0 +1,65 @@
+-- VERIFY 0043 — run this after 0043_client_account_and_privacy.sql.
+-- Safe to run before it too: every check reports rather than crashing.
+
+select '1. the client account table is there' as check,
+       case when to_regclass('public.client_accounts') is not null then 'OK'
+            else 'PROBLEM - 0043 did not run' end as result;
+
+select '2. only management writes it, the client only reads' as check,
+       case when to_regclass('public.client_accounts') is not null and not exists (
+         select 1 from pg_policies
+         where schemaname = 'public' and tablename = 'client_accounts'
+           and cmd <> 'SELECT' and coalesce(qual, '') not like '%can_manage_client%'
+       ) then 'OK' else 'PROBLEM - check the client_accounts policies, or 0043 did not run' end as result;
+
+select '3. clients see only sent and paid invoices' as check,
+       case when exists (
+         select 1 from pg_policies
+         where schemaname = 'public' and tablename = 'invoices'
+           and policyname = 'invoices: client reads own sent'
+           and cmd = 'SELECT' and qual like '%current_client_id%' and qual like '%paid%'
+       ) then 'OK' else 'PROBLEM - the client invoice policy is missing, or 0043 did not run' end as result;
+
+select '4. videographers cannot read documents' as check,
+       case when not exists (
+         select 1 from pg_policies
+         where schemaname = 'public' and tablename = 'documents'
+           and coalesce(qual, '') like '%videographer%'
+       ) then 'OK' else 'PROBLEM - a documents policy still lets videographers in' end as result;
+
+select '5. videographers cannot open contract files' as check,
+       case when not exists (
+         select 1 from pg_policies
+         where schemaname = 'storage' and tablename = 'objects'
+           and coalesce(qual, '') like '%client-documents%' and coalesce(qual, '') like '%videographer%'
+       ) then 'OK' else 'PROBLEM - videographers can still open files in client-documents' end as result;
+
+select '6. videographers cannot see invoices or payments' as check,
+       case when not exists (
+         select 1 from pg_policies
+         where schemaname = 'public' and tablename in ('invoices', 'client_finance', 'client_accounts')
+           and coalesce(qual, '') like '%videographer%'
+       ) then 'OK' else 'PROBLEM - a finance policy mentions videographers' end as result;
+
+select '7. money is kept out of videographers'' activity feed' as check,
+       case when exists (
+         select 1 from pg_policies
+         where schemaname = 'public' and tablename = 'client_activity'
+           and policyname = 'client_activity: videographer read assigned'
+           and qual like '%invoice%'
+       ) then 'OK' else 'PROBLEM - videographers may see invoice entries, or 0043 did not run' end as result;
+
+select '8. pop-up notifications are live' as check,
+       case when exists (
+         select 1 from pg_publication_tables
+         where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications'
+       ) then 'OK' else 'NOT YET - pop-ups still work, they just arrive within a minute instead of instantly' end as result;
+
+select '9. a client can read their own logins, nothing more' as check,
+       case when to_regclass('public.client_credentials') is null then 'skipped - 0039 has not run'
+            when exists (
+              select 1 from pg_policies
+              where schemaname = 'public' and tablename = 'client_credentials'
+                and policyname = 'client_credentials: client reads own'
+                and cmd = 'SELECT' and qual like '%current_client_id%'
+            ) then 'OK' else 'PROBLEM - 0043 did not run' end as result;

@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+
+/** The drag payload type for a saved item, shared with the workspace. */
+export const PRESET_DRAG_TYPE = "application/x-advatar-preset";
 import {
   DAY_NAMES,
   addDays,
@@ -29,6 +32,7 @@ export function WeekGrid({
   today,
   onPickSlot,
   onPickBlock,
+  onDropPreset,
 }: {
   weekStart: Date;
   blocks: PlannerBlock[];
@@ -38,7 +42,10 @@ export function WeekGrid({
   today: string;
   onPickSlot: (weekday: number, date: string, startMinute: number) => void;
   onPickBlock: (block: PlannerBlock) => void;
+  /** A saved item dragged onto the grid, at the quarter hour it landed on. */
+  onDropPreset?: (presetId: string, weekday: number, date: string, startMinute: number) => void;
 }) {
+  const [dropAt, setDropAt] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const hours = Array.from({ length: dayEndHour - dayStartHour }, (_, i) => dayStartHour + i);
   const gridHeight = hours.length * HOUR_PX;
@@ -93,10 +100,27 @@ export function WeekGrid({
                   <button
                     key={h}
                     type="button"
-                    className="week-grid-slot"
+                    className={"week-grid-slot" + (dropAt === `${iso}-${h}` ? " is-drop-target" : "")}
                     style={{ top: (h - dayStartHour) * HOUR_PX, height: HOUR_PX }}
                     aria-label={`Add something at ${minutesToLabel(h * 60)} on ${name} ${date.getDate()}`}
                     onClick={() => onPickSlot(weekday, iso, h * 60)}
+                    onDragOver={(e) => {
+                      if (!onDropPreset || !e.dataTransfer.types.includes(PRESET_DRAG_TYPE)) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "copy";
+                      if (dropAt !== `${iso}-${h}`) setDropAt(`${iso}-${h}`);
+                    }}
+                    onDragLeave={() => setDropAt((cur) => (cur === `${iso}-${h}` ? null : cur))}
+                    onDrop={(e) => {
+                      const id = e.dataTransfer.getData(PRESET_DRAG_TYPE);
+                      setDropAt(null);
+                      if (!id || !onDropPreset) return;
+                      e.preventDefault();
+                      // Where in the hour it landed, to the quarter hour.
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const quarter = Math.min(3, Math.max(0, Math.floor(((e.clientY - rect.top) / rect.height) * 4)));
+                      onDropPreset(id, weekday, iso, h * 60 + quarter * 15);
+                    }}
                   />
                 ))}
 

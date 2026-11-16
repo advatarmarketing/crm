@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { displayName } from "@/lib/names";
 import type { SubmissionVisibility } from "@/lib/supabase/types";
 import type { PlanSlotChoice } from "@/lib/uploads";
 
@@ -34,6 +33,14 @@ export interface SubmitWorkInput {
    * marks a video they are still waiting for as delivered.
    */
   plannerSlotId?: string;
+  /** 0042: what is being delivered. Defaults to a video. */
+  kind?: "video" | "thumbnail" | "graphic";
+  /**
+   * 0042: an optional Cloudinary (or other direct video) link the
+   * client watches in the app's own player, which can read where they
+   * paused. `url` stays the Google Drive link they download from.
+   */
+  streamUrl?: string;
 }
 
 export type SubmitWorkResult =
@@ -85,6 +92,11 @@ export async function submitWorkAction(input: SubmitWorkInput): Promise<SubmitWo
   if (!/^https?:\/\//i.test(url)) {
     return { ok: false, error: "The link should start with http:// or https://" };
   }
+  const streamUrl = (input.streamUrl ?? "").trim();
+  if (streamUrl && !/^https:\/\//i.test(streamUrl)) {
+    return { ok: false, error: "The player link should start with https://" };
+  }
+  const kind = input.kind === "thumbnail" || input.kind === "graphic" ? input.kind : "video";
 
   const { data: created, error: createError } = await supabase
     .from("submissions")
@@ -116,11 +128,34 @@ export async function submitWorkAction(input: SubmitWorkInput): Promise<SubmitWo
     return { ok: false, error: `Saved, but the link didn't attach: ${versionError.message}` };
   }
 
+  // 0042's columns, written separately and allowed to fail: before the
+  // migration they do not exist, and PostgREST would reject the whole
+  // insert above over one unknown column. The admin client because a
+  // videographer has no update policy on submissions; both rows were
+  // created by this request a moment ago.
+  if (kind !== "video" || streamUrl) {
+    const admin = createAdminClient();
+    if (kind !== "video") await admin.from("submissions").update({ kind }).eq("id", submissionId);
+    if (streamUrl) {
+      await admin
+        .from("submission_versions")
+        .update({ stream_url: streamUrl })
+        .eq("submission_id", submissionId)
+        .eq("version", 1);
+    }
+  }
+
   const chosenSlot = (input.plannerSlotId ?? "").trim();
 
   let note: string | null = null;
 
-  if (visibility === "team_and_client") {
+  // 0042: a video on the schedule. Linked straight away whoever can
+  // see it — the schedule shows "uploaded, not shared" to the team and
+  // still "in production" to the client until it is shared.
+  if (chosenSlot.startsWith("v:") || (chosenSlot === "new" && (await scheduleAvailable()))) {
+    note = await linkScheduledVideo({ clientId, submissionId, title, chosenSlot });
+    if (visibility === "team_and_client") await notifyClient({ clientId, title, actorId: user.id });
+  } else if (visibility === "team_and_client") {
     note = await fillPlannerSlot({ clientId, submissionId, title, url, chosenSlot });
     await notifyClient({ clientId, title, actorId: user.id });
   } else if (chosenSlot && chosenSlot !== "new") {
@@ -155,6 +190,38 @@ export async function planSlotsAction(clientId: string): Promise<PlanSlotChoice[
   if (!clientId.trim()) return [];
 
   const supabase = createClient();
+
+  // 0042: the video schedule, soonest first, undated last. Falls back
+  // to the content plan's old slot list before the migration runs.
+  const { data: scheduled, error: scheduleError } = await supabase
+    .from("content_videos")
+    .select("id, publish_on, title, pillar, submission_id")
+    .eq("client_id", clientId)
+    .order("publish_on", { ascending: true, nullsFirst: false });
+
+  if (!scheduleError) {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = (scheduled ?? []) as {
+      id: string;
+      publish_on: string | null;
+      title: string | null;
+      pillar: string | null;
+      submission_id: string | null;
+    }[];
+    // Outstanding ones first: those are what an upload is usually for.
+    const ordered = [
+      ...rows.filter((r) => !r.submission_id && (!r.publish_on || r.publish_on >= today)),
+      ...rows.filter((r) => !r.submission_id && r.publish_on && r.publish_on < today),
+      ...rows.filter((r) => r.submission_id),
+    ];
+    return ordered.map((r) => {
+      const day = r.publish_on
+        ? new Date(`${r.publish_on}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
+        : "No date";
+      const name = [r.pillar, r.title].filter((x) => x && x.trim()).join(" · ") || "Video";
+      return { id: `v:${r.id}`, label: `${day} · ${name}`, filled: Boolean(r.submission_id) };
+    });
+  }
 
   const { data: planner } = await supabase
     .from("planners")
@@ -422,10 +489,7 @@ async function notifyClient({
 }) {
   const admin = createAdminClient();
 
-  const [{ data: recipients }, { data: actor }] = await Promise.all([
-    admin.from("profiles").select("id").eq("role", "client").eq("client_id", clientId),
-    admin.from("profiles").select("full_name").eq("id", actorId).maybeSingle(),
-  ]);
+  const { data: recipients } = await admin.from("profiles").select("id").eq("role", "client").eq("client_id", clientId);
 
   const rows = ((recipients ?? []) as { id: string }[])
     .filter((p) => p.id !== actorId)
@@ -433,12 +497,63 @@ async function notifyClient({
       user_id: p.id,
       kind: "submission_shared",
       title: "New video ready to watch",
-      body: `${displayName(actor?.full_name ?? null)} has shared “${title}” with you.`,
-      href: "/app/portal/uploads",
+      // The company, not one person: clients deal with a team.
+      body: `Your team has shared “${title}” with you.`,
+      href: "/app/portal/videos",
       email_pending: true,
     }));
 
   if (rows.length === 0) return;
 
   await admin.from("notifications").insert(rows);
+}
+
+/** True once 0042 has been run. */
+async function scheduleAvailable(): Promise<boolean> {
+  const { error } = await createAdminClient().from("content_videos").select("id").limit(1);
+  return !error;
+}
+
+/**
+ * Links an upload to a video on the schedule (0042), or adds one.
+ *
+ * The admin client, because a videographer can read the schedule but
+ * not write it. Safe: the video must belong to the same client the
+ * upload was just created for, which the caller's own RLS already
+ * allowed them to submit against.
+ */
+async function linkScheduledVideo({
+  clientId,
+  submissionId,
+  title,
+  chosenSlot,
+}: {
+  clientId: string;
+  submissionId: string;
+  title: string;
+  chosenSlot: string;
+}): Promise<string | null> {
+  const admin = createAdminClient();
+
+  if (chosenSlot === "new") {
+    const { error } = await admin
+      .from("content_videos")
+      .insert({ client_id: clientId, title, submission_id: submissionId });
+    return error ? null : "Added to their video schedule without a date — give it a day on their Videos tab.";
+  }
+
+  const videoId = chosenSlot.slice(2);
+  const { data, error } = await admin
+    .from("content_videos")
+    .update({ submission_id: submissionId })
+    .eq("id", videoId)
+    .eq("client_id", clientId)
+    .select("publish_on")
+    .maybeSingle();
+
+  if (error || !data) return "Saved, but it couldn’t be linked to that video — link it from their Videos tab.";
+  const day = (data as { publish_on: string | null }).publish_on;
+  return day
+    ? `Linked to the video going out on ${new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}.`
+    : "Linked to that video on their schedule.";
 }

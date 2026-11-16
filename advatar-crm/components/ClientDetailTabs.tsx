@@ -19,6 +19,8 @@ import { ClientCalendarPanel } from "./ClientCalendarPanel";
 import { OnboardingChecklist, type ChecklistItem, type TemplateOption } from "./OnboardingChecklist";
 import { CredentialsPanel } from "./CredentialsPanel";
 import { PackagePanel } from "./PackagePanel";
+import { VideoSchedule } from "./videos/VideoSchedule";
+import { ClientAccountPanel } from "./ClientAccountPanel";
 import type { ClientPackage, PackagePreset } from "@/lib/packages";
 import type { CredentialSummary } from "@/app/app/clients/[id]/credential-actions";
 import type { Database } from "@/lib/supabase/types";
@@ -33,6 +35,8 @@ const TABS = [
   // client later sees — review buttons, extras, the video schedule —
   // is decided from here.
   { id: "package", label: "Package" },
+  // 0042: the video schedule — every video going out, by date.
+  { id: "videos", label: "Videos" },
   { id: "plan", label: "Content Plan" },
   // Only rendered for the people 0039 lets near a login — management
   // and assigned staff. A videographer who typed ?tab=passwords
@@ -79,6 +83,8 @@ export function ClientDetailTabs({
   packagePresets = [],
   packageAvailable = false,
   canEditPackage = false,
+  canEditVideos = false,
+  account = null,
 }: {
   client: Client;
   documents: Document[];
@@ -128,6 +134,10 @@ export function ClientDetailTabs({
   /** False until database update 0041 has been run. */
   packageAvailable?: boolean;
   canEditPackage?: boolean;
+  /** Management on this client and assigned staff (0042). */
+  canEditVideos?: boolean;
+  /** 0043: the client-facing account details; null for non-management. */
+  account?: { available: boolean; paymentDay: number | null; note: string | null } | null;
   /** Phase 18: the client's payment agreement. CEO-only, so undefined for everyone else. */
   finance?: {
     monthly_value: number | null;
@@ -211,6 +221,22 @@ export function ClientDetailTabs({
             )}
           </section>
 
+          {account && (
+            <section style={{ marginBottom: 36 }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 4px" }}>Client account page</h2>
+              <p style={{ fontSize: 13, color: "var(--text-3)", margin: "0 0 14px" }}>
+                What {client.name} sees under Account in their portal. Mark invoices paid in Finance below.
+              </p>
+              <ClientAccountPanel
+                clientId={client.id}
+                clientName={client.name}
+                initialDay={account.paymentDay}
+                initialNote={account.note}
+                available={account.available}
+              />
+            </section>
+          )}
+
           <section style={{ marginBottom: 36 }}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 14px" }}>Onboarding</h2>
             <OnboardingChecklist clientId={client.id} items={checklist} templates={templates} />
@@ -278,7 +304,13 @@ export function ClientDetailTabs({
       {/* Mounted only while this tab is active — avoids paying for the
           planner's fetch + Realtime subscription on every client
           detail page load, only when staff actually opens the tab. */}
-      {tab === "plan" && <PlannerDocument clientId={client.id} editable={true} />}
+      {tab === "plan" && (
+        <PlannerDocument
+          clientId={client.id}
+          editable={true}
+          videos={<VideoSchedule clientId={client.id} editable={canEditVideos} hasPackage={Boolean(clientPackage)} />}
+        />
+      )}
 
       {/* Mounted with the tab, like the planner above — its two
           queries are only worth making when somebody looks. */}
@@ -293,6 +325,10 @@ export function ClientDetailTabs({
           available={packageAvailable}
           editable={canEditPackage}
         />
+      )}
+
+      {tab === "videos" && (
+        <VideoSchedule clientId={client.id} editable={canEditVideos} hasPackage={Boolean(clientPackage)} />
       )}
 
       {tab === "passwords" && canSeeCredentials && (

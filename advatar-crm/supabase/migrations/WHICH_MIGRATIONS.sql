@@ -79,6 +79,14 @@ from (
     (
       '0041', 'Client packages and posting days',
       case when to_regclass('public.client_packages') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0042', 'Video schedule, client approvals, thumbnails and graphics',
+      case when to_regclass('public.content_videos') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0043', 'Client Account page, live pop-ups, videographer privacy',
+      case when to_regclass('public.client_accounts') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

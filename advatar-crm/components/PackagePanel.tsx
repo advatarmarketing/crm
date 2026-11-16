@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
-  DEFAULT_PACKAGE,
+  EMPTY_DRAFT,
   MAX_REVISION_ROUNDS,
   MAX_VIDEOS_PER_WEEK,
   REVISION_LABELS,
@@ -13,6 +13,7 @@ import {
   postingDates,
   videosPerWeek,
   type ClientPackage,
+  type PackageDraft,
   type PackagePreset,
   type PackageSettings,
   type PostingMode,
@@ -150,7 +151,7 @@ function prettyDate(iso: string): string {
   });
 }
 
-function settingsOf(p: PackageSettings): PackageSettings {
+function settingsOf(p: PackageSettings): PackageSettings & PackageDraft {
   return {
     revisions: p.revisions,
     revision_rounds: p.revision_rounds,
@@ -181,7 +182,8 @@ export function PackagePanel({
   editable: boolean;
 }) {
   const router = useRouter();
-  const [draft, setDraft] = useState<PackageSettings>(settingsOf(initial ?? DEFAULT_PACKAGE));
+  // Nothing pre-selected for a client who has no package yet.
+  const [draft, setDraft] = useState<PackageDraft>(initial ? settingsOf(initial) : { ...EMPTY_DRAFT });
   // A preset that has since been deleted is not a preset any more.
   // 0041 clears the link itself (on delete set null); this covers the
   // moment in between, and a list the caller cannot read.
@@ -211,9 +213,9 @@ export function PackagePanel({
     [draft, roundsText, perWeekText]
   );
 
-  const effective: PackageSettings = candidate.ok ? candidate.value : saved ?? DEFAULT_PACKAGE;
+  const effective: PackageSettings | null = candidate.ok ? candidate.value : saved;
   const dirty = !saved || presetId !== savedPresetId || JSON.stringify(effective) !== JSON.stringify(saved);
-  const preview = useMemo(() => postingDates(effective, todayIso(), 14), [effective]);
+  const preview = useMemo(() => (effective ? postingDates(effective, todayIso(), 14) : []), [effective]);
   const presetName_ = presets.find((p) => p.id === presetId)?.name ?? null;
   const savedPresetName = presets.find((p) => p.id === savedPresetId)?.name ?? null;
 
@@ -229,7 +231,7 @@ export function PackagePanel({
     );
   }
 
-  function update(patch: Partial<PackageSettings>) {
+  function update(patch: Partial<PackageDraft>) {
     setDraft((d) => ({ ...d, ...patch }));
     setNotice(null);
     setError(null);
@@ -314,7 +316,7 @@ export function PackagePanel({
       <div className="card card-pad" style={{ marginBottom: 28 }}>
         <p style={label}>{saved ? "Current package" : "Not set yet"}</p>
         <p style={{ fontFamily: "var(--font-display)", fontSize: 19, margin: "0 0 6px", lineHeight: 1.35 }}>
-          {describePackage(saved ?? DEFAULT_PACKAGE)}
+          {saved ? describePackage(saved) : "Nothing chosen yet"}
         </p>
         <p style={hint}>
           {saved
@@ -322,7 +324,7 @@ export function PackagePanel({
               ? `Set up from the “${savedPresetName}” package.`
               : `Roughly ${videosPerWeek(saved) * 4} videos every four weeks.`
             : editable
-              ? `${clientName} is on the standard settings until you save a package for them.`
+              ? `Choose ${clientName}’s options below, or start from a saved package. Nothing is assumed until you save.`
               : `Nobody has set ${clientName}’s package yet.`}
         </p>
       </div>
@@ -485,7 +487,7 @@ export function PackagePanel({
           </label>
         )}
 
-        {draft.posting_mode !== "per_week" && (
+        {(draft.posting_mode === "weekdays" || draft.posting_mode === "daily") && (
           <div>
             <p style={{ ...hint, marginBottom: 8 }}>Days with two videos (optional)</p>
             <DayPills
@@ -511,7 +513,7 @@ export function PackagePanel({
                 </span>
               ))}
             </div>
-            {effective.posting_mode === "per_week" && (
+            {effective?.posting_mode === "per_week" && (
               <p style={{ ...hint, marginTop: 8 }}>
                 A suggested spread — the actual days are set when the month is planned.
               </p>

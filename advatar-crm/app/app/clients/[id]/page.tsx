@@ -39,6 +39,7 @@ export default async function ClientDetailPage({
     { data: credentialRows, error: credentialsError },
     { data: packageRow, error: packageError },
     { data: presetRows },
+    { data: accountRow, error: accountError },
   ] = await Promise.all([
       supabase.from("clients").select("*").eq("id", params.id).single(),
       supabase
@@ -142,6 +143,8 @@ export default async function ClientDetailPage({
       supabase.from("client_packages").select("*").eq("client_id", params.id).maybeSingle(),
       // Management only under RLS — empty for staff, who never edit.
       supabase.from("package_presets").select("*").order("name"),
+      // 0043 — management only under RLS.
+      supabase.from("client_accounts").select("payment_day, note").eq("client_id", params.id).maybeSingle(),
     ]);
 
   // A missing client here means either it doesn't exist, or RLS
@@ -286,6 +289,7 @@ export default async function ClientDetailPage({
           searchParams?.tab === "calendar" ||
           searchParams?.tab === "activity" ||
           searchParams?.tab === "package" ||
+          searchParams?.tab === "videos" ||
           (searchParams?.tab === "passwords" && canSeeCredentials)
             ? searchParams.tab
             : "info"
@@ -317,6 +321,16 @@ export default async function ClientDetailPage({
         // The database decides (0041: CEO, or an operations manager
         // on this client); this only avoids drawing refused controls.
         canEditPackage={canAssign}
+        canEditVideos={canSeeCredentials}
+        account={
+          canAssign
+            ? {
+                available: !accountError,
+                paymentDay: (accountRow as { payment_day?: number | null } | null)?.payment_day ?? null,
+                note: (accountRow as { note?: string | null } | null)?.note ?? null,
+              }
+            : null
+        }
       />
     </main>
   );

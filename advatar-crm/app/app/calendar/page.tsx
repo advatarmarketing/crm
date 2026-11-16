@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { MonthCalendar } from "@/components/MonthCalendar";
+import { MonthCalendar, type CalendarMarker } from "@/components/MonthCalendar";
+import { STAGE_LABEL, loadVideos, todayKey, videoLabel, videoStage } from "@/lib/videos";
+import { moveVideoOnCalendar } from "@/app/app/videos/actions";
 import { SchedulePanel, type ScheduleEntry, type EventCategory, type ClientChoice } from "@/components/SchedulePanel";
 import { PersonPicker, type Person } from "@/components/PersonPicker";
 import { AvailabilityPanel } from "@/components/AvailabilityPanel";
@@ -126,6 +128,18 @@ export default async function CalendarPage({
         : Promise.resolve({ data: [] as unknown }),
     ]);
 
+  // 0042: every video going out, across every client this person can
+  // see (RLS narrows it). Its own query, so before the migration runs
+  // the calendar simply has no videos on it.
+  const dayKeyOf = (d: Date) => todayKey(d);
+  const videoData = role === "client" ? null : await loadVideos(supabase, { from: dayKeyOf(from), to: dayKeyOf(to) });
+  let personClients: Set<string> | null = null;
+  if (isManagement && selectedPerson && !selectedClient) {
+    const { data: links } = await supabase.from("client_staff").select("client_id").eq("staff_id", selectedPerson);
+    personClients = new Set(((links ?? []) as { client_id: string }[]).map((l) => l.client_id));
+  }
+  const canMoveVideos = isManagement || role === "staff";
+
   // Separate, and its failure is survivable — see lib/availability.ts.
   const availability = role === "client" ? { value: null, columnMissing: false } : await loadAvailability(supabase, user.id);
 
@@ -152,6 +166,52 @@ export default async function CalendarPage({
   const showingEveryone = isManagement && !selectedPerson && !selectedClient;
   const whose = selectedPerson && selectedPerson !== user.id ? personNameById.get(selectedPerson) : null;
   const whichClient = selectedClient ? clientNameById.get(selectedClient) ?? "that client" : null;
+
+  const today = todayKey();
+  const markers: CalendarMarker[] = (videoData?.videos ?? [])
+    .filter((v) => v.publish_on)
+    .filter((v) => !selectedClient || v.client_id === selectedClient)
+    .filter((v) => !personClients || personClients.has(v.client_id))
+    .map((v) => {
+      const stage = videoStage(v, v.submission_id ? videoData!.uploads.get(v.submission_id) : null);
+      const late = stage === "planned" && v.publish_on! < today;
+      const clientName = clientNameById.get(v.client_id) ?? "Client";
+      return {
+        id: v.id,
+        date: v.publish_on!,
+        kind: "video" as const,
+        title: selectedClient ? videoLabel(v) : `${clientName}: ${videoLabel(v)}`,
+        detail: [clientName, v.pillar, late ? "Late — nothing uploaded" : STAGE_LABEL[stage].team].filter(Boolean).join(" · "),
+        href: `/app/clients/${v.client_id}?tab=videos`,
+        movable: canMoveVideos && !v.posted_at,
+        alert: late,
+      };
+    });
+
+  // Payments due, for management only — invoices are theirs under RLS
+  // (0011/0029) and nobody else should see money on a calendar.
+  if (isManagement) {
+    const { data: due } = await supabase
+      .from("invoices")
+      .select("id, client_id, number, amount, due_date, status")
+      .eq("status", "sent")
+      .gte("due_date", dayKeyOf(from))
+      .lt("due_date", dayKeyOf(to));
+    for (const inv of (due ?? []) as { id: string; client_id: string; number: string | null; amount: number | null; due_date: string }[]) {
+      if (selectedClient && inv.client_id !== selectedClient) continue;
+      if (personClients && !personClients.has(inv.client_id)) continue;
+      const late = inv.due_date < today;
+      markers.push({
+        id: `inv-${inv.id}`,
+        date: inv.due_date,
+        kind: "payment",
+        title: `${clientNameById.get(inv.client_id) ?? "Client"}: payment ${late ? "overdue" : "due"}`,
+        detail: [inv.number ? `Invoice ${inv.number}` : "Invoice", inv.amount !== null ? `£${Number(inv.amount).toLocaleString("en-GB")}` : null].filter(Boolean).join(" · "),
+        href: `/app/finance`,
+        alert: late,
+      });
+    }
+  }
 
   const clientChoices: Person[] = clientRows.map((c) => ({
     id: c.id,
@@ -233,6 +293,9 @@ export default async function CalendarPage({
         events={entries}
         categories={(categories ?? []) as unknown as EventCategory[]}
         showPerson={showingEveryone}
+        markers={markers}
+        videoToggle={role !== "client"}
+        onMoveMarker={canMoveVideos ? moveVideoOnCalendar : undefined}
       />
 
       <section className="section" style={{ marginTop: 36 }}>

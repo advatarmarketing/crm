@@ -68,14 +68,45 @@ export const REVISION_LABELS: Record<RevisionMode, { title: string; detail: stri
 export const MAX_REVISION_ROUNDS = 20;
 export const MAX_VIDEOS_PER_WEEK = 21;
 
-/** Every new client starts here until somebody chooses otherwise. */
-export const DEFAULT_PACKAGE: PackageSettings = {
+/**
+ * Only used to read a stored row that somehow fails the rules, so a
+ * page render never throws. A client with no package has NO package —
+ * nothing is chosen for them; see PackageDraft.
+ */
+const UNREADABLE_ROW: PackageSettings = {
   revisions: "none",
   revision_rounds: null,
   thumbnails: false,
   graphics: false,
   posting_mode: "weekdays",
-  posting_weekdays: [1, 3, 5, 7],
+  posting_weekdays: [1],
+  videos_per_week: null,
+  double_post_weekdays: [],
+};
+
+/**
+ * What the Package form holds while somebody is filling it in. A new
+ * client starts with nothing selected: the team chooses every option
+ * rather than inheriting one.
+ */
+export interface PackageDraft {
+  revisions: RevisionMode | null;
+  revision_rounds: number | null;
+  thumbnails: boolean;
+  graphics: boolean;
+  posting_mode: PostingMode | null;
+  posting_weekdays: number[];
+  videos_per_week: number | null;
+  double_post_weekdays: number[];
+}
+
+export const EMPTY_DRAFT: PackageDraft = {
+  revisions: null,
+  revision_rounds: null,
+  thumbnails: false,
+  graphics: false,
+  posting_mode: null,
+  posting_weekdays: [],
   videos_per_week: null,
   double_post_weekdays: [],
 };
@@ -98,10 +129,13 @@ function cleanDays(days: unknown): number[] {
  * first.
  */
 export function normalizePackage(
-  input: Partial<PackageSettings>
+  input: Partial<PackageDraft>
 ): { ok: true; value: PackageSettings } | { ok: false; error: string } {
-  const revisions: RevisionMode =
-    input.revisions === "approve" || input.revisions === "full" ? input.revisions : "none";
+  // Nothing is assumed: both of these must have been chosen.
+  if (input.revisions !== "none" && input.revisions !== "approve" && input.revisions !== "full") {
+    return { ok: false, error: "Choose how much say the client has over their videos." };
+  }
+  const revisions: RevisionMode = input.revisions;
 
   let revision_rounds: number | null = null;
   if (revisions === "full" && input.revision_rounds != null && String(input.revision_rounds) !== "") {
@@ -112,8 +146,10 @@ export function normalizePackage(
     revision_rounds = n;
   }
 
-  const posting_mode: PostingMode =
-    input.posting_mode === "daily" || input.posting_mode === "per_week" ? input.posting_mode : "weekdays";
+  if (input.posting_mode !== "weekdays" && input.posting_mode !== "daily" && input.posting_mode !== "per_week") {
+    return { ok: false, error: "Choose when we post for this client." };
+  }
+  const posting_mode: PostingMode = input.posting_mode;
 
   const posting_weekdays = posting_mode === "weekdays" ? cleanDays(input.posting_weekdays) : [];
   if (posting_mode === "weekdays" && posting_weekdays.length === 0) {
@@ -238,5 +274,5 @@ export function packageFromRow(row: Record<string, unknown>): PackageSettings {
   const parsed = normalizePackage(row as Partial<PackageSettings>);
   // A row the database accepted always passes; if it somehow does not,
   // fall back to the default rather than throwing on a page render.
-  return parsed.ok ? parsed.value : DEFAULT_PACKAGE;
+  return parsed.ok ? parsed.value : UNREADABLE_ROW;
 }

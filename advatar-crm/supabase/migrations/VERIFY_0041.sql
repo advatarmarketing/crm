@@ -64,7 +64,7 @@ select '7. clients with a package set' as check,
                     'select count(*) as n from public.client_packages', false, true, '')))[1]::text
                  || ' of '
                  || (select count(*) from public.clients)::text
-                 || ' clients (the rest use the standard package until someone sets theirs)'
+                 || ' clients (the rest have no package chosen yet)'
        end as result;
 
 select '8. saved presets' as check,
