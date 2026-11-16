@@ -91,6 +91,10 @@ from (
     (
       '0044', 'Team access: the CEO chooses what each staff member sees',
       case when to_regclass('public.team_access') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0045', 'Video months: numbered videos in Month 1, Month 2...',
+      case when to_regclass('public.content_cycles') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

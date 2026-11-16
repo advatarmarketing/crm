@@ -29,6 +29,18 @@ export interface ContentVideo {
   video_set: string | null;
   submission_id: string | null;
   posted_at: string | null;
+  /** 0045: the month it belongs to, and its place in it. */
+  cycle_id?: string | null;
+  position?: number | null;
+}
+
+/** 0045: "Month 1", "Month 2"... each with its own dates. */
+export interface VideoCycle {
+  id: string;
+  client_id: string;
+  number: number;
+  starts_on: string;
+  ends_on: string;
 }
 
 /** The upload a video is delivered through, as much as the schedule needs. */
@@ -209,4 +221,92 @@ export function monthBounds(key: string): { from: string; to: string } {
   const from = `${y}-${String(m).padStart(2, "0")}-01`;
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return { from, to: `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}` };
+}
+
+/**
+ * The five colours on the team's Videos tab. One answer per video:
+ *   todo      (red)    nothing made yet
+ *   scripted  (yellow) a script is written, no video yet
+ *   revisions (purple) changes asked for, or fixes still unticked
+ *   done      (orange) the video is in, not posted yet
+ *   posted    (green)  gone out
+ */
+export type BoxState = "todo" | "scripted" | "revisions" | "done" | "posted";
+
+export const BOX_STATES: BoxState[] = ["todo", "scripted", "done", "revisions", "posted"];
+
+export const BOX_LABEL: Record<BoxState, string> = {
+  todo: "Not done yet",
+  scripted: "Scripted",
+  done: "Done, not posted",
+  revisions: "Needs revisions",
+  posted: "Posted",
+};
+
+export function boxState(
+  video: Pick<ContentVideo, "posted_at" | "submission_id" | "hook" | "body">,
+  upload: { current_version: number; clientDecision?: string | null; client_decision?: string | null } | null | undefined,
+  openFixes = 0
+): BoxState {
+  if (video.posted_at) return "posted";
+  if (video.submission_id && upload && upload.current_version >= 1) {
+    const decision = upload.clientDecision ?? upload.client_decision ?? null;
+    return decision === "changes_requested" || openFixes > 0 ? "revisions" : "done";
+  }
+  return video.hook?.trim() || video.body?.trim() ? "scripted" : "todo";
+}
+
+/** A month from `start`: 16 Nov -> 15 Dec. */
+export function defaultCycleEnd(start: string): string {
+  const d = new Date(`${start}T00:00:00Z`);
+  const day = d.getUTCDate();
+  const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+  const last = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
+  next.setUTCDate(Math.min(day, last));
+  return addDays(next.toISOString().slice(0, 10), -1);
+}
+
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
+}
+
+/** How many videos the package gives between two dates. */
+export function packageCount(pkg: PackageSettings | null, from: string, to: string): number {
+  const days = daysBetween(from, to);
+  if (!pkg || !(days > 0)) return 0;
+  return postingDates(pkg, from, days).reduce((n, d) => n + d.count, 0);
+}
+
+/**
+ * Dates for `count` videos between two days. The package's posting
+ * days are used first, in order. With no package, or more videos than
+ * posting days, the rest are spread evenly across the month.
+ */
+export function cycleDates(pkg: PackageSettings | null, from: string, to: string, count: number): { date: string; day_order: number }[] {
+  const days = daysBetween(from, to);
+  if (!(days > 0) || count <= 0) return [];
+  const slots: string[] = [];
+  if (pkg) for (const d of postingDates(pkg, from, days)) for (let i = 0; i < d.count; i++) slots.push(d.date);
+
+  const dates = slots.slice(0, count);
+  const extra = count - dates.length;
+  for (let i = 0; i < extra; i++) dates.push(addDays(from, Math.min(days - 1, Math.floor((i * days) / extra))));
+  dates.sort();
+
+  const seen = new Map<string, number>();
+  return dates.map((date) => {
+    const n = (seen.get(date) ?? 0) + 1;
+    seen.set(date, n);
+    return { date, day_order: Math.min(9, n) };
+  });
+}
+
+/** Videos of one month in their numbered order. */
+export function inOrder<T extends Pick<ContentVideo, "position" | "publish_on" | "day_order">>(videos: T[]): T[] {
+  return [...videos].sort(
+    (a, b) =>
+      (a.position ?? 99999) - (b.position ?? 99999) ||
+      (a.publish_on ?? "9").localeCompare(b.publish_on ?? "9") ||
+      a.day_order - b.day_order
+  );
 }

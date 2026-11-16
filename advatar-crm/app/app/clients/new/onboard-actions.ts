@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity";
 import { normalizePackage, describePackage, type PackageSettings } from "@/lib/packages";
-import { pillarSequence, todayKey, videosToAdd, addDays } from "@/lib/videos";
+import { cycleDates, defaultCycleEnd, packageCount, pillarSequence, todayKey } from "@/lib/videos";
 import { planFromMeeting, readMeeting, type MeetingRead } from "@/lib/onboarding/meeting";
 import { planGaps, type Gap } from "@/lib/onboarding/gaps";
 import type { PlannerContent } from "@/lib/planner/content";
@@ -169,7 +169,7 @@ export interface CreateOnboardedInput {
 /**
  * Saves the client, their package, their plan (as a draft the client
  * cannot see until it is published), the meeting itself, and the
- * first four weeks of videos. Only the client row has to succeed;
+ * first month of videos. Only the client row has to succeed;
  * each other part is reported if it fails rather than undoing the
  * client, because a client with a missing plan is easy to finish and
  * a lost one is not.
@@ -247,11 +247,21 @@ export async function createOnboardedClientAction(input: CreateOnboardedInput): 
     else await logActivity(supabase, { clientId: id, kind: "meeting_linked", summary: `Client added from: ${input.meetingTitle || "onboarding meeting"}`, actorId: user.id });
   }
 
-  // The first four weeks of videos, with the meeting's ideas on the
-  // earliest posting days and pillars from the plan on the rest.
+  // Month 1: starts today, runs a month, and holds the videos the
+  // package gives in that time, with the meeting's ideas on the first
+  // ones and pillars from the plan on the rest.
   if (pkg) {
     const from = todayKey();
-    const adds = videosToAdd(pkg, from, addDays(from, 27), []);
+    const to = defaultCycleEnd(from);
+    const adds = cycleDates(pkg, from, to, packageCount(pkg, from, to));
+    // Allowed to fail: before 0045 there are no months, and the videos
+    // still go on the schedule without one.
+    const { data: cycle } = await supabase
+      .from("content_cycles")
+      .insert({ client_id: id, number: 1, starts_on: from, ends_on: to, created_by: user.id, updated_by: user.id } as never)
+      .select("id")
+      .maybeSingle();
+    const cycleId = (cycle as { id: string } | null)?.id ?? null;
     if (adds.length) {
       const pillars = pillarSequence(
         (input.plan?.pillars?.items ?? []).map((p) => ({ name: String(p.name ?? ""), pct: Number(p.pct ?? 0) })),
@@ -269,6 +279,7 @@ export async function createOnboardedClientAction(input: CreateOnboardedInput): 
           description: idea?.description?.trim() || null,
           hook: idea?.hook?.trim() || null,
           cta: idea?.cta?.trim() || null,
+          ...(cycleId ? { cycle_id: cycleId, position: i + 1 } : {}),
           created_by: user.id,
           updated_by: user.id,
         };
@@ -279,7 +290,7 @@ export async function createOnboardedClientAction(input: CreateOnboardedInput): 
         await logActivity(supabase, {
           clientId: id,
           kind: "videos_scheduled",
-          summary: `${rows.length} video${rows.length === 1 ? "" : "s"} scheduled for the first four weeks`,
+          summary: `Month 1 started with ${rows.length} video${rows.length === 1 ? "" : "s"}`,
           actorId: user.id,
         });
     }

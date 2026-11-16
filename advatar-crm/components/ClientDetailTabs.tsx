@@ -363,7 +363,7 @@ export function ClientDetailTabs({
           clientId={client.id}
           editable={true}
           initialSection={planSection}
-          videos={<VideoSchedule clientId={client.id} editable={canEditVideos} hasPackage={Boolean(clientPackage)} />}
+          videos={<VideoSchedule clientId={client.id} editable={canEditVideos} pkg={clientPackage} />}
         />
       )}
 
@@ -383,7 +383,7 @@ export function ClientDetailTabs({
       )}
 
       {tab === "videos" && (
-        <VideoSchedule clientId={client.id} editable={canEditVideos} hasPackage={Boolean(clientPackage)} />
+        <VideoSchedule clientId={client.id} editable={canEditVideos} pkg={clientPackage} />
       )}
 
       {tab === "passwords" && canSeeCredentials && (

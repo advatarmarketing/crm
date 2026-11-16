@@ -198,7 +198,7 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
             clientId={clientRow.id}
             editable={false}
             emptyMessage="No plan has been started for this client yet."
-            videos={<VideoSchedule clientId={clientRow.id} editable={false} hasPackage={false} />}
+            videos={<VideoSchedule clientId={clientRow.id} editable={false} />}
           />
         </Panel>
       </section>
