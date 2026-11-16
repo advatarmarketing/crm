@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PlannerDocument } from "@/components/PlannerDocument";
-import { DocumentsList } from "@/components/DocumentsList";
+import { VideoSchedule } from "@/components/videos/VideoSchedule";
 import { BrandKitPanel } from "@/components/BrandKitPanel";
 // emptyBrandKit from the plain module, NOT from BrandKitPanel: this is
 // a server component, and calling a function imported from a
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
  * That matters most for the parts of this page that depend on
  * migrations (`client_brand_kits` and `client_team_messages` arrived
  * in 0020) — on a database that is behind the code, a videographer
- * should still be able to read the plan and the documents.
+ * should still be able to read the plan (never the documents — 0043).
  *
  * Settling the queries was only half of it. A panel that RENDERS
  * badly — a null where it assumed a list, a planner saved in an older
@@ -85,13 +85,11 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [client, documents, thread, brandKit, teamMessages, nameById] = await Promise.all([
+  const [client, , thread, brandKit, teamMessages, nameById] = await Promise.all([
     settle<{ id: string; name: string; service: string | null; next_action: string | null }>(
       supabase.from("clients").select("id, name, service, next_action").eq("id", params.id).maybeSingle()
     ),
-    settle<unknown[]>(
-      supabase.from("documents").select("*").eq("client_id", params.id).order("created_at", { ascending: false })
-    ),
+    Promise.resolve(null),
     settle<{ id: string }>(
       supabase.from("message_threads").select("id").eq("client_id", params.id).maybeSingle()
     ),
@@ -200,24 +198,14 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
             clientId={clientRow.id}
             editable={false}
             emptyMessage="No plan has been started for this client yet."
+            videos={<VideoSchedule clientId={clientRow.id} editable={false} hasPackage={false} />}
           />
         </Panel>
       </section>
 
-      <section className="section" style={{ maxWidth: 760 }}>
-        <h2 className="section-title" style={{ marginBottom: 16 }}>
-          Documents
-        </h2>
-        {/* editable=false: Phase 3 gives videographers select-only
-            access to documents — same reasoning as the planner above. */}
-        {documents.error ? (
-          <SectionProblem what="documents" detail={documents.error} />
-        ) : (
-          <Panel what="documents" context={`client ${params.id}`}>
-            <DocumentsList initialDocuments={(documents.data ?? []) as never[]} editable={false} />
-          </Panel>
-        )}
-      </section>
+      {/* No Documents section: contracts and signed agreements are
+          not a videographer's business, and 0043 removed their access
+          to them in the database as well. */}
 
       <section className="section" style={{ maxWidth: 760 }}>
         <h2 className="section-title" style={{ marginBottom: 16 }}>

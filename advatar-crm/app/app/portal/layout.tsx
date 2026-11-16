@@ -3,8 +3,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PortalNav } from "@/components/PortalNav";
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
-import { NewUploadDialog, type NewUploadAlert } from "@/components/portal/NewUploadDialog";
-import { firstName } from "@/lib/names";
 
 // Phase 9: shared shell for every /app/portal/* page. Does the one
 // check every portal page previously had to repeat on its own (Phase
@@ -34,7 +32,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("client_id, full_name")
+    .select("client_id")
     .eq("id", user.id)
     .single();
 
@@ -62,42 +60,25 @@ export default async function PortalLayout({ children }: { children: ReactNode }
   // against every row in the table on every change instead of none.
   const { data: thread } = await supabase.from("message_threads").select("id").eq("client_id", clientId).maybeSingle();
 
-  // Anything shared with them that they have not been shown yet.
-  // Both kinds: 'submission_shared' is written when a video is handed
-  // in already shared, 'upload_shared' when a team-only one is flipped
-  // over later (0028). Missing either would leave one of the two
-  // routes silently not telling them.
-  //
-  // Wrapped loosely on purpose: a portal that will not load because a
-  // greeting could not be fetched is a worse portal.
-  let alert: NewUploadAlert | null = null;
+  // A new video used to open a full-screen dialog here. The pop-ups in
+  // the corner (NotificationToasts, mounted in the app shell for every
+  // role) now announce it instead and take the client straight to it.
 
-  try {
-    const { data: unread } = await supabase
-      .from("notifications")
-      .select("id, href")
-      .eq("user_id", user.id)
-      .eq("read", false)
-      .in("kind", ["submission_shared", "upload_shared"])
-      .order("created_at", { ascending: false });
-
-    const rows = (unread ?? []) as unknown as { id: string; href: string | null }[];
-
-    if (rows.length > 0) {
-      alert = {
-        ids: rows.map((r) => r.id),
-        href: rows[0].href ?? "/app/portal/uploads",
-        firstName: firstName((profile as { full_name?: string | null }).full_name ?? null, "there"),
-        count: rows.length,
-      };
-    }
-  } catch {
-    alert = null;
-  }
+  // Tabs for things this client actually has. A client with no saved
+  // logins, or no invoices and no account note yet, gets no tab that
+  // would open on an empty page. Each count may fail before its
+  // migration runs, which reads as "nothing yet".
+  const [logins, invoices, account] = await Promise.all([
+    supabase.from("client_credentials").select("id", { count: "exact", head: true }).eq("client_id", clientId),
+    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("client_id", clientId),
+    supabase.from("client_accounts").select("client_id", { count: "exact", head: true }).eq("client_id", clientId),
+  ]);
+  const hidden: string[] = [];
+  if (logins.error || !logins.count) hidden.push("/app/portal/logins");
+  if ((invoices.error || !invoices.count) && (account.error || !account.count)) hidden.push("/app/portal/account");
 
   return (
     <div>
-      <NewUploadDialog alert={alert} />
       <RealtimeRefresh
         channelName={`portal:${clientId}`}
         subscriptions={[
@@ -106,7 +87,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
           ...(thread ? [{ table: "messages", filter: `thread_id=eq.${thread.id}` }] : []),
         ]}
       />
-      <PortalNav />
+      <PortalNav hidden={hidden} />
       {children}
     </div>
   );

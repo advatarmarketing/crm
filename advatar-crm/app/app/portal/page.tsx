@@ -4,13 +4,17 @@ import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/components/StatTile";
 import { Greeting } from "@/components/Greeting";
 import { firstName as firstNameOf } from "@/lib/names";
+import { addDays, loadVideos, monthBounds, prettyDay, todayKey, videoLabel, videoStage } from "@/lib/videos";
+import { loadClientAccount, money } from "@/lib/account";
 
 // Same order as PortalNav — Documents after Content Plan.
 const JUMP_LINKS = [
-  { href: "/app/portal/content", label: "Content Hub" },
+  { href: "/app/portal/videos", label: "Your videos" },
+  { href: "/app/portal/calendar", label: "Calendar" },
   { href: "/app/portal/plan", label: "Content Plan" },
-  { href: "/app/portal/documents", label: "Documents" },
+  { href: "/app/portal/account", label: "Account" },
   { href: "/app/portal/messages", label: "Messages" },
+  { href: "/app/portal/documents", label: "Documents" },
 ];
 
 // Phase 9: Overview. Everything here re-derives from tables this
@@ -53,7 +57,7 @@ export default async function PortalOverviewPage() {
     .from("submissions")
     .select("id, title, status, current_version, created_at")
     .order("created_at", { ascending: false })
-    .limit(12);
+    .limit(6);
 
   const videoRows = (sharedVideos ?? []) as unknown as {
     id: string;
@@ -94,6 +98,65 @@ export default async function PortalOverviewPage() {
     messageCount = count ?? 0;
   }
 
+  // 0041-0043: what needs them, what goes out next, where they stand.
+  // Each read is allowed to come back empty before its migration runs.
+  const today = todayKey();
+  const { from: monthFrom, to: monthTo } = monthBounds(today);
+  const [schedule, account, pkgRes, decisions] = await Promise.all([
+    loadVideos(supabase, { clientId, from: addDays(today, -40), to: addDays(today, 45) }),
+    loadClientAccount(supabase, clientId),
+    supabase.from("client_packages").select("revisions").eq("client_id", clientId).maybeSingle(),
+    videoRows.length
+      ? supabase.from("submissions").select("id, kind, client_decision").in("id", videoRows.map((v) => v.id))
+      : Promise.resolve({ data: [] as unknown[] }),
+  ]);
+  const revisions = ((pkgRes as { data: { revisions?: string } | null }).data?.revisions ?? "unset") as string;
+  const decisionById = new Map(
+    (((decisions as { data: unknown }).data ?? []) as { id: string; kind?: string; client_decision: string | null }[]).map((d) => [d.id, d])
+  );
+  const toReview =
+    revisions === "none"
+      ? []
+      : videoRows.filter(
+          (v) =>
+            v.current_version > 0 &&
+            decisionById.has(v.id) &&
+            (decisionById.get(v.id)!.kind ?? "video") === "video" &&
+            !decisionById.get(v.id)!.client_decision
+        );
+  const goingOut = schedule.videos.filter((v) => v.publish_on && v.publish_on >= today && !v.posted_at).slice(0, 5);
+  const thisMonth = schedule.videos.filter((v) => v.publish_on && v.publish_on >= monthFrom && v.publish_on <= monthTo).length;
+  const paymentSoon = account.next && account.next.date <= addDays(today, 7) ? account.next : null;
+
+  const needs: { key: string; text: string; href: string; tone: "accent" | "danger" | "warn" }[] = [];
+  if (toReview.length > 0) {
+    needs.push({
+      key: "review",
+      tone: "accent",
+      text:
+        toReview.length === 1
+          ? `“${toReview[0].title}” is ready — watch it and ${revisions === "approve" ? "tick it off" : "approve it or ask for changes"}.`
+          : `${toReview.length} videos are ready for you to watch and ${revisions === "approve" ? "tick off" : "approve"}.`,
+      href: "/app/portal/videos",
+    });
+  }
+  for (const inv of account.overdue) {
+    needs.push({
+      key: `inv-${inv.id}`,
+      tone: "danger",
+      text: `${inv.number ? `Invoice ${inv.number}` : "A payment"} (${money(inv.amount)}) was due ${inv.due_date ? prettyDay(inv.due_date) : ""} and hasn’t been marked received.`,
+      href: "/app/portal/account",
+    });
+  }
+  if (paymentSoon) {
+    needs.push({
+      key: "pay",
+      tone: "warn",
+      text: `${paymentSoon.label}${paymentSoon.amount !== null ? ` of ${money(paymentSoon.amount)}` : ""} is due ${prettyDay(paymentSoon.date)}.`,
+      href: "/app/portal/account",
+    });
+  }
+
   const who = firstNameOf(profile.full_name, client?.name ?? "there");
   const serverHour = new Date().getHours();
 
@@ -110,7 +173,48 @@ export default async function PortalOverviewPage() {
         )}
       </header>
 
+      {/* The first thing on the page, so it cannot be missed. Drawn
+          only when there is something to do. */}
+      {needs.length > 0 && (
+        <section
+          className="section"
+          aria-label="What needs you"
+          style={{ padding: "18px 20px", border: "1px solid var(--accent-ring)", background: "var(--accent-soft)", borderRadius: "var(--radius-md)" }}
+        >
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "0 0 10px" }}>What needs you</h2>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+            {needs.map((n) => (
+              <li key={n.key}>
+                <Link href={n.href} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: "var(--text-1)", textDecoration: "none", fontSize: 15, lineHeight: 1.5 }}>
+                  <span aria-hidden style={{ color: n.tone === "danger" ? "var(--danger-fg)" : n.tone === "warn" ? "var(--warn-fg)" : "var(--accent)" }}>●</span>
+                  <span>
+                    {n.text} <span style={{ color: "var(--accent)", whiteSpace: "nowrap" }}>Open →</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <div className="stat-row">
+        {schedule.available && (
+          <StatTile
+            label="Next video out"
+            value={goingOut[0] ? prettyDay(goingOut[0].publish_on!, false) : "—"}
+            tone={goingOut[0] ? "accent" : "neutral"}
+            hint={goingOut[0] ? videoLabel(goingOut[0]) : "being scheduled"}
+          />
+        )}
+        {schedule.available && thisMonth > 0 && <StatTile label="Videos this month" value={String(thisMonth)} hint="on your calendar" />}
+        {account.available && (account.next || account.paid.length > 0 || account.overdue.length > 0) && (
+          <StatTile
+            label="Account"
+            value={account.upToDate ? "Up to date" : "Overdue"}
+            tone={account.upToDate ? "ok" : "danger"}
+            hint={account.next ? `next due ${prettyDay(account.next.date, false)}` : "nothing due"}
+          />
+        )}
         {/* Published is the state the client is waiting for, so it is
             the one that gets colour here. */}
         <StatTile
@@ -119,9 +223,32 @@ export default async function PortalOverviewPage() {
           tone={publishedPlanner ? "ok" : "warn"}
           hint={publishedPlanner ? "ready to read" : "your team is working on it"}
         />
-        <StatTile label="Documents" value={String(documentCount ?? 0)} hint="shared with you" />
-        <StatTile label="Messages" value={String(messageCount)} hint="in your thread" />
+        {!schedule.available && <StatTile label="Documents" value={String(documentCount ?? 0)} hint="shared with you" />}
+        {!schedule.available && <StatTile label="Messages" value={String(messageCount)} hint="in your thread" />}
       </div>
+
+      {goingOut.length > 0 && (
+        <section className="section">
+          <div className="section-head">
+            <h2 className="section-title">Going out next</h2>
+            <Link href="/app/portal/calendar" className="section-sub">
+              See the calendar →
+            </Link>
+          </div>
+          <ul className="card" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {goingOut.map((v, i) => {
+              const stage = videoStage(v, v.submission_id ? schedule.uploads.get(v.submission_id) : null);
+              return (
+                <li key={v.id} style={{ display: "flex", gap: 14, alignItems: "center", padding: "11px 16px", borderTop: i ? "1px solid var(--border)" : "none" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, minWidth: 92, color: "var(--text-2)" }}>{prettyDay(v.publish_on!)}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 14 }}>{videoLabel(v)}</span>
+                  {stage !== "planned" && stage !== "editing" && <span className="pill pill-accent">Ready to watch</span>}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {client?.next_action && (
         /* The one thing on this page the client is meant to act on,
@@ -163,8 +290,10 @@ export default async function PortalOverviewPage() {
       {videoRows.length > 0 && (
         <section className="section">
           <div className="section-head">
-            <h2 className="section-title">Your videos</h2>
-            <p className="section-sub">Newest first</p>
+            <h2 className="section-title">Latest videos</h2>
+            <Link href="/app/portal/videos" className="section-sub">
+              All videos →
+            </Link>
           </div>
 
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -192,15 +321,20 @@ export default async function PortalOverviewPage() {
                       {v.title}
                     </span>
                     <span style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-3)", marginTop: 3 }}>
-                      {v.status === "approved" ? "signed off" : "with your team"} ·{" "}
+                      {decisionById.get(v.id)?.client_decision === "approved"
+                        ? "approved"
+                        : decisionById.get(v.id)?.client_decision === "changes_requested"
+                          ? "changes on the way"
+                          : "ready to watch"}{" "}
+                      ·{" "}
                       {new Date(v.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                     </span>
                   </span>
 
                   {url && (
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="btn" style={{ textDecoration: "none", flexShrink: 0 }}>
-                      Watch ↗
-                    </a>
+                    <Link href={`/app/portal/videos#upload-${v.id}`} className="btn" style={{ textDecoration: "none", flexShrink: 0 }}>
+                      ▶ Watch
+                    </Link>
                   )}
                 </li>
               );

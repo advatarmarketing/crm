@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/components/StatTile";
+import { StripePanel } from "@/components/StripePanel";
 import type { InvoiceListItem } from "./InvoiceRow";
 import { InvoicesBrowser, type BrowsableInvoice } from "./InvoicesBrowser";
 import { formatMoney } from "@/lib/format";
@@ -97,6 +98,8 @@ export default async function FinancePage() {
       </div>
 
       <InvoicesBrowser invoices={browsable} />
+      {/* CEO only: Stripe is the company's bank-side view. */}
+      {profile?.role === "ceo" && <StripePanel />}
     </main>
   );
 }

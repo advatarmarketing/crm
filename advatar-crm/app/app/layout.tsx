@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppNav } from "@/components/AppNav";
 import { PreviewNavigation } from "@/components/PreviewNavigation";
+import { NotificationToasts } from "@/components/NotificationToasts";
 import { VIEW_AS_HEADER } from "@/lib/view-as";
 import type { AppNotification } from "@/components/NotificationBell";
 import type { ProfileRole } from "@/lib/supabase/types";
@@ -51,6 +52,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
       {isPreview && <PreviewNavigation />}
       <AppNav role={profile.role as ProfileRole} notifications={(notifications ?? []) as AppNotification[]} />
+      {/* Not while previewing somebody else's login: their toasts are
+          not yours to dismiss. */}
+      {!isPreview && <NotificationToasts userId={user.id} />}
       {children}
     </div>
   );

@@ -64,6 +64,9 @@ export interface UploadEntry {
   versions: UploadVersion[];
   notes: UploadNote[];
   checklist: UploadChecklistItem[];
+  /** 0042 — absent before that migration runs. */
+  kind?: "video" | "thumbnail" | "graphic";
+  clientDecision?: "approved" | "changes_requested" | null;
 }
 
 export interface AssetEntry {
@@ -125,7 +128,7 @@ export async function loadUploads(
 
   const ids = parents.map((s) => s.id);
 
-  const [versions, feedback, checklist, nameById, clients] = await Promise.all([
+  const [versions, feedback, checklist, nameById, clients, extras] = await Promise.all([
     settle(
       supabase
         .from("submission_versions")
@@ -153,7 +156,13 @@ export async function loadUploads(
     // "Someone". See lib/people.ts.
     loadNamesById(supabase),
     settle(supabase.from("clients").select("id, name")),
+    // 0042's columns, on their own so a missing migration costs these
+    // two labels and nothing else.
+    settle(supabase.from("submissions").select("id, kind, client_decision").in("id", ids)),
   ]);
+  const extraById = new Map(
+    ((extras ?? []) as { id: string; kind: UploadEntry["kind"]; client_decision: UploadEntry["clientDecision"] }[]).map((e) => [e.id, e])
+  );
 
   const clientNameById = new Map(((clients ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]));
 
@@ -232,6 +241,8 @@ export async function loadUploads(
       versions: versionsBySubmission.get(s.id) ?? [],
       notes: notesBySubmission.get(s.id) ?? [],
       checklist: checklistBySubmission.get(s.id) ?? [],
+      kind: extraById.get(s.id)?.kind ?? "video",
+      clientDecision: extraById.get(s.id)?.client_decision ?? null,
     })),
   };
 }

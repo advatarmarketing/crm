@@ -818,6 +818,99 @@ export interface Database {
         };
       };
 
+      // 0041_client_packages.sql — what each client gets. Weekdays
+      // are ISO numbers, 1 = Monday ... 7 = Sunday. See lib/packages.ts.
+      client_packages: {
+        Row: {
+          client_id: string;
+          preset_id: string | null;
+          revisions: "none" | "approve" | "full";
+          revision_rounds: number | null;
+          thumbnails: boolean;
+          graphics: boolean;
+          posting_mode: "weekdays" | "daily" | "per_week";
+          posting_weekdays: number[];
+          videos_per_week: number | null;
+          double_post_weekdays: number[];
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          client_id: string;
+          preset_id?: string | null;
+          revisions?: "none" | "approve" | "full";
+          revision_rounds?: number | null;
+          thumbnails?: boolean;
+          graphics?: boolean;
+          posting_mode?: "weekdays" | "daily" | "per_week";
+          posting_weekdays?: number[];
+          videos_per_week?: number | null;
+          double_post_weekdays?: number[];
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          client_id?: string;
+          preset_id?: string | null;
+          revisions?: "none" | "approve" | "full";
+          revision_rounds?: number | null;
+          thumbnails?: boolean;
+          graphics?: boolean;
+          posting_mode?: "weekdays" | "daily" | "per_week";
+          posting_weekdays?: number[];
+          videos_per_week?: number | null;
+          double_post_weekdays?: number[];
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+      };
+      package_presets: {
+        Row: {
+          id: string;
+          name: string;
+          revisions: "none" | "approve" | "full";
+          revision_rounds: number | null;
+          thumbnails: boolean;
+          graphics: boolean;
+          posting_mode: "weekdays" | "daily" | "per_week";
+          posting_weekdays: number[];
+          videos_per_week: number | null;
+          double_post_weekdays: number[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          revisions?: "none" | "approve" | "full";
+          revision_rounds?: number | null;
+          thumbnails?: boolean;
+          graphics?: boolean;
+          posting_mode?: "weekdays" | "daily" | "per_week";
+          posting_weekdays?: number[];
+          videos_per_week?: number | null;
+          double_post_weekdays?: number[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          revisions?: "none" | "approve" | "full";
+          revision_rounds?: number | null;
+          thumbnails?: boolean;
+          graphics?: boolean;
+          posting_mode?: "weekdays" | "daily" | "per_week";
+          posting_weekdays?: number[];
+          videos_per_week?: number | null;
+          double_post_weekdays?: number[];
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       // 0039_client_credentials.sql — a client's social media logins.
       // secret_cipher and notes_cipher are AES-256-GCM envelopes, not
       // readable text; see lib/credentials.ts.

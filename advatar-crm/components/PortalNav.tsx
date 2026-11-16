@@ -5,28 +5,27 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { NavBadge } from "@/components/NavBadge";
 
-// Documents deliberately sits AFTER Content Plan: the plan is the
-// thing a client comes here to read, documents are the supporting
-// files behind it.
+// In the order a client uses them. Videos — the thing they are paying
+// for — comes straight after the overview and is drawn as a filled
+// tab so it cannot be missed. Then when things happen, what the plan
+// is, and where they stand. The supporting pages follow.
 //
-// The /app/portal/plan route keeps its path even though the label is
-// now "Content Plan" — renaming the URL would break any link already
-// sent to a client, and the path isn't shown anywhere in the UI.
-//
-// Uploads sits directly after the plan and before Documents: it is
-// where the work itself arrives, so it belongs next to the thing that
-// promised it rather than among the supporting files.
+// /app/portal/plan and /app/portal/uploads keep their paths although
+// the labels changed: renaming the URL would break links already sent.
 const LINKS = [
   { href: "/app/portal", label: "Overview" },
-  { href: "/app/portal/content", label: "Content Hub" },
-  { href: "/app/portal/plan", label: "Content Plan" },
-  { href: "/app/portal/uploads", label: "Uploads" },
-  { href: "/app/portal/documents", label: "Documents" },
+  { href: "/app/portal/videos", label: "▶ Videos", feature: true },
   { href: "/app/portal/calendar", label: "Calendar" },
+  { href: "/app/portal/plan", label: "Content Plan" },
+  { href: "/app/portal/account", label: "Account" },
+  { href: "/app/portal/messages", label: "Messages" },
+  { href: "/app/portal/uploads", label: "Files" },
+  { href: "/app/portal/documents", label: "Documents" },
+  { href: "/app/portal/logins", label: "Logins" },
+  { href: "/app/portal/content", label: "Content Hub" },
   { href: "/app/portal/todo", label: "To-do" },
   { href: "/app/portal/notes", label: "Notes" },
-  { href: "/app/portal/messages", label: "Messages" },
-] as const;
+] as { href: string; label: string; feature?: boolean }[];
 
 // Phase 9: the top-level AppNav (Phase 7) only ever shows the client
 // role a single "Your Project" link — this is the second-level nav
@@ -35,7 +34,7 @@ const LINKS = [
 // highlight the active tab; nothing here is a permission boundary —
 // middleware.ts's "/app/portal" prefix and each page's own RLS-backed
 // query are what actually restrict this section to the client role.
-export function PortalNav() {
+export function PortalNav({ hidden = [] }: { hidden?: string[] }) {
   const pathname = usePathname();
   const strip = useRef<HTMLElement>(null);
 
@@ -67,7 +66,7 @@ export function PortalNav() {
         overflowX: "auto",
       }}
     >
-      {LINKS.map((link) => {
+      {LINKS.filter((link) => !hidden.includes(link.href)).map((link) => {
         const active = link.href === "/app/portal" ? pathname === link.href : pathname?.startsWith(link.href) ?? false;
         return (
           <Link
@@ -83,9 +82,21 @@ export function PortalNav() {
               textTransform: "uppercase",
               textDecoration: "none",
               whiteSpace: "nowrap",
-              color: active ? "var(--text-1)" : "var(--text-3)",
-              borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
-              padding: "15px 13px",
+              ...(link.feature
+                ? {
+                    color: "var(--accent-fg)",
+                    background: "var(--accent)",
+                    borderRadius: "var(--radius-pill)",
+                    margin: "8px 6px",
+                    padding: "6px 14px",
+                    boxShadow: active ? "0 0 0 3px var(--accent-ring)" : "none",
+                    fontWeight: 600,
+                  }
+                : {
+                    color: active ? "var(--text-1)" : "var(--text-3)",
+                    borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
+                    padding: "15px 13px",
+                  }),
               transition: "color 0.15s ease, border-color 0.15s ease",
             }}
           >

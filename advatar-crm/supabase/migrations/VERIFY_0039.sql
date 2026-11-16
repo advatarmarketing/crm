@@ -18,17 +18,22 @@ select '2. row level security is on' as check,
        ) then 'OK'
        else 'PROBLEM - the table is open to everybody, or 0039 did not run' end as result;
 
+-- 0043 added one read-only policy on purpose: a client can see their
+-- OWN logins, in case they forget a password. It is named here so this
+-- check still catches anything else; VERIFY_0043 checks that policy.
 select '3. only management and assigned staff' as check,
        case when (
          select count(*) from pg_policies
          where schemaname = 'public' and tablename = 'client_credentials'
+           and policyname <> 'client_credentials: client reads own'
        ) = 2 then 'OK'
        else 'PROBLEM - expected exactly 2 policies, found ' || (
          select count(*) from pg_policies
          where schemaname = 'public' and tablename = 'client_credentials'
+           and policyname <> 'client_credentials: client reads own'
        ) || ' - check nothing has been added by hand' end as result;
 
-select '4. videographers and clients cannot see logins' as check,
+select '4. videographers cannot see logins' as check,
        case when (
          select count(*) from pg_policies
          where schemaname = 'public' and tablename = 'client_credentials'

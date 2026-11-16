@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loadUploads, loadAssets } from "@/lib/uploads";
@@ -30,7 +31,7 @@ export const dynamic = "force-dynamic";
  * What the role does decide is what may be DONE here, which the
  * workspace turns into a handful of booleans.
  */
-export default async function UploadsPage() {
+export default async function UploadsPage({ searchParams }: { searchParams?: { client?: string } }) {
   const supabase = createClient();
 
   const {
@@ -55,16 +56,35 @@ export default async function UploadsPage() {
       supabase.from("clients").select("id, name").order("name"),
     ]);
 
-  const clientChoices: ClientChoice[] = ((clients ?? []) as unknown as { id: string; name: string }[]).map((c) => ({
+  const allClientChoices: ClientChoice[] = ((clients ?? []) as unknown as { id: string; name: string }[]).map((c) => ({
     id: c.id,
     name: c.name,
   }));
 
+  // First screen: who has uploads. Then one client's. Management can
+  // also open everything at once. A videographer only ever sees their
+  // own uploads anyway, so they skip the client screen when they work
+  // for one client.
+  const isManagement = role === "ceo" || role === "operations_manager";
+  const picked = searchParams?.client ?? "";
+  const showAll = picked === "all" && isManagement;
+  const pickedClient = !showAll && picked ? allClientChoices.find((c) => c.id === picked) ?? null : null;
+  const singleClient = allClientChoices.length === 1 ? allClientChoices[0] : null;
+  const focus = pickedClient ?? (picked ? null : singleClient);
+
+  if (!showAll && !focus) {
+    return <ClientPicker role={role} uploads={uploads} assets={assets} clients={allClientChoices} isManagement={isManagement} />;
+  }
+
+  const clientChoices = focus ? [focus] : allClientChoices;
+  const shownUploads = focus ? uploads.filter((u) => u.client_id === focus.id) : uploads;
+  const shownAssets = focus ? assets.filter((a) => a.client_id === focus.id) : assets;
+
   const canReview = role === "ceo" || role === "operations_manager" || role === "staff";
-  const awaiting = uploads.filter((u) => u.status === "submitted" || u.status === "in_review").length;
-  const needsChanges = uploads.filter((u) => u.status === "changes_requested").length;
-  const openItems = uploads.reduce((n, u) => n + u.checklist.filter((c) => !c.done).length, 0);
-  const clientComments = uploads.reduce((n, u) => n + u.notes.filter((f) => f.audience === "client").length, 0);
+  const awaiting = shownUploads.filter((u) => u.status === "submitted" || u.status === "in_review").length;
+  const needsChanges = shownUploads.filter((u) => u.status === "changes_requested").length;
+  const openItems = shownUploads.reduce((n, u) => n + u.checklist.filter((c) => !c.done).length, 0);
+  const clientComments = shownUploads.reduce((n, u) => n + u.notes.filter((f) => f.audience === "client").length, 0);
 
   return (
     <main className="page">
@@ -72,7 +92,12 @@ export default async function UploadsPage() {
           numbered circle beside the tab would only ever go up. */}
       <MarkSectionSeen prefix="/app/uploads" />
 
-      <h1 className="page-title page-title-accent">Uploads</h1>
+      {allClientChoices.length > 1 && (
+        <Link href="/app/uploads" className="nav-back" style={{ display: "inline-block", marginBottom: 10 }}>
+          ← All clients
+        </Link>
+      )}
+      <h1 className="page-title page-title-accent">{focus ? `Uploads — ${focus.name}` : "All uploads"}</h1>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-2)", margin: "0 0 28px", maxWidth: "64ch" }}>
         {canReview
           ? "Every cut handed in, the conversation about it, and the footage it was made from. Comments you leave here become the videographer's checklist."
@@ -90,11 +115,11 @@ export default async function UploadsPage() {
             />
             <StatTile label="With the videographer" value={String(needsChanges)} hint="changes requested" />
             <StatTile label="Client comments" value={String(clientComments)} hint="across all videos" />
-            <StatTile label="Footage & assets" value={String(assets.length)} hint="links and files" />
+            <StatTile label="Footage & assets" value={String(shownAssets.length)} hint="links and files" />
           </>
         ) : (
           <>
-            <StatTile label="Uploads" value={String(uploads.length)} hint="all time" />
+            <StatTile label="Uploads" value={String(shownUploads.length)} hint="all time" />
             <StatTile label="Awaiting review" value={String(awaiting)} hint="with the reviewer" />
             <StatTile
               label="To fix"
@@ -102,7 +127,7 @@ export default async function UploadsPage() {
               tone={openItems > 0 ? "warn" : "neutral"}
               hint={openItems > 0 ? "on your checklists" : "nothing outstanding"}
             />
-            <StatTile label="Footage & assets" value={String(assets.length)} hint="on your clients" />
+            <StatTile label="Footage & assets" value={String(shownAssets.length)} hint="on your clients" />
           </>
         )}
       </div>
@@ -110,12 +135,99 @@ export default async function UploadsPage() {
       <UploadsWorkspace
         role={role}
         currentUserId={user.id}
-        uploads={uploads}
-        assets={assets}
+        uploads={shownUploads}
+        assets={shownAssets}
         clients={clientChoices}
         uploadsProblem={uploadsProblem}
         assetsProblem={assetsProblem}
       />
+    </main>
+  );
+}
+
+/**
+ * The first thing the Uploads tab shows: a card per client with
+ * something waiting, and how much. Clients with nothing uploaded yet
+ * are listed underneath, so a first upload is one click away too.
+ */
+function ClientPicker({
+  role,
+  uploads,
+  assets,
+  clients,
+  isManagement,
+}: {
+  role: ProfileRole;
+  uploads: Awaited<ReturnType<typeof loadUploads>>["uploads"];
+  assets: Awaited<ReturnType<typeof loadAssets>>["assets"];
+  clients: ClientChoice[];
+  isManagement: boolean;
+}) {
+  const rows = clients.map((c) => {
+    const mine = uploads.filter((u) => u.client_id === c.id);
+    return {
+      client: c,
+      total: mine.length,
+      waiting: mine.filter((u) => u.status === "submitted" || u.status === "in_review").length,
+      changes: mine.filter((u) => u.status === "changes_requested").length,
+      clientNotes: mine.reduce((n, u) => n + u.notes.filter((f) => f.audience === "client").length, 0),
+      assets: assets.filter((a) => a.client_id === c.id).length,
+      latest: mine[0]?.created_at ?? null,
+    };
+  });
+  const withUploads = rows.filter((r) => r.total > 0 || r.assets > 0).sort((a, b) => (b.latest ?? "").localeCompare(a.latest ?? ""));
+  const without = rows.filter((r) => r.total === 0 && r.assets === 0);
+
+  return (
+    <main className="page">
+      <MarkSectionSeen prefix="/app/uploads" />
+      <div className="page-head">
+        <h1 className="page-title page-title-accent">Uploads</h1>
+        {isManagement && uploads.length > 0 && (
+          <Link href="/app/uploads?client=all" className="btn" style={{ textDecoration: "none" }}>
+            ▶ All videos ({uploads.length})
+          </Link>
+        )}
+      </div>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-2)", margin: "0 0 24px", maxWidth: "64ch" }}>
+        {role === "videographer"
+          ? "Pick a client to hand a cut in or see what was said about yours."
+          : "Pick a client to see their uploads, review them and share them."}
+      </p>
+
+      {withUploads.length > 0 ? (
+        <div className="card-grid">
+          {withUploads.map((r) => (
+            <Link key={r.client.id} href={`/app/uploads?client=${r.client.id}`} className="card card-pad card-link" style={{ textDecoration: "none" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "0 0 8px" }}>{r.client.name}</h2>
+              <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 10px" }}>
+                {r.total} upload{r.total === 1 ? "" : "s"}
+                {r.assets ? ` · ${r.assets} file${r.assets === 1 ? "" : "s"}` : ""}
+              </p>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {r.waiting > 0 && <span className="pill pill-accent">{r.waiting} to review</span>}
+                {r.changes > 0 && <span className="pill pill-warn">{r.changes} being changed</span>}
+                {r.clientNotes > 0 && <span className="pill pill-info">{r.clientNotes} client note{r.clientNotes === 1 ? "" : "s"}</span>}
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="card card-pad-sm" style={{ color: "var(--text-3)" }}>Nothing has been uploaded yet.</p>
+      )}
+
+      {without.length > 0 && (
+        <section className="section" style={{ marginTop: 28 }}>
+          <h2 className="section-title" style={{ fontSize: 16 }}>No uploads yet</h2>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {without.map((r) => (
+              <Link key={r.client.id} href={`/app/uploads?client=${r.client.id}`} className="btn" style={{ textDecoration: "none" }}>
+                {r.client.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

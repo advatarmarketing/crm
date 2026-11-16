@@ -1,3 +1,4 @@
+import { DueFromYou } from "@/components/videos/DueFromYou";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/components/StatTile";
@@ -358,6 +359,10 @@ export default async function DashboardPage() {
       <header style={{ marginBottom: 40 }}>
         <h1 className="page-title page-title-accent">Dashboard</h1>
       </header>
+
+      {/* The video schedule's deadlines, worst first, before anything
+          else on the page. RLS scopes it to this person's clients. */}
+      <DueFromYou role="team" />
 
       <section className="section">
         <div className="section-head">

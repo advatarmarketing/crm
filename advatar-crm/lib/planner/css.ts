@@ -111,6 +111,25 @@ export const PLANNER_CSS = `
 }
 .planner-doc .page-nav a.page-nav-link:hover{color:var(--ink);}
 .planner-doc .page-nav a.page-nav-link.active{color:var(--red);border-bottom-color:var(--red);}
+/* Sections are tabs now, one on screen at a time. */
+.planner-doc .page-nav button.page-nav-link{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;
+  white-space:nowrap;flex-shrink:0;cursor:pointer;
+  padding:14px 11px;transition:color .15s, border-color .15s;
+}
+.planner-doc .page-nav button.page-nav-link:hover{color:var(--ink);}
+.planner-doc .page-nav button.page-nav-link.active{color:var(--red);border-bottom-color:var(--red);}
+/* Videos: the deliverable, so it is drawn as a filled tab rather than
+   one more word in the row. */
+.planner-doc .page-nav button.page-nav-feature{
+  color:#fff;background:var(--red);border-radius:999px;
+  padding:6px 14px;margin:8px 10px 8px 0;border-bottom:none;
+  box-shadow:0 0 0 0 var(--red);
+}
+.planner-doc .page-nav button.page-nav-feature:hover{color:#fff;filter:brightness(1.08);}
+.planner-doc .page-nav button.page-nav-feature.active{color:#fff;box-shadow:0 0 0 3px color-mix(in srgb, var(--red) 30%, transparent);}
+.planner-doc .plan-videos{max-width:1040px;margin:0 auto;padding:28px 20px 40px;}
 
 /* ---------- HERO / SLATE ---------- */
 /* Decluttered: the diagonal "film slate" stripe bar and the vertical

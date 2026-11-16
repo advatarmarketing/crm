@@ -57,6 +57,36 @@ from (
         select 1 from information_schema.columns
         where table_schema = 'public' and table_name = 'tasks' and column_name = 'priority'
       ) then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0038', 'Connect a notes folder to a client',
+      case when exists (
+        select 1 from information_schema.columns
+        where table_schema = 'public' and table_name = 'note_folders' and column_name = 'client_id'
+      ) then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0039', 'Passwords: client social media logins',
+      case when to_regclass('public.client_credentials') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0040', 'Share a notes folder with its client',
+      case when exists (
+        select 1 from information_schema.columns
+        where table_schema = 'public' and table_name = 'note_folders' and column_name = 'shared_with_client'
+      ) then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0041', 'Client packages and posting days',
+      case when to_regclass('public.client_packages') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0042', 'Video schedule, client approvals, thumbnails and graphics',
+      case when to_regclass('public.content_videos') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0043', 'Client Account page, live pop-ups, videographer privacy',
+      case when to_regclass('public.client_accounts') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

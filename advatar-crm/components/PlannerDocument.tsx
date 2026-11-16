@@ -12,7 +12,10 @@ import {
 import { PastePlanDialog } from "@/components/planner/PastePlanDialog";
 import { PLANNER_CSS } from "@/lib/planner/css";
 
+// Videos first: the video is what the client is paying for, so it is
+// the tab the plan opens on and the one drawn to stand out.
 const NAV_SECTIONS: { id: string; label: string }[] = [
+  { id: "videos", label: "Videos" },
   { id: "overview", label: "Overview" },
   { id: "branding", label: "Branding" },
   { id: "pillars", label: "Pillars" },
@@ -21,7 +24,6 @@ const NAV_SECTIONS: { id: string; label: string }[] = [
   { id: "metrics", label: "Metrics" },
   { id: "competitors", label: "Competitors" },
   { id: "producing", label: "Our Work" },
-  { id: "slots", label: "Slot Planner" },
   { id: "timeline", label: "Timeline" },
   { id: "guarantee", label: "Guarantee" },
 ];
@@ -105,6 +107,9 @@ function Editable({
   placeholder?: string;
 }) {
   if (!editable) {
+    // Read-only and blank: draw nothing. A client reading the plan
+    // should never meet an empty box where an answer would go.
+    if (!value || !value.trim()) return null;
     return (
       <Tag className={className} style={style}>
         {value}
@@ -147,6 +152,8 @@ export function PlannerDocument({
   editable,
   requirePublished = false,
   emptyMessage = "Your content plan isn't published yet — check back soon.",
+  videos,
+  initialSection = "videos",
 }: {
   clientId: string;
   editable: boolean;
@@ -163,6 +170,14 @@ export function PlannerDocument({
   requirePublished?: boolean;
   /** Shown when there's nothing to render — wording differs by audience. */
   emptyMessage?: string;
+  /**
+   * What the Videos tab shows: the team's schedule editor, or the
+   * client's list of videos. Before 0042 runs the plan falls back to
+   * its old slot list here instead.
+   */
+  videos?: React.ReactNode;
+  /** Which tab to open on. */
+  initialSection?: string;
 }) {
   const supabase = createClient();
   const [content, setContent] = useState<PlannerContent | null>(null);
@@ -170,7 +185,10 @@ export function PlannerDocument({
   const [loading, setLoading] = useState(true);
   const [notAvailable, setNotAvailable] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [activeSection, setActiveSection] = useState("overview");
+  const [activeSection, setActiveSection] = useState(initialSection);
+  // Whether 0042's schedule exists. Until it does, the Videos tab shows
+  // the plan's own slot list, exactly as before.
+  const [scheduleReady, setScheduleReady] = useState<boolean | null>(null);
   const [pasting, setPasting] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -331,21 +349,21 @@ export function PlannerDocument({
     if (contentRef.current) scheduleSave(contentRef.current, next);
   }
 
-  // ---------------- scrollspy ----------------
+  // ---------------- is the video schedule there? ----------------
   useEffect(() => {
-    function onScroll() {
-      const scrollPos = window.scrollY + 80;
-      let current = NAV_SECTIONS[0]?.id;
-      for (const s of NAV_SECTIONS) {
-        const el = document.getElementById(`planner-${clientId}-${s.id}`);
-        if (el && el.offsetTop <= scrollPos) current = s.id;
-      }
-      setActiveSection(current);
-    }
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [clientId]);
+    let cancelled = false;
+    supabase
+      .from("content_videos")
+      .select("id")
+      .limit(1)
+      .then(({ error }: { error: unknown }) => {
+        if (!cancelled) setScheduleReady(!error);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
@@ -364,6 +382,27 @@ export function PlannerDocument({
   }
 
   const sid = (name: string) => `planner-${clientId}-${name}`;
+
+  // Read-only views (the client, a videographer) see only what was
+  // filled in: an unanswered section is not drawn and has no tab.
+  const has = (v: unknown) => typeof v === "string" && v.trim().length > 0;
+  const headFilled = (h: { tag: string; heading: string; desc: string }) => has(h.heading) || has(h.desc);
+  const filled: Record<string, boolean> = {
+    videos: true,
+    overview: headFilled(content.overview),
+    branding: content.branding.rows.some((r) => has(r.value)),
+    pillars: content.pillars.items.some((p) => has(p.name)),
+    format: content.format.stats.some((st) => has(st.value)),
+    workflow: content.workflow.steps.some((st) => has(st.title) || has(st.description)),
+    metrics: content.metrics.items.some((m) => has(m.value)),
+    competitors: content.competitors.links.some((l) => has(l.url) || has(l.title)),
+    producing: content.producing.links.some((l) => has(l.url) || has(l.title)),
+    timeline: content.timeline.items.some((t) => has(t.title) || has(t.date)),
+    guarantee: has(content.guarantee.body) || content.guarantee.terms.some((t) => has(t.text)),
+  };
+  const tabs = NAV_SECTIONS.filter((sct) => editable || filled[sct.id]);
+  const current = tabs.some((t) => t.id === activeSection) ? activeSection : tabs[0]?.id;
+  const show = (id: string) => current === id;
 
   return (
     <div className="planner-doc">
@@ -437,6 +476,7 @@ export function PlannerDocument({
         </div>
       </div>
 
+      {(editable || (content.thesis.quote ?? "").trim()) && (
       <div className="thesis">
         <p>
           <span className="lead-mark">&ldquo;</span>
@@ -445,36 +485,36 @@ export function PlannerDocument({
         </p>
         <Editable as="small" editable={editable} value={content.thesis.caption} onCommit={(v) => update(["thesis", "caption"], v)} placeholder={PLANNER_PH.thesis.caption} />
       </div>
+      )}
 
-      <nav className="page-nav">
-        <div className="page-nav-inner">
-          <a href={`#${sid("top")}`} className="page-nav-top">
-            {/* `?? ""` is not belt and braces. The masthead's fields were
-                renamed when it was rebuilt, so a plan last saved before
-                that has a hero with no `brand` on it at all — and an
-                unguarded .replace here threw while rendering, which took
-                the whole content plan down rather than losing one word
-                of a "back to top" link. */}
-            {(content.hero.brand ?? "").replace(/\.$/, "") || "Top"} ↑
-          </a>
-          {NAV_SECTIONS.map((s) => (
-            <a
-              key={s.id}
-              href={`#${sid(s.id)}`}
-              className={"page-nav-link" + (activeSection === s.id ? " active" : "")}
+      <nav className="page-nav" aria-label="Content plan sections">
+        <div className="page-nav-inner" role="tablist">
+          {tabs.map((sct) => (
+            <button
+              key={sct.id}
+              type="button"
+              role="tab"
+              aria-selected={current === sct.id}
+              onClick={() => setActiveSection(sct.id)}
+              className={
+                "page-nav-link" + (current === sct.id ? " active" : "") + (sct.id === "videos" ? " page-nav-feature" : "")
+              }
             >
-              {s.label}
-            </a>
+              {sct.id === "videos" ? "▶ Videos" : sct.label}
+            </button>
           ))}
         </div>
       </nav>
 
+      {show("overview") && (
       <SectionHead id={sid("overview")} editable={editable} data={content.overview} onCommit={(field, v) => update(["overview", field], v)} ph={PLANNER_PH.overview} />
 
+      )}
+      {show("branding") && (
       <section id={sid("branding")} style={{ paddingTop: 0 }}>
         <SectionHeadInner editable={editable} data={content.branding} onCommit={(field, v) => update(["branding", field], v)} ph={PLANNER_PH.branding} />
         <div className="brand-table">
-          {content.branding.rows.map((row, i) => (
+          {content.branding.rows.map((row, i) => !editable && !has(row.value) ? null : (
             <div className="brand-row" key={row.id}>
               <Editable as="span" className="brand-label" editable={editable} value={row.label} onCommit={(v) => update(["branding", "rows", i, "label"], v)} />
               <Editable as="span" className="brand-value" editable={editable} value={row.value} onCommit={(v) => update(["branding", "rows", i, "value"], v)} placeholder={row.ph} />
@@ -517,11 +557,13 @@ export function PlannerDocument({
           </button>
         )}
       </section>
+      )}
 
+      {show("pillars") && (
       <section id={sid("pillars")} style={{ paddingTop: 0 }}>
         <SectionHeadInner editable={editable} data={content.pillars} onCommit={(field, v) => update(["pillars", field], v)} ph={PLANNER_PH.pillars} />
         <div className="pillars">
-          {content.pillars.items.map((pillar, i) => (
+          {content.pillars.items.map((pillar, i) => !editable && !has(pillar.name) ? null : (
             <div className="pillar-card" key={pillar.id}>
               {editable && (
                 <RemoveBtn
@@ -643,11 +685,13 @@ export function PlannerDocument({
           </button>
         )}
       </section>
+      )}
 
+      {show("format") && (
       <section id={sid("format")} style={{ paddingTop: 0 }}>
         <SectionHeadInner editable={editable} data={content.format} onCommit={(field, v) => update(["format", field], v)} ph={PLANNER_PH.format} />
         <div className="format-row">
-          {content.format.stats.map((stat, i) => (
+          {content.format.stats.map((stat, i) => !editable && !has(stat.value) ? null : (
             <div className="format-stat" key={i}>
               <Editable as="span" className="num" editable={editable} value={stat.value} onCommit={(v) => update(["format", "stats", i, "value"], v)} placeholder={stat.ph} />
               <Editable as="span" className="lbl" editable={editable} value={stat.label} onCommit={(v) => update(["format", "stats", i, "label"], v)} />
@@ -655,11 +699,13 @@ export function PlannerDocument({
           ))}
         </div>
       </section>
+      )}
 
+      {show("workflow") && (
       <section id={sid("workflow")} style={{ paddingTop: 0 }}>
         <SectionHeadInner editable={editable} data={content.workflow} onCommit={(field, v) => update(["workflow", field], v)} ph={PLANNER_PH.workflow} />
         <div className="workflow">
-          {content.workflow.steps.map((step, i) => (
+          {content.workflow.steps.map((step, i) => !editable && !has(step.title) && !has(step.description) ? null : (
             <div className="wf-step" key={step.id}>
               <Editable as="span" className="wf-num" editable={editable} value={step.num} onCommit={(v) => update(["workflow", "steps", i, "num"], v)} />
               <Editable as="h4" editable={editable} value={step.title} onCommit={(v) => update(["workflow", "steps", i, "title"], v)} placeholder={PLANNER_PH.workflow.title} />
@@ -668,11 +714,13 @@ export function PlannerDocument({
           ))}
         </div>
       </section>
+      )}
 
+      {show("metrics") && (
       <section id={sid("metrics")} style={{ paddingTop: 0 }}>
         <SectionHeadInner editable={editable} data={content.metrics} onCommit={(field, v) => update(["metrics", field], v)} ph={PLANNER_PH.metrics} />
         <div className="metrics">
-          {content.metrics.items.map((m, i) => (
+          {content.metrics.items.map((m, i) => !editable && !has(m.value) ? null : (
             <div className="metric-card" key={m.id}>
               <Editable as="span" className="m-lbl" editable={editable} value={m.label} onCommit={(v) => update(["metrics", "items", i, "label"], v)} placeholder={PLANNER_PH.metrics.label} />
               <Editable as="span" className="m-val" editable={editable} value={m.value} onCommit={(v) => update(["metrics", "items", i, "value"], v)} placeholder={PLANNER_PH.metrics.value} />
@@ -680,7 +728,9 @@ export function PlannerDocument({
           ))}
         </div>
       </section>
+      )}
 
+      {show("competitors") && (
       <LinkListSection
         id={sid("competitors")}
         editable={editable}
@@ -705,7 +755,9 @@ export function PlannerDocument({
           })
         }
       />
+      )}
 
+      {show("producing") && (
       <LinkListSection
         id={sid("producing")}
         editable={editable}
@@ -730,40 +782,52 @@ export function PlannerDocument({
           })
         }
       />
+      )}
 
+      {show("videos") && (
+        <section id={sid("videos")} style={{ paddingTop: 0 }}>
+          {scheduleReady === false || !videos ? (
       <SlotPlannerSection
-        id={sid("slots")}
-        editable={editable}
-        section={content.slots}
-        pillarNames={content.pillars.items.map((p) => p.name)}
-        onHeadCommit={(field, v) => update(["slots", field], v)}
-        onSlotChange={(i, field, v) => update(["slots", "items", i, field], v)}
-        onGenerate={(count) =>
-          setContent((prev) => {
-            if (!prev) return prev;
-            const existing = prev.slots.items;
-            const items = Array.from({ length: count }, (_, i) => existing[i] ?? { id: makeId("slot"), title: "", description: "", pillar: "", link: "", hook: "", body: "", cta: "", wms: "", scenery: "", set: "" });
-            const next = { ...prev, slots: { ...prev.slots, items } };
-            scheduleSave(next);
-            return next;
-          })
-        }
-        onSlotRemove={(index) =>
-          setContent((prev) => {
-            if (!prev) return prev;
-            const items = prev.slots.items.filter((_, i) => i !== index);
-            const next = { ...prev, slots: { ...prev.slots, items } };
-            scheduleSave(next);
-            return next;
-          })
-        }
-      />
+              id={sid("slots")}
+              editable={editable}
+              section={content.slots}
+              pillarNames={content.pillars.items.map((p) => p.name)}
+              onHeadCommit={(field, v) => update(["slots", field], v)}
+              onSlotChange={(i, field, v) => update(["slots", "items", i, field], v)}
+              onGenerate={(count) =>
+                setContent((prev) => {
+                  if (!prev) return prev;
+                  const existing = prev.slots.items;
+                  const items = Array.from({ length: count }, (_, i) => existing[i] ?? { id: makeId("slot"), title: "", description: "", pillar: "", link: "", hook: "", body: "", cta: "", wms: "", scenery: "", set: "" });
+                  const next = { ...prev, slots: { ...prev.slots, items } };
+                  scheduleSave(next);
+                  return next;
+                })
+              }
+              onSlotRemove={(index) =>
+                setContent((prev) => {
+                  if (!prev) return prev;
+                  const items = prev.slots.items.filter((_, i) => i !== index);
+                  const next = { ...prev, slots: { ...prev.slots, items } };
+                  scheduleSave(next);
+                  return next;
+                })
+              }
+            />
+          ) : scheduleReady === null ? (
+            <p style={{ color: "var(--muted)", padding: "24px 0" }}>Loading videos…</p>
+          ) : (
+            <div className="plan-videos">{videos}</div>
+          )}
+        </section>
+      )}
 
+      {show("timeline") && (
       <section id={sid("timeline")} style={{ paddingTop: 0 }}>
         <SectionHeadInner editable={editable} data={content.timeline} onCommit={(field, v) => update(["timeline", field], v)} ph={PLANNER_PH.timeline} />
         <TimelineProgress items={content.timeline.items} />
         <div className="timeline">
-          {content.timeline.items.map((item, i) => (
+          {content.timeline.items.map((item, i) => !editable && !has(item.title) && !has(item.date) ? null : (
             <div className={"timeline-item" + (item.done ? " done" : "")} key={item.id}>
               <div
                 className="timeline-dot"
@@ -833,7 +897,9 @@ export function PlannerDocument({
           </button>
         )}
       </section>
+      )}
 
+      {show("guarantee") && (
       <section className="guarantee-section" id={sid("guarantee")}>
         <div className="slate-stripes" />
         <div className="guarantee-mark">
@@ -848,7 +914,7 @@ export function PlannerDocument({
           <Editable as="h2" className="guarantee-h2" editable={editable} value={content.guarantee.heading} onCommit={(v) => update(["guarantee", "heading"], v)} placeholder={PLANNER_PH.guarantee.heading} />
           <Editable as="p" className="guarantee-body" editable={editable} value={content.guarantee.body} onCommit={(v) => update(["guarantee", "body"], v)} placeholder={PLANNER_PH.guarantee.body} />
           <div className="guarantee-terms">
-            {content.guarantee.terms.map((term, i) => (
+            {content.guarantee.terms.map((term, i) => !editable && !has(term.text) ? null : (
               <div className="guarantee-term" key={term.id}>
                 <span className="term-num">{String(i + 1).padStart(2, "0")}</span>
                 <Editable as="span" className="term-text" editable={editable} value={term.text} onCommit={(v) => update(["guarantee", "terms", i, "text"], v)} placeholder={PLANNER_PH.guarantee.term} />
@@ -886,6 +952,7 @@ export function PlannerDocument({
           )}
         </div>
       </section>
+      )}
 
       <footer>ADVATAR — PRODUCTION SCHEDULE — ROLL 01 OF MANY</footer>
 
@@ -1027,6 +1094,8 @@ function LinkListSection({
       <div className="link-list">
         {section.links.map((link, i) => {
           const hasLink = isValidHttpUrl(link.url);
+          // Read-only: a row with neither a name nor a link is a gap.
+          if (!editable && !hasLink && !link.title.trim()) return null;
           return (
             <div className={"link-row" + (hasLink ? " has-link" : "")} key={link.id}>
               <span className="link-idx">{String(i + 1).padStart(2, "0")}</span>

@@ -384,6 +384,9 @@ function NewUploadForm({
   const [slots, setSlots] = useState<PlanSlotChoice[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotId, setSlotId] = useState("");
+  // 0042: what it is, and an optional link for the in-app player.
+  const [kind, setKind] = useState<"video" | "thumbnail" | "graphic">("video");
+  const [streamUrl, setStreamUrl] = useState("");
 
   const router = useRouter();
 
@@ -423,7 +426,16 @@ function NewUploadForm({
     setError(null);
     setNote(null);
 
-    const result = await submitWorkAction({ title, clientId, url, notes, visibility, plannerSlotId: slotId });
+    const result = await submitWorkAction({
+      title,
+      clientId,
+      url,
+      notes,
+      visibility,
+      plannerSlotId: kind === "video" ? slotId : "none",
+      kind,
+      streamUrl,
+    });
 
     setBusy(false);
 
@@ -435,6 +447,8 @@ function NewUploadForm({
     setNotes("");
     setVisibility("team_only");
     setSlotId("");
+    setKind("video");
+    setStreamUrl("");
     setCreating(false);
     setNote(result.note);
     onDone();
@@ -446,7 +460,7 @@ function NewUploadForm({
       <div style={{ marginTop: 18 }}>
         {note && <SideEffectNote text={note} />}
         <button type="button" onClick={() => setCreating(true)} className="btn btn-primary">
-          + Upload a video
+          + Upload
         </button>
         <p style={{ ...meta, margin: "10px 0 0", maxWidth: "60ch", lineHeight: 1.5 }}>
           {ownsPortfolio
@@ -489,20 +503,58 @@ function NewUploadForm({
         </select>
       </div>
 
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }} role="radiogroup" aria-label="What is it?">
+        {(
+          [
+            ["video", "Video"],
+            ["thumbnail", "Thumbnail"],
+            ["graphic", "Graphic / poster"],
+          ] as const
+        ).map(([value, text]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={kind === value}
+            className="btn"
+            onClick={() => setKind(value)}
+            style={kind === value ? { background: "var(--text-1)", color: "var(--bg)" } : undefined}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+
       <input
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder="Link to the video (Drive, Frame.io, Dropbox…)"
-        style={{ ...field, width: "100%", marginBottom: 10 }}
+        placeholder={kind === "video" ? "Google Drive link to the video (for download)" : "Google Drive link to the image"}
+        aria-label="Google Drive link"
+        style={{ ...field, width: "100%", marginBottom: 6 }}
       />
+      <p style={{ ...meta, margin: "0 0 10px", lineHeight: 1.5 }}>
+        Set the Drive file to “Anyone with the link can view” so the client can watch it in the app.
+      </p>
+
+      {kind === "video" && (
+        <>
+          <input
+            value={streamUrl}
+            onChange={(e) => setStreamUrl(e.target.value)}
+            placeholder="Cloudinary link (optional — smoother player, timestamps fill in themselves)"
+            aria-label="Cloudinary link"
+            style={{ ...field, width: "100%", marginBottom: 10 }}
+          />
+        </>
+      )}
 
       {/* Which video on their plan this is.
           Only once a client is chosen, because the plan belongs to
           them -- before that there is nothing to choose from. */}
-      {clientId && (
+      {clientId && kind === "video" && (
         <div style={{ marginBottom: 10 }}>
           <label htmlFor="planSlot" style={{ ...subheading, display: "block", padding: 0, marginBottom: 6 }}>
-            Which video on their plan
+            Which video on their schedule
           </label>
           <select
             id="planSlot"
@@ -516,7 +568,7 @@ function NewUploadForm({
             ) : (
               <>
                 <option value="">
-                  {slots.length > 0 ? "Pick the slot it fills…" : "They have no plan slots yet"}
+                  {slots.length > 0 ? "Pick the video it is…" : "Nothing on their schedule yet"}
                 </option>
                 {slots.map((slot) => (
                   <option key={slot.id} value={slot.id}>
@@ -524,21 +576,23 @@ function NewUploadForm({
                     {slot.filled ? " — already has a video" : ""}
                   </option>
                 ))}
-                <option value="new">Add it to their plan as a new video</option>
-                <option value="none">Don’t put it on their plan</option>
+                <option value="new">Add it to their schedule as a new video</option>
+                <option value="none">Not one of their scheduled videos</option>
               </>
             )}
           </select>
           <p style={{ ...meta, margin: "6px 0 0", lineHeight: 1.5 }}>
             {slotId === "none"
-              ? "It won’t appear on their content plan."
+              ? "It won’t be tied to a date on their schedule."
               : slotId === "new"
-                ? "A new video will be added to the bottom of their plan."
-                : slotId
-                  ? visibility === "team_and_client"
-                    ? "The link goes straight into that slot on their plan."
-                    : "The link goes into that slot when you share it with the client."
-                  : "Leave this and we’ll match it to a slot by its title, as before."}
+                ? "Added to their schedule with no date, ready to be given one."
+                : slotId.startsWith("v:")
+                  ? "Linked to that video. The client sees it once it is shared."
+                  : slotId
+                    ? visibility === "team_and_client"
+                      ? "The link goes straight into that slot on their plan."
+                      : "The link goes into that slot when you share it with the client."
+                    : "Pick the video this is, so the schedule shows it as delivered."}
           </p>
         </div>
       )}

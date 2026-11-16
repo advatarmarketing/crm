@@ -103,6 +103,7 @@ export function UploadCard({
   const [open, setOpen] = useState(defaultOpen);
   const [addingVersion, setAddingVersion] = useState(false);
   const [newUrl, setNewUrl] = useState("");
+  const [newStream, setNewStream] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [status, setStatus] = useState<SubmissionStatus>(upload.status);
   const [busy, setBusy] = useState(false);
@@ -191,18 +192,30 @@ export function UploadCard({
     // Nothing here writes the status: a trigger (0020) bumps
     // current_version and puts the row back to "submitted", which is
     // why a videographer needs no update policy on `submissions`.
-    const { error: insertError } = await supabase.from("submission_versions").insert({
+    const stream = newStream.trim();
+    if (stream && !/^https:\/\//i.test(stream)) {
+      setBusy(false);
+      return setError("The player link should start with https://");
+    }
+    const row: Record<string, unknown> = {
       submission_id: upload.id,
       version: upload.current_version + 1,
       url,
       notes: newNotes.trim() || null,
       submitted_by: currentUserId,
-    });
+    };
+    // stream_url is 0042's. Before that runs, the cut still goes in
+    // with its Drive link; only the player link is dropped.
+    let { error: insertError } = await supabase.from("submission_versions").insert({ ...row, ...(stream ? { stream_url: stream } : {}) } as never);
+    if (insertError && stream && /stream_url/.test(insertError.message)) {
+      ({ error: insertError } = await supabase.from("submission_versions").insert(row as never));
+    }
 
     setBusy(false);
     if (insertError) return setError(insertError.message);
 
     setNewUrl("");
+    setNewStream("");
     setNewNotes("");
     setAddingVersion(false);
     router.refresh();
@@ -263,6 +276,21 @@ export function UploadCard({
         </span>
 
         <span className="upload-badges">
+        {upload.kind && upload.kind !== "video" && (
+          <span className="pill pill-info" style={{ flexShrink: 0 }}>
+            {upload.kind === "thumbnail" ? "Thumbnail" : "Graphic"}
+          </span>
+        )}
+        {upload.clientDecision === "approved" && (
+          <span className="pill pill-ok" style={{ flexShrink: 0 }}>
+            Client approved
+          </span>
+        )}
+        {upload.clientDecision === "changes_requested" && (
+          <span className="pill pill-warn" style={{ flexShrink: 0 }}>
+            Client wants changes
+          </span>
+        )}
         {counters.map((c) => (
           <span
             key={c.label}
@@ -381,9 +409,17 @@ export function UploadCard({
               <input
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
-                placeholder={`Link to v${upload.current_version + 1}`}
+                placeholder={`Google Drive link to v${upload.current_version + 1}`}
                 style={{ ...field, width: "100%", marginBottom: 8 }}
               />
+              {upload.kind !== "thumbnail" && upload.kind !== "graphic" && (
+                <input
+                  value={newStream}
+                  onChange={(e) => setNewStream(e.target.value)}
+                  placeholder="Cloudinary link (optional — the client's player fills in timestamps itself)"
+                  style={{ ...field, width: "100%", marginBottom: 8 }}
+                />
+              )}
               <textarea
                 value={newNotes}
                 onChange={(e) => setNewNotes(e.target.value)}
