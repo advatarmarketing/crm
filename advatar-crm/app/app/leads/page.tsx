@@ -90,14 +90,14 @@ export default async function LeadsPage() {
           tone="accent"
           hint="value × likelihood"
         />
-        <StatTile label="Total in play" value={formatMoney(totalValue)} hint="if everything landed" />
+        <StatTile label="Total in play" value={formatMoney(totalValue)} tone="violet" hint="if everything landed" />
         <StatTile
           label="Overdue follow-ups"
           value={String(overdueCount)}
           tone={overdueCount > 0 ? "danger" : "ok"}
           hint={overdueCount > 0 ? "chase these first" : "all up to date"}
         />
-        {conversion !== null && <StatTile label="Won rate" value={`${conversion}%`} hint="won vs still open" />}
+        {conversion !== null && <StatTile label="Won rate" value={`${conversion}%`} tone="info" hint="won vs still open" />}
       </div>
 
       {overdueCount > 0 && (

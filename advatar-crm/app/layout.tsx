@@ -1,28 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Bebas_Neue, DM_Sans, Space_Mono } from "next/font/google";
 import "./globals.css";
 
-const bebasNeue = Bebas_Neue({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-display",
-  display: "swap",
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-  variable: "--font-body",
-  display: "swap",
-});
-
-const spaceMono = Space_Mono({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-mono",
-  display: "swap",
-});
+// Fonts are the device's own (SF Pro on Apple, Helvetica or the system
+// sans elsewhere), set in globals.css. Nothing is downloaded.
 
 export const metadata: Metadata = {
   title: "Advatar",
@@ -56,8 +37,8 @@ export const viewport: Viewport = {
   // the pull-to-refresh overscroll don't flash the opposite colour on
   // a phone.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f5f3" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e0e0e" },
+    { media: "(prefers-color-scheme: light)", color: "#f3f3f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a10" },
   ],
   // Keeps the app's own background under the home indicator instead of
   // a white band, now that it can be installed to the home screen.
@@ -110,7 +91,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${bebasNeue.variable} ${dmSans.variable} ${spaceMono.variable}`}>
+      <body>
         {children}
       </body>
     </html>

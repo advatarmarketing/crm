@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   EMPTY_DRAFT,
@@ -171,7 +171,14 @@ export function PackagePanel({
   presets: initialPresets,
   available,
   editable,
+  onPick,
 }: {
+  /**
+   * Adding a new client: there is no client to save to yet, so instead
+   * of a Save button the choice is handed up as it changes (null while
+   * something is still unchosen). Saved with the client itself.
+   */
+  onPick?: (value: PackageSettings | null, presetId: string | null) => void;
   clientId: string;
   clientName: string;
   /** Null when nobody has set this client's package yet. */
@@ -213,6 +220,13 @@ export function PackagePanel({
     [draft, roundsText, perWeekText]
   );
 
+  useEffect(() => {
+    onPick?.(candidate.ok ? candidate.value : null, presetId);
+    // onPick is the parent's setter; only the choice itself matters here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidate, presetId]);
+
+  const shown: PackageSettings | null = onPick ? (candidate.ok ? candidate.value : null) : saved;
   const effective: PackageSettings | null = candidate.ok ? candidate.value : saved;
   const dirty = !saved || presetId !== savedPresetId || JSON.stringify(effective) !== JSON.stringify(saved);
   const preview = useMemo(() => (effective ? postingDates(effective, todayIso(), 14) : []), [effective]);
@@ -248,7 +262,7 @@ export function PackagePanel({
     setRoundsText(p.revision_rounds ? String(p.revision_rounds) : "");
     setPerWeekText(p.videos_per_week ? String(p.videos_per_week) : "5");
     setConfirmDelete(false);
-    setNotice(`“${p.name}” filled in below. Nothing is saved until you press Save.`);
+    setNotice(onPick ? `“${p.name}” filled in below. Change anything that is different for this client.` : `“${p.name}” filled in below. Nothing is saved until you press Save.`);
     setError(null);
   }
 
@@ -314,17 +328,21 @@ export function PackagePanel({
     <div style={{ maxWidth: 760 }}>
       {/* What this client gets, in one line, whatever happens below. */}
       <div className="card card-pad" style={{ marginBottom: 28 }}>
-        <p style={label}>{saved ? "Current package" : "Not set yet"}</p>
+        <p style={label}>{shown ? (onPick ? "Chosen" : "Current package") : "Not set yet"}</p>
         <p style={{ fontFamily: "var(--font-display)", fontSize: 19, margin: "0 0 6px", lineHeight: 1.35 }}>
-          {saved ? describePackage(saved) : "Nothing chosen yet"}
+          {shown ? describePackage(shown) : "Nothing chosen yet"}
         </p>
         <p style={hint}>
-          {saved
-            ? savedPresetName
+          {shown
+            ? onPick
+              ? `${presetName_ ? `From “${presetName_}”. ` : ""}Roughly ${videosPerWeek(shown) * 4} videos every four weeks.`
+              : savedPresetName
               ? `Set up from the “${savedPresetName}” package.`
-              : `Roughly ${videosPerWeek(saved) * 4} videos every four weeks.`
+              : `Roughly ${videosPerWeek(shown) * 4} videos every four weeks.`
             : editable
-              ? `Choose ${clientName}’s options below, or start from a saved package. Nothing is assumed until you save.`
+              ? onPick
+                ? "Start from a saved package, or choose each option below. Nothing is picked for you."
+                : `Choose ${clientName}’s options below, or start from a saved package. Nothing is assumed until you save.`
               : `Nobody has set ${clientName}’s package yet.`}
         </p>
       </div>
@@ -536,14 +554,16 @@ export function PackagePanel({
       {editable && (
         <>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 28 }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={save}
-              disabled={busy || !dirty || !candidate.ok}
-            >
-              {busy ? "Saving…" : saved ? "Save changes" : `Save ${clientName}’s package`}
-            </button>
+            {!onPick && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={save}
+                disabled={busy || !dirty || !candidate.ok}
+              >
+                {busy ? "Saving…" : saved ? "Save changes" : `Save ${clientName}’s package`}
+              </button>
+            )}
             {!candidate.ok && <span style={{ ...hint, alignSelf: "center" }}>{candidate.error}</span>}
           </div>
 

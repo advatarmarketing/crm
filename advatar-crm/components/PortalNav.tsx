@@ -73,32 +73,8 @@ export function PortalNav({ hidden = [] }: { hidden?: string[] }) {
             key={link.href}
             href={link.href}
             aria-current={active ? "page" : undefined}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-              ...(link.feature
-                ? {
-                    color: "var(--accent-fg)",
-                    background: "var(--accent)",
-                    borderRadius: "var(--radius-pill)",
-                    margin: "8px 6px",
-                    padding: "6px 14px",
-                    boxShadow: active ? "0 0 0 3px var(--accent-ring)" : "none",
-                    fontWeight: 600,
-                  }
-                : {
-                    color: active ? "var(--text-1)" : "var(--text-3)",
-                    borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
-                    padding: "15px 13px",
-                  }),
-              transition: "color 0.15s ease, border-color 0.15s ease",
-            }}
+            className={link.feature ? "nav-feature" : "nav-tab"}
+            data-active={active ? "true" : undefined}
           >
             {link.label}
             {/* Counts unread notifications pointing at this tab —

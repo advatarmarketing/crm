@@ -206,7 +206,7 @@ export default async function PortalOverviewPage() {
             hint={goingOut[0] ? videoLabel(goingOut[0]) : "being scheduled"}
           />
         )}
-        {schedule.available && thisMonth > 0 && <StatTile label="Videos this month" value={String(thisMonth)} hint="on your calendar" />}
+        {schedule.available && thisMonth > 0 && <StatTile label="Videos this month" value={String(thisMonth)} tone="violet" hint="on your calendar" />}
         {account.available && (account.next || account.paid.length > 0 || account.overdue.length > 0) && (
           <StatTile
             label="Account"
@@ -223,8 +223,8 @@ export default async function PortalOverviewPage() {
           tone={publishedPlanner ? "ok" : "warn"}
           hint={publishedPlanner ? "ready to read" : "your team is working on it"}
         />
-        {!schedule.available && <StatTile label="Documents" value={String(documentCount ?? 0)} hint="shared with you" />}
-        {!schedule.available && <StatTile label="Messages" value={String(messageCount)} hint="in your thread" />}
+        {!schedule.available && <StatTile label="Documents" value={String(documentCount ?? 0)} tone="info" hint="shared with you" />}
+        {!schedule.available && <StatTile label="Messages" value={String(messageCount)} tone="violet" hint="in your thread" />}
       </div>
 
       {goingOut.length > 0 && (

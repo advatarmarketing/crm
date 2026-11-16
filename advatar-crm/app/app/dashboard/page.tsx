@@ -496,6 +496,7 @@ export default async function DashboardPage() {
                 value={formatMoney(paidThisMonth)}
                 delta={monthDelta}
                 spark={paidTrend}
+                tone="ok"
                 hint="last 6 months"
               />
             </Link>
@@ -506,7 +507,7 @@ export default async function DashboardPage() {
               <StatTile
                 label="Outstanding"
                 value={formatMoney(outstanding)}
-                tone={overdueCount > 0 ? "danger" : "neutral"}
+                tone={overdueCount > 0 ? "danger" : "warn"}
                 hint={
                   overdueCount > 0
                     ? `${formatMoney(overdueTotal)} overdue across ${overdueCount} invoice${overdueCount === 1 ? "" : "s"}`
@@ -533,6 +534,7 @@ export default async function DashboardPage() {
             <StatTile
               label="Weighted pipeline"
               value={formatMoney(weighted)}
+              tone="accent"
               hint={`${open.length} open opportunit${open.length === 1 ? "y" : "ies"}`}
             />
           </Link>
@@ -540,7 +542,7 @@ export default async function DashboardPage() {
             <StatTile label="Active clients" value={String(activeCount)} tone="ok" />
           </Link>
           {conversion !== null && (
-            <StatTile label="Won rate" value={`${conversion}%`} hint="active vs still open" />
+            <StatTile label="Won rate" value={`${conversion}%`} tone="info" hint="active vs still open" />
           )}
           {!!prospectCount && (
             <Link href="/app/prospects" style={tileLink}>

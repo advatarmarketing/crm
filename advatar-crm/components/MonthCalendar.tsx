@@ -25,8 +25,9 @@ export interface CalendarMarker {
 }
 
 const MARKER_COLOUR: Record<CalendarMarker["kind"], string> = {
-  video: "#d6452f",
-  payment: "#2f7d5b",
+  // Video work is violet and money is green everywhere in the app.
+  video: "#8b5cf6",
+  payment: "#16a34a",
 };
 const MARKER_ICON: Record<CalendarMarker["kind"], string> = { video: "▶", payment: "£" };
 

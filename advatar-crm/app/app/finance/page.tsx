@@ -81,7 +81,7 @@ export default async function FinancePage() {
       </div>
 
       <div className="stat-row">
-        <StatTile label="Outstanding" value={formatMoney(outstanding)} hint="sent, not yet paid" />
+        <StatTile label="Outstanding" value={formatMoney(outstanding)} tone="warn" hint="sent, not yet paid" />
         {/* Overdue is the one number on this page that means someone
             has to pick up the phone, so it is the only one that turns
             red — and only when there is actually something in it. */}

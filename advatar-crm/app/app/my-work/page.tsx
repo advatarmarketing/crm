@@ -102,11 +102,11 @@ export default async function MyWorkPage() {
         <StatTile
           label="Tasks open"
           value={String(openTasks.length)}
-          tone={overdue.length > 0 ? "danger" : "neutral"}
+          tone={overdue.length > 0 ? "danger" : "ok"}
           hint={overdue.length > 0 ? `${overdue.length} overdue` : "none overdue"}
         />
-        <StatTile label="Due this week" value={String(dueThisWeek.length)} hint="next seven days" />
-        <StatTile label="Awaiting review" value={String(awaitingReview.length)} hint="with the reviewer" />
+        <StatTile label="Due this week" value={String(dueThisWeek.length)} tone="info" hint="next seven days" />
+        <StatTile label="Awaiting review" value={String(awaitingReview.length)} tone="violet" hint="with the reviewer" />
         {/* The only tile here that is a call to action: changes
             requested means the ball is back with them. */}
         <StatTile

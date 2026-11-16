@@ -87,6 +87,10 @@ from (
     (
       '0043', 'Client Account page, live pop-ups, videographer privacy',
       case when to_regclass('public.client_accounts') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0044', 'Team access: the CEO chooses what each staff member sees',
+      case when to_regclass('public.team_access') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

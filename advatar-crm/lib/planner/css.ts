@@ -65,9 +65,9 @@ export const PLANNER_CSS = `
   --line:var(--border);
   --muted:var(--text-2);
   --chrome-text: linear-gradient(135deg, #555 0%, #c0c0c0 45%, #e0e0e0 50%, #c0c0c0 55%, #555 100%);
-  --display: 'Bebas Neue', 'Arial Narrow', Arial, sans-serif;
-  --body: 'DM Sans', system-ui, Arial, sans-serif;
-  --mono: 'Space Mono', 'Courier New', monospace;
+  --display: var(--font-display);
+  --body: var(--font-body);
+  --mono: var(--font-mono);
 
   background:var(--paper);color:var(--ink);font-family:var(--body);
 }
@@ -98,7 +98,7 @@ export const PLANNER_CSS = `
 }
 .planner-doc .page-nav-inner::-webkit-scrollbar{display:none;}
 .planner-doc .page-nav-top{
-  font-family:var(--display);font-weight:400;font-size:13px;letter-spacing:.02em;
+  font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.02em;
   color:var(--red);text-decoration:none;white-space:nowrap;
   padding:13px 14px 13px 0;margin-right:6px;border-right:1px solid var(--line);
   flex-shrink:0;
@@ -225,7 +225,7 @@ export const PLANNER_CSS = `
 .planner-doc .hero-meta b{color:var(--panel-fg);font-weight:400;margin-left:6px;}
 
 .planner-doc h1.brand{
-  font-family:var(--display);font-weight:400;
+  font-family:var(--display);font-weight:700;
   font-size:clamp(44px,8.5vw,82px);line-height:.9;
   letter-spacing:.005em;margin:0;color:var(--panel-fg);
 }
@@ -272,7 +272,7 @@ export const PLANNER_CSS = `
   color:var(--red);display:block;margin-bottom:6px;
 }
 .planner-doc .section-head h2{
-  font-family:var(--display);font-weight:400;font-size:clamp(28px,4vw,40px);
+  font-family:var(--display);font-weight:700;font-size:clamp(28px,4vw,40px);
   margin:0;letter-spacing:.01em;
 }
 .planner-doc .section-head p.desc{font-size:15px;color:var(--muted);max-width:620px;margin:10px 0 0;line-height:1.55;}
@@ -305,7 +305,7 @@ export const PLANNER_CSS = `
   border-color:var(--red);color:var(--red);background:var(--wash-1);
 }
 .planner-doc .pillar-card .top-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
-.planner-doc .pillar-card h3{font-family:var(--display);font-weight:400;font-size:22px;margin:0;letter-spacing:.01em;}
+.planner-doc .pillar-card h3{font-family:var(--display);font-weight:700;font-size:22px;margin:0;letter-spacing:.01em;}
 .planner-doc .pillar-card .pct{font-family:var(--mono);font-size:26px;font-weight:700;}
 .planner-doc .pillar-card .role{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px;display:block;}
 .planner-doc .bar-track{height:6px;background:var(--paper-dim);border-radius:3px;overflow:hidden;margin-bottom:14px;}
@@ -489,7 +489,7 @@ export const PLANNER_CSS = `
   padding-bottom:8px;margin-bottom:14px;border-bottom:1px solid var(--line);
 }
 .planner-doc .slot-set-name{
-  font-family:var(--display);font-weight:400;font-size:19px;letter-spacing:.01em;color:var(--ink);
+  font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:.01em;color:var(--ink);
 }
 .planner-doc .slot-set-count{
   font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
@@ -507,7 +507,7 @@ export const PLANNER_CSS = `
 .planner-doc .slot-confirm button{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;padding:3px 7px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;}
 .planner-doc .slot-confirm button.yes{border-color:var(--danger,#a13b3b);color:var(--danger,#a13b3b);}
 .planner-doc .slot-num{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px;}
-.planner-doc .slot-title{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.01em;line-height:1.15;margin-bottom:6px;}
+.planner-doc .slot-title{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.01em;line-height:1.15;margin-bottom:6px;}
 .planner-doc .slot-desc{font-family:var(--body);font-size:12.5px;line-height:1.5;color:var(--body-text);margin-bottom:12px;}
 /* The preset brief. Labels stay put whether or not the line is
    filled in — that is what makes it a template rather than a blank
@@ -574,7 +574,7 @@ export const PLANNER_CSS = `
 }
 
 .planner-doc .slot-pillar-select{
-  width:100%;font-family:var(--display);font-weight:400;font-size:15px;letter-spacing:.01em;
+  width:100%;font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.01em;
   padding:8px 8px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;
   background:var(--paper-dim);color:var(--ink);cursor:pointer;
 }
@@ -659,7 +659,7 @@ export const PLANNER_CSS = `
   color:var(--red);border:1px solid var(--red);border-radius:10px;padding:1px 7px;
 }
 .planner-doc .timeline-item.done .timeline-done-tag{display:inline-block;}
-.planner-doc .timeline-title{font-family:var(--display);font-weight:400;font-size:19px;margin:0 0 6px;letter-spacing:.01em;}
+.planner-doc .timeline-title{font-family:var(--display);font-weight:700;font-size:19px;margin:0 0 6px;letter-spacing:.01em;}
 .planner-doc .timeline-desc{font-size:14px;line-height:1.55;color:var(--body-text);margin:0;max-width:600px;}
 /* Owner and milestone, as a quiet pair under the description rather
    than two more paragraphs — they are the margin notes of the window,
@@ -695,7 +695,7 @@ export const PLANNER_CSS = `
   .planner-doc .guarantee-mark svg{width:46px;height:46px;}
 }
 .planner-doc .guarantee-tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--panel-accent);display:block;margin-bottom:16px;}
-.planner-doc .guarantee-h2{font-family:var(--display);font-weight:400;font-size:clamp(32px,5vw,48px);margin:0 0 20px;color:var(--panel-fg);letter-spacing:.01em;line-height:1.05;}
+.planner-doc .guarantee-h2{font-family:var(--display);font-weight:700;font-size:clamp(32px,5vw,48px);margin:0 0 20px;color:var(--panel-fg);letter-spacing:.01em;line-height:1.05;}
 .planner-doc .guarantee-body{font-size:clamp(15.5px,1.8vw,17px);line-height:1.65;color:var(--panel-fg-dim);margin:0 0 40px;max-width:600px;}
 .planner-doc .guarantee-terms{border-top:1px solid var(--panel-line);}
 .planner-doc .guarantee-term{

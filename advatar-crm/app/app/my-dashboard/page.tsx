@@ -220,11 +220,11 @@ export default async function MyDashboardPage() {
           tone={todays.length > 0 ? "accent" : "neutral"}
           hint={todays.length > 0 ? "check the times below" : "nothing booked"}
         />
-        <StatTile label="This week" value={String(weekEvents.length)} hint="next seven days" />
+        <StatTile label="This week" value={String(weekEvents.length)} tone="info" hint="next seven days" />
         <StatTile
           label="Tasks open"
           value={String(myTasks.length)}
-          tone={overdue.length > 0 ? "danger" : "neutral"}
+          tone={overdue.length > 0 ? "danger" : "ok"}
           hint={overdue.length > 0 ? `${overdue.length} overdue` : "none overdue"}
         />
         <Link href="/app/messages" style={{ textDecoration: "none", flex: "1 1 180px", minWidth: 170 }}>
