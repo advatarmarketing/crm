@@ -1,0 +1,24 @@
+-- VERIFY 0045 - run this after 0045_video_months.sql.
+-- Safe to run before it too: every check reports rather than crashing.
+
+select '1. video months are there' as check,
+       case when to_regclass('public.content_cycles') is not null then 'OK'
+            else 'PROBLEM - 0045 did not run' end as result;
+
+select '2. videos can belong to a month' as check,
+       case when (select count(*) from information_schema.columns
+                  where table_schema = 'public' and table_name = 'content_videos'
+                    and column_name in ('cycle_id', 'position')) = 2 then 'OK'
+            else 'PROBLEM - 0045 did not run' end as result;
+
+select '3. months are private to each client''s team' as check,
+       case when to_regclass('public.content_cycles') is not null
+             and (select relrowsecurity from pg_class where oid = to_regclass('public.content_cycles'))
+             and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'content_cycles') = 4
+            then 'OK' else 'PROBLEM - check the content_cycles policies, or 0045 did not run' end as result;
+
+select '4. videographers and clients can look but not change' as check,
+       case when to_regclass('public.content_cycles') is not null and not exists (
+         select 1 from pg_policies where schemaname = 'public' and tablename = 'content_cycles'
+           and cmd <> 'SELECT' and (qual like '%videographer%' or qual like '%''client''%')
+       ) then 'OK' else 'PROBLEM - check the content_cycles policies, or 0045 did not run' end as result;
