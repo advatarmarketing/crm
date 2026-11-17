@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity";
 import { packageFromRow } from "@/lib/packages";
-import { cycleDates, daysBetween, pillarSequence, type ContentVideo, type VideoCycle } from "@/lib/videos";
+import { ASPECTS, cycleDates, daysBetween, pillarSequence, type ContentVideo, type VideoCycle } from "@/lib/videos";
 import { linkFromPaste } from "@/lib/video-links";
 
 /**
@@ -214,6 +214,8 @@ export async function updateVideoAction(
     submission_id?: string | null;
     /** Moves the video to the end of another month. */
     cycle_id?: string | null;
+    /** 0046: the video's shape. */
+    aspect?: string | null;
   }
 ): Promise<VideoResult> {
   const { supabase, user } = await signedIn();
@@ -229,6 +231,9 @@ export async function updateVideoAction(
       row.publish_on = value;
     } else if (key === "submission_id") {
       row.submission_id = value || null;
+    } else if (key === "aspect") {
+      if (value !== null && !ASPECTS.some((a) => a.id === value)) return { error: "Choose one of the shapes." };
+      row.aspect = value;
     } else if (key === "cycle_id") {
       row.cycle_id = value || null;
       row.position = value ? await nextPosition(supabase, String(value)) : null;

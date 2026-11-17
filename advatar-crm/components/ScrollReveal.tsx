@@ -56,7 +56,7 @@ export function ScrollReveal() {
       document.querySelectorAll<HTMLElement>(SELECTOR).forEach((el) => {
         // A panel inside a hidden panel would wait for a parent that
         // is itself waiting; and anything floating must never hide.
-        if (el.closest('[data-reveal="pending"], [role="dialog"], [role="menu"], .planner-doc')) return;
+        if (el.closest('[data-reveal="pending"], [role="dialog"], [role="menu"], .planner-doc, .report')) return;
         if (el.getBoundingClientRect().top < fold) return;
         el.setAttribute("data-reveal", "pending");
         pending.push(el);

@@ -311,6 +311,7 @@ export default async function ClientDetailPage({
           searchParams?.tab === "activity" ||
           searchParams?.tab === "package" ||
           searchParams?.tab === "videos" ||
+          (searchParams?.tab === "performance" && callerRole !== "videographer") ||
           (searchParams?.tab === "passwords" && canSeeCredentials)
             ? searchParams.tab
             : "info"

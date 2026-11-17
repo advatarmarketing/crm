@@ -32,6 +32,20 @@ export interface ContentVideo {
   /** 0045: the month it belongs to, and its place in it. */
   cycle_id?: string | null;
   position?: number | null;
+  /** 0046: the video's shape. Null means not chosen. */
+  aspect?: string | null;
+}
+
+export const ASPECTS: { id: string; label: string; css: string }[] = [
+  { id: "9:16", label: "Vertical (9:16)", css: "9 / 16" },
+  { id: "4:5", label: "Portrait (4:5)", css: "4 / 5" },
+  { id: "1:1", label: "Square (1:1)", css: "1 / 1" },
+  { id: "16:9", label: "Wide (16:9)", css: "16 / 9" },
+];
+
+/** The CSS aspect-ratio for a framed player. */
+export function aspectCss(aspect: string | null | undefined, fallback = "9:16"): string {
+  return (ASPECTS.find((a) => a.id === aspect) ?? ASPECTS.find((a) => a.id === fallback) ?? ASPECTS[0]).css;
 }
 
 /** 0045: "Month 1", "Month 2"... each with its own dates. */

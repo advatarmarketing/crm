@@ -4,6 +4,7 @@ import { useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { formatTimecode, parseTimecode } from "@/lib/uploads";
 import { downloadHref, playerFor } from "@/lib/video-links";
+import { aspectCss } from "@/lib/videos";
 import { clientDecideAction, clientNoteAction } from "@/app/app/portal/videos/actions";
 
 /**
@@ -53,7 +54,10 @@ export function ClientVideoReview({
   mode,
   roundsLeft,
   notes,
+  aspect = null,
 }: {
+  /** 0046: the video's shape, when the team has set it. */
+  aspect?: string | null;
   anchorId: string;
   title: string;
   kind: "video" | "thumbnail" | "graphic";
@@ -141,7 +145,7 @@ export function ClientVideoReview({
               controls
               playsInline
               preload="metadata"
-              style={{ width: "100%", borderRadius: "var(--radius-sm)", background: "#000", aspectRatio: "9 / 16", maxHeight: 620 }}
+              style={{ width: "100%", borderRadius: "var(--radius-sm)", background: "#000", aspectRatio: aspect ? aspectCss(aspect) : undefined, maxHeight: 620 }}
             />
           ) : source?.kind === "frame" ? (
             <iframe
@@ -155,7 +159,7 @@ export function ClientVideoReview({
                 border: 0,
                 borderRadius: "var(--radius-sm)",
                 background: "#000",
-                aspectRatio: isImage ? "1 / 1" : "9 / 16",
+                aspectRatio: isImage ? "1 / 1" : aspectCss(aspect, source.via === "vimeo" || source.via === "loom" || (source.via === "youtube" && !/\/shorts\//.test(url ?? "")) ? "16:9" : "9:16"),
                 maxHeight: 620,
               }}
             />

@@ -20,6 +20,7 @@ import { OnboardingChecklist, type ChecklistItem, type TemplateOption } from "./
 import { CredentialsPanel } from "./CredentialsPanel";
 import { PackagePanel } from "./PackagePanel";
 import { VideoSchedule } from "./videos/VideoSchedule";
+import { PerformancePanel } from "./performance/PerformancePanel";
 import { ClientAccountPanel } from "./ClientAccountPanel";
 import type { ClientPackage, PackagePreset } from "@/lib/packages";
 import type { Gap } from "@/lib/onboarding/gaps";
@@ -38,6 +39,8 @@ const TABS = [
   { id: "package", label: "Package" },
   // 0042: the video schedule — every video going out, by date.
   { id: "videos", label: "Videos" },
+  // 0046: how the posted videos did, and the reports made from that.
+  { id: "performance", label: "Performance" },
   { id: "plan", label: "Content Plan" },
   // Only rendered for the people 0039 lets near a login — management
   // and assigned staff. A videographer who typed ?tab=passwords
@@ -162,7 +165,10 @@ export function ClientDetailTabs({
   const [tab, setTab] = useState<TabId>(initialTab);
   const [planSection, setPlanSection] = useState<string | undefined>(undefined);
 
-  const tabs = TABS.filter((t) => t.id !== "passwords" || canSeeCredentials);
+  // Set when the Performance tab sends someone to a video.
+  const [openVideo, setOpenVideo] = useState<string | null>(null);
+
+  const tabs = TABS.filter((t) => (t.id !== "passwords" || canSeeCredentials) && (t.id !== "performance" || canEditVideos));
 
   return (
     <div>
@@ -192,7 +198,10 @@ export function ClientDetailTabs({
             key={t.id}
             role="tab"
             aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => {
+              setTab(t.id);
+              setOpenVideo(null);
+            }}
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 12,
@@ -383,7 +392,17 @@ export function ClientDetailTabs({
       )}
 
       {tab === "videos" && (
-        <VideoSchedule clientId={client.id} editable={canEditVideos} pkg={clientPackage} />
+        <VideoSchedule key={openVideo ?? "videos"} clientId={client.id} editable={canEditVideos} pkg={clientPackage} initialOpenId={openVideo} />
+      )}
+
+      {tab === "performance" && canEditVideos && (
+        <PerformancePanel
+          clientId={client.id}
+          onOpenVideo={(id) => {
+            setOpenVideo(id);
+            setTab("videos");
+          }}
+        />
       )}
 
       {tab === "passwords" && canSeeCredentials && (

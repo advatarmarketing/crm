@@ -28,6 +28,9 @@ import {
   updateCycleAction,
   updateVideoAction,
 } from "@/app/app/videos/actions";
+import { POST_COLUMNS, type VideoPost } from "@/lib/performance";
+import { metricsSetupAction } from "@/app/app/performance/actions";
+import type { MetricsSetup } from "@/components/performance/PostRow";
 import { VideoDetail } from "./VideoDetail";
 
 /**
@@ -82,7 +85,10 @@ export function VideoSchedule({
   clientId,
   editable,
   pkg: givenPkg,
+  initialOpenId = null,
 }: {
+  /** Opens straight inside this video (from the Performance tab). */
+  initialOpenId?: string | null;
   clientId: string;
   editable: boolean;
   /** Null when no package has been chosen yet. Left out, it is looked up. */
@@ -103,7 +109,10 @@ export function VideoSchedule({
   const [loading, setLoading] = useState(true);
 
   const [monthId, setMonthId] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpenId);
+  const [posts, setPosts] = useState<VideoPost[]>([]);
+  const [postsOn, setPostsOn] = useState(false);
+  const [setup, setSetup] = useState<MetricsSetup>({ screenshots: false, youtube: false });
   const [filter, setFilter] = useState<BoxState | null>(null);
   const [starting, setStarting] = useState(false);
   const [editingDates, setEditingDates] = useState(false);
@@ -111,7 +120,7 @@ export function VideoSchedule({
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [res, cyc, place, ups, planner] = await Promise.all([
+    const [res, cyc, place, ups, planner, shape, posted] = await Promise.all([
       loadVideos(supabase, { clientId }),
       supabase.from("content_cycles").select("id, client_id, number, starts_on, ends_on").eq("client_id", clientId).order("number"),
       // 0045's columns on their own, so a missing update costs the
@@ -119,12 +128,18 @@ export function VideoSchedule({
       supabase.from("content_videos").select("id, cycle_id, position").eq("client_id", clientId),
       loadUploads(supabase, { clientId }),
       supabase.from("planners").select("content").eq("client_id", clientId).maybeSingle(),
+      // 0046, each on its own for the same reason.
+      supabase.from("content_videos").select("id, aspect").eq("client_id", clientId),
+      supabase.from("video_posts").select(POST_COLUMNS).eq("client_id", clientId),
     ]);
+    const aspectById = new Map(((shape.error ? [] : shape.data ?? []) as { id: string; aspect: string | null }[]).map((a) => [a.id, a.aspect]));
+    setPostsOn(!posted.error);
+    setPosts((posted.error ? [] : posted.data ?? []) as VideoPost[]);
 
     const placeById = new Map(
       ((place.error ? [] : place.data ?? []) as { id: string; cycle_id: string | null; position: number | null }[]).map((p) => [p.id, p])
     );
-    const list = res.videos.map((v) => ({ ...v, cycle_id: placeById.get(v.id)?.cycle_id ?? null, position: placeById.get(v.id)?.position ?? null }));
+    const list = res.videos.map((v) => ({ ...v, cycle_id: placeById.get(v.id)?.cycle_id ?? null, position: placeById.get(v.id)?.position ?? null, aspect: aspectById.get(v.id) ?? null }));
 
     const linked = new Set(list.map((v) => v.submission_id).filter((x): x is string => Boolean(x)));
     const mine = ups.uploads.filter((u) => linked.has(u.id));
@@ -172,6 +187,10 @@ export function VideoSchedule({
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    metricsSetupAction().then(setSetup);
+  }, []);
 
   // The month in progress today, else the latest one.
   const month =
@@ -302,6 +321,8 @@ export function VideoSchedule({
           onRemove={() => remove(opened.id)}
           onReload={load}
           onError={setError}
+          posts={postsOn ? posts.filter((p) => p.video_id === opened.id) : null}
+          setup={setup}
         />
       </div>
     );

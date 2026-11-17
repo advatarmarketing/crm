@@ -1,0 +1,102 @@
+-- 0046 - Where each video was posted, and how it did
+--
+-- Once a video is posted, the team records its link on each platform
+-- and the numbers it reached there. The Performance tab adds those up
+-- by month, pillar and platform, and saves the reports made from them.
+--
+-- Safe to run twice. Needs 0042 (the video schedule).
+
+-- The shape of the video, so the player is not always tall.
+alter table public.content_videos add column if not exists aspect text;
+do $$ begin
+  alter table public.content_videos add constraint content_videos_aspect_check
+    check (aspect is null or aspect in ('9:16', '4:5', '1:1', '16:9'));
+exception when duplicate_object then null; end $$;
+
+create table if not exists public.video_posts (
+  id uuid primary key default gen_random_uuid(),
+  video_id uuid not null references public.content_videos (id) on delete cascade,
+  client_id uuid not null references public.clients (id) on delete cascade,
+  platform text not null check (platform in ('instagram', 'tiktok', 'youtube', 'facebook', 'linkedin', 'x', 'other')),
+  url text not null check (url ~* '^https?://' and char_length(url) <= 1000),
+  views bigint check (views is null or views >= 0),
+  likes bigint check (likes is null or likes >= 0),
+  comments bigint check (comments is null or comments >= 0),
+  shares bigint check (shares is null or shares >= 0),
+  saves bigint check (saves is null or saves >= 0),
+  -- When the numbers were last taken, and how.
+  metrics_at timestamptz,
+  metrics_source text check (metrics_source is null or metrics_source in ('typed', 'screenshot', 'youtube')),
+  created_by uuid references public.profiles (id) on delete set null,
+  updated_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint video_posts_one_link_per_platform unique (video_id, platform)
+);
+
+create index if not exists video_posts_client_idx on public.video_posts (client_id);
+
+-- The client is always the video's own client, whatever was sent, so
+-- a row can never be attached to another client's video.
+create or replace function public.video_posts_pin_client()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  select client_id into new.client_id from public.content_videos where id = new.video_id;
+  if new.client_id is null then
+    raise exception 'That video is not there any more.';
+  end if;
+  new.updated_at := now();
+  return new;
+end; $$;
+
+drop trigger if exists video_posts_pin_client on public.video_posts;
+create trigger video_posts_pin_client
+  before insert or update on public.video_posts
+  for each row execute procedure public.video_posts_pin_client();
+
+alter table public.video_posts enable row level security;
+
+drop policy if exists "video_posts: management" on public.video_posts;
+create policy "video_posts: management" on public.video_posts
+  for all using (public.can_manage_client(client_id))
+  with check (public.can_manage_client(client_id));
+
+drop policy if exists "video_posts: staff assigned" on public.video_posts;
+create policy "video_posts: staff assigned" on public.video_posts
+  for all using (public.current_role() = 'staff' and public.is_assigned_staff(client_id))
+  with check (public.current_role() = 'staff' and public.is_assigned_staff(client_id));
+
+drop policy if exists "video_posts: videographer reads assigned" on public.video_posts;
+create policy "video_posts: videographer reads assigned" on public.video_posts
+  for select using (public.current_role() = 'videographer' and public.is_assigned_staff(client_id));
+
+drop policy if exists "video_posts: client reads own" on public.video_posts;
+create policy "video_posts: client reads own" on public.video_posts
+  for select using (public.current_role() = 'client' and client_id = public.current_client_id());
+
+-- Reports made from the numbers, kept so one can be reopened or sent
+-- again without being written twice. Team only.
+create table if not exists public.performance_reports (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients (id) on delete cascade,
+  title text not null check (char_length(title) between 1 and 200),
+  range_from date,
+  range_to date,
+  content jsonb not null,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists performance_reports_client_idx on public.performance_reports (client_id, created_at desc);
+
+alter table public.performance_reports enable row level security;
+
+drop policy if exists "performance_reports: management" on public.performance_reports;
+create policy "performance_reports: management" on public.performance_reports
+  for all using (public.can_manage_client(client_id))
+  with check (public.can_manage_client(client_id));
+
+drop policy if exists "performance_reports: staff assigned" on public.performance_reports;
+create policy "performance_reports: staff assigned" on public.performance_reports
+  for all using (public.current_role() = 'staff' and public.is_assigned_staff(client_id))
+  with check (public.current_role() = 'staff' and public.is_assigned_staff(client_id));

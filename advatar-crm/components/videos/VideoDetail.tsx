@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { formatTimecode, type UploadChecklistItem } from "@/lib/uploads";
 import { REVISION_LABELS, type PackageSettings } from "@/lib/packages";
 import { playerFor } from "@/lib/video-links";
-import { BOX_LABEL, prettyDay, type BoxState, type ContentVideo, type VideoCycle } from "@/lib/videos";
+import { ASPECTS, BOX_LABEL, aspectCss, prettyDay, type BoxState, type ContentVideo, type VideoCycle } from "@/lib/videos";
+import { compact, type VideoPost } from "@/lib/performance";
+import { AddPost, PostRow, type MetricsSetup } from "@/components/performance/PostRow";
 import { sendVideoToClientAction, setVideoLinkAction, type VideoTextField } from "@/app/app/videos/actions";
 import type { Delivery, VideoPatch } from "./VideoSchedule";
 
@@ -50,7 +52,12 @@ export function VideoDetail({
   onRemove,
   onReload,
   onError,
+  posts,
+  setup,
 }: {
+  /** Where it was posted (0046). Null before that update is run. */
+  posts: VideoPost[] | null;
+  setup: MetricsSetup;
   video: ContentVideo;
   /** Null for a video that is not in a month. */
   number: number | null;
@@ -81,6 +88,12 @@ export function VideoDetail({
   const mode = pkg ? pkg.revisions : "unset";
   const reviews = mode !== "none";
   const source = hasVideo ? playerFor(delivery?.streamUrl, delivery?.url) : null;
+
+  // A framed player cannot tell us its shape, so it is chosen; wide
+  // hosts start wide. A direct video file sizes itself.
+  const wideHost = source?.kind === "frame" && (source.via === "vimeo" || source.via === "loom" || (source.via === "youtube" && !/\/shorts\//.test(delivery?.url ?? "")));
+  const shape = aspectCss(video.aspect, wideHost ? "16:9" : "9:16");
+  const shapeId = ASPECTS.find((a) => a.css === shape)?.id ?? "9:16";
 
   const [items, setItems] = useState<UploadChecklistItem[]>(upload?.checklist ?? []);
   // New notes from the client arrive as new items on a reload.
@@ -300,7 +313,15 @@ export function VideoDetail({
           <section className="card card-pad vd-card">
             <h3 className="vm-sub">The video</h3>
             {source?.kind === "native" ? (
-              <video ref={player} src={source.src} controls playsInline preload="metadata" className="vd-player" />
+              <video
+                ref={player}
+                src={source.src}
+                controls
+                playsInline
+                preload="metadata"
+                className="vd-player is-native"
+                style={video.aspect ? { aspectRatio: shape } : undefined}
+              />
             ) : source?.kind === "frame" ? (
               <iframe
                 src={source.src}
@@ -309,6 +330,7 @@ export function VideoDetail({
                 allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                 allowFullScreen
                 className="vd-player"
+                style={{ aspectRatio: shape }}
               />
             ) : source?.kind === "link" ? (
               <div className="vd-empty">
@@ -367,6 +389,18 @@ export function VideoDetail({
                       Open link ↗
                     </a>
                   )}
+                  {editable && posts !== null && source?.kind !== "link" && (
+                    <label className="vd-shape">
+                      <span className="sr-only">Shape of the video</span>
+                      <select value={shapeId} onChange={(e) => onSave({ aspect: e.target.value })} aria-label="Shape of the video">
+                        {ASPECTS.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <span style={{ flex: 1 }} />
                   {editable && !linking && (
                     <button type="button" className="btn" onClick={() => setLinking(true)}>
@@ -415,6 +449,26 @@ export function VideoDetail({
             )}
             {posted && editable && <p className="vm-hint">Click again to untick.</p>}
           </section>
+
+          {posts !== null && (posted || posts.length > 0) && (
+            <section className="card card-pad vd-card">
+              <h3 className="vm-sub">Where it’s posted, and how it did</h3>
+              {posts.length > 0 && (
+                <p className="vd-views">
+                  <strong>{compact(posts.reduce((n, p) => n + (p.views ?? 0), 0))}</strong> views across {posts.length} platform{posts.length === 1 ? "" : "s"}
+                </p>
+              )}
+              {posts.length === 0 && (
+                <p className="vm-hint">
+                  {editable ? "Add the link on each platform it went out on. Its views, likes, comments and shares are then recorded here and counted on the Performance tab." : "No links added yet."}
+                </p>
+              )}
+              {posts.map((p) => (
+                <PostRow key={p.id} post={p} editable={editable} setup={setup} onChanged={onReload} />
+              ))}
+              {editable && <AddPost videoId={video.id} taken={posts.map((p) => p.platform)} onAdded={onReload} />}
+            </section>
+          )}
         </div>
 
         <div className="vd-col">

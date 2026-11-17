@@ -70,6 +70,10 @@ export default async function PortalVideosPage() {
   const videoBySubmission = new Map<string, ContentVideo>();
   for (const v of schedule.videos) if (v.submission_id) videoBySubmission.set(v.submission_id, v);
 
+  // 0046's shape, on its own so a missing update costs nothing.
+  const { data: shapes } = await supabase.from("content_videos").select("id, aspect").eq("client_id", clientId);
+  const aspectById = new Map(((shapes ?? []) as { id: string; aspect: string | null }[]).map((a) => [a.id, a.aspect]));
+
   const today = todayKey();
 
   const delivered = uploads
@@ -149,6 +153,7 @@ export default async function PortalVideosPage() {
       meta={d.meta}
       url={d.url}
       streamUrl={d.streamUrl}
+      aspect={d.scheduled ? aspectById.get(d.scheduled.id) ?? null : null}
       submissionId={d.u.id}
       version={d.u.current_version}
       decision={d.decision}
