@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ACCESS_AREAS, type AccessArea, type TeamAccess } from "@/lib/team-access";
-import { setStaffAccessAction } from "./actions";
+import { setStaffAccessAction, setVideographerShareAction } from "./actions";
 
 export interface StaffAccessRow {
   id: string;
@@ -68,6 +68,77 @@ export function AccessTable({ rows: initial, available }: { rows: StaffAccessRow
                   <span>{a.label}</span>
                 </label>
               ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export interface VideographerRow {
+  id: string;
+  name: string;
+  clients: string[];
+  canShare: boolean;
+}
+
+/**
+ * Videographers have one switch: whether their uploads may go straight
+ * to the client. Off, everything they hand in goes to the CEO and the
+ * staff on that client first, who send it on once it is approved.
+ */
+export function VideographerTable({ rows: initial, available }: { rows: VideographerRow[]; available: boolean }) {
+  const [rows, setRows] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function flip(row: VideographerRow) {
+    const value = !row.canShare;
+    setError(null);
+    setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, canShare: value } : r)));
+    start(async () => {
+      const res = await setVideographerShareAction(row.id, value);
+      if (res.error) {
+        setError(res.error);
+        setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, canShare: row.canShare } : r)));
+      }
+    });
+  }
+
+  if (rows.length === 0) return <p className="access-muted">No videographer logins yet.</p>;
+
+  return (
+    <div>
+      {!available && (
+        <p className="access-note" role="status" style={{ marginBottom: 16 }}>
+          This switch starts working once database update 0047 is run. Until then every videographer can still choose
+          to send work to the client.
+        </p>
+      )}
+      {error && (
+        <p role="alert" style={{ color: "var(--status-closed)", fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </p>
+      )}
+      <div className="access-table" aria-busy={pending}>
+        {rows.map((r) => (
+          <div key={r.id} className="access-row" data-person={r.name}>
+            <div className="access-person">
+              <strong>{r.name}</strong>
+              <span className="access-muted">{r.clients.length === 0 ? "Not on any clients yet" : `On ${r.clients.join(", ")}`}</span>
+            </div>
+            <div className="access-switches">
+              <label className="access-switch" title="Their uploads can go straight to the client, without the CEO or staff approving first">
+                <input
+                  type="checkbox"
+                  checked={r.canShare}
+                  disabled={!available}
+                  onChange={() => flip(r)}
+                  aria-label={`${r.name}: send videos to the client`}
+                />
+                <span>Send videos to the client</span>
+              </label>
             </div>
           </div>
         ))}

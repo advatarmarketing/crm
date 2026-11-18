@@ -53,3 +53,19 @@ export async function loadMyAccess(supabase: any, userId: string, role: string |
     .maybeSingle();
   return accessForRole(role, error ? null : (data as TeamAccess | null));
 }
+
+/**
+ * Whether a videographer may send work straight to the client (0047).
+ * Off unless the CEO turns it on. Before 0047 is run the table does
+ * not exist, the database does not check, and so neither does this.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function loadVideographerShare(supabase: any, userId: string): Promise<{ canShare: boolean; enforced: boolean }> {
+  const { data, error } = await supabase
+    .from("videographer_access")
+    .select("share_with_client")
+    .eq("profile_id", userId)
+    .maybeSingle();
+  if (error) return { canShare: true, enforced: false };
+  return { canShare: Boolean((data as { share_with_client?: boolean } | null)?.share_with_client), enforced: true };
+}

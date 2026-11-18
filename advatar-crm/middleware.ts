@@ -107,7 +107,7 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(list) {
+        setAll(list: { name: string; value: string; options: CookieOptions }[]) {
           for (const { name, value, options } of list) {
             pendingCookies.push({ name, value, options });
             if (value) request.cookies.set(name, value);

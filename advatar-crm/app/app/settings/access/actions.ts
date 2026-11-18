@@ -48,3 +48,27 @@ export async function setStaffAccessAction(
   revalidatePath("/app/settings/access");
   return { error: null };
 }
+
+/** The one videographer switch (0047): may they send work straight to the client? */
+export async function setVideographerShareAction(profileId: string, value: boolean): Promise<{ error: string | null }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from("videographer_access").upsert(
+    { profile_id: profileId, share_with_client: value, updated_by: user.id, updated_at: new Date().toISOString() },
+    { onConflict: "profile_id" }
+  );
+  if (error) {
+    if ((error.code === "42P01" || error.code === "PGRST205" || /videographer_access/.test(error.message)) && /does not exist|could not find/i.test(error.message)) {
+      return { error: "This switch isn't on yet. Database update 0047 still needs running." };
+    }
+    if (/row-level security/i.test(error.message)) return { error: "Only the CEO can change this." };
+    return { error: error.message };
+  }
+  revalidatePath("/app/settings/access");
+  return { error: null };
+}

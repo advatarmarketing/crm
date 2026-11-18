@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SubmissionVisibility } from "@/lib/supabase/types";
 import type { PlanSlotChoice } from "@/lib/uploads";
+import { loadVideographerShare } from "@/lib/team-access";
 
 /**
  * These were `/app/my-work`'s actions until the Uploads tab took the
@@ -98,6 +99,19 @@ export async function submitWorkAction(input: SubmitWorkInput): Promise<SubmitWo
   }
   const kind = input.kind === "thumbnail" || input.kind === "graphic" ? input.kind : "video";
 
+  // 0047: a videographer sends work to the client only if the CEO has
+  // switched that on for them. The database refuses it anyway; this
+  // just says why in plain words.
+  if (visibility === "team_and_client") {
+    const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    if ((me as { role?: string } | null)?.role === "videographer") {
+      const { canShare } = await loadVideographerShare(supabase, user.id);
+      if (!canShare) {
+        return { ok: false, error: "You can’t send videos straight to the client. Choose “CEO and team only” and they’ll send it on once it’s approved." };
+      }
+    }
+  }
+
   const { data: created, error: createError } = await supabase
     .from("submissions")
     .insert({
@@ -111,6 +125,9 @@ export async function submitWorkAction(input: SubmitWorkInput): Promise<SubmitWo
     .single();
 
   if (createError || !created) {
+    if (createError && /row-level security/i.test(createError.message) && visibility === "team_and_client") {
+      return { ok: false, error: "You can’t send videos straight to the client. Choose “CEO and team only” and they’ll send it on once it’s approved." };
+    }
     return { ok: false, error: createError?.message ?? "Could not save that." };
   }
 
