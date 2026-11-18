@@ -2680,3 +2680,15 @@ button.vd-time { cursor: pointer; }
   /* Nothing waits to be scrolled to on paper. */
   [data-reveal] { opacity: 1 !important; transform: none !important; }
 }
+
+/* Minimal boxes: the number in the middle, everything centred, and
+   the colour (dot and tint) saying where the video is. */
+.vbox-main { align-items: center; justify-content: center; text-align: center; gap: 8px; padding: 20px 16px 16px; }
+.vbox-num { padding-right: 0; font-size: 22px; }
+.vbox-what { font-size: 13px; color: var(--text-2); max-width: 100%; }
+.vbox-pillar { font-size: 11.5px; }
+.vbox-foot { margin-top: 4px; padding-top: 0; width: auto; justify-content: center; gap: 7px; }
+.vbox-date { margin-left: 0; }
+@media (max-width: 520px) {
+  .vbox-num { font-size: 18px; }
+}

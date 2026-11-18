@@ -335,13 +335,14 @@ export function VideoSchedule({
     const name = n ? `Video ${n}` : "Video";
     return (
       <li key={v.id} className={`vbox vbox--${state}`} style={{ animationDelay: `${Math.min(i, 14) * 22}ms` }} data-video-id={v.id} data-state={state}>
-        <button type="button" className="vbox-main" onClick={() => open(v.id)} aria-label={`${name}: ${what || "nothing written yet"}. ${BOX_LABEL[state]}.`}>
+        <button type="button" className="vbox-main" onClick={() => open(v.id)} aria-label={`${name}: ${what || "nothing written yet"}. ${BOX_LABEL[state]}: ${statusLine(v, state, d, pkg, today)}.`}>
           <span className="vbox-num">{name}</span>
           <span className={what ? "vbox-what" : "vbox-what is-empty"}>{what || "Nothing written yet"}</span>
           <span className={v.pillar ? "vbox-pillar" : "vbox-pillar is-empty"}>{v.pillar?.trim() || "No pillar yet"}</span>
-          <span className="vbox-foot">
+          {/* The colour says where it is; the words are in the
+              tooltip and read out by screen readers. */}
+          <span className="vbox-foot" title={statusLine(v, state, d, pkg, today)}>
             <span className="vbox-dot" aria-hidden />
-            <span className="vbox-status">{statusLine(v, state, d, pkg, today)}</span>
             {v.publish_on && state !== "posted" && <span className="vbox-date">{prettyDay(v.publish_on, false)}</span>}
           </span>
         </button>
