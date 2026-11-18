@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loadUploads, loadAssets } from "@/lib/uploads";
 import { UploadsWorkspace } from "@/components/uploads/UploadsWorkspace";
+import { loadVideographerShare } from "@/lib/team-access";
 import { MarkSectionSeen } from "@/components/NavBadge";
 import { StatTile } from "@/components/StatTile";
 import type { ProfileRole } from "@/lib/supabase/types";
@@ -133,6 +134,7 @@ export default async function UploadsPage({ searchParams }: { searchParams?: { c
       </div>
 
       <UploadsWorkspace
+        canShareWithClient={role !== "videographer" || (await loadVideographerShare(supabase, user.id)).canShare}
         role={role}
         currentUserId={user.id}
         uploads={shownUploads}

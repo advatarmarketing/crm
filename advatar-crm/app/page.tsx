@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-// Root just hands off to /login; middleware.ts takes it from there
-// once a session exists (redirecting into the right /app/* home).
+// Middleware sends anyone already signed in on this device straight
+// to their own home; everyone else reaches this and goes to /login.
 export default function RootPage() {
   redirect("/login");
 }

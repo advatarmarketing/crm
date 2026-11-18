@@ -47,7 +47,10 @@ export function UploadsWorkspace({
   uploadsProblem,
   assetsProblem,
   fixedClientId = null,
+  canShareWithClient = true,
 }: {
+  /** 0047: false for a videographer the CEO hasn't allowed to send work to the client. */
+  canShareWithClient?: boolean;
   role: ProfileRole;
   currentUserId: string;
   uploads: UploadEntry[];
@@ -330,6 +333,7 @@ export function UploadsWorkspace({
               // tab, which management does not have. Promising it to
               // the CEO would be promising a page they cannot open.
               ownsPortfolio={canSubmit}
+              canShareWithClient={canShareWithClient}
               onDone={() => undefined}
             />
           )}
@@ -362,10 +366,12 @@ export function UploadsWorkspace({
 function NewUploadForm({
   clients,
   ownsPortfolio,
+  canShareWithClient,
   onDone,
 }: {
   clients: ClientChoice[];
   ownsPortfolio: boolean;
+  canShareWithClient: boolean;
   onDone: () => void;
 }) {
   const [creating, setCreating] = useState(false);
@@ -614,11 +620,19 @@ function NewUploadForm({
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {(
             [
-              { value: "team_only" as const, label: "Team only", hint: "For review. The client sees nothing." },
+              {
+                value: "team_only" as const,
+                label: "CEO and team only",
+                hint: "For approval. The CEO and the staff on this client see it; the client sees nothing until one of them sends it.",
+                locked: false,
+              },
               {
                 value: "team_and_client" as const,
                 label: "Team and client",
-                hint: "Lands on their Uploads tab and they're told.",
+                hint: canShareWithClient
+                  ? "Lands on their Videos page and they're told."
+                  : "Not switched on for you. The CEO can turn it on in Team access.",
+                locked: !canShareWithClient,
               },
             ]
           ).map((option) => {
@@ -634,16 +648,19 @@ function NewUploadForm({
                   border: `1px solid ${chosen ? "var(--accent)" : "var(--border)"}`,
                   boxShadow: chosen ? "0 0 0 2px var(--accent-ring)" : "none",
                   background: "var(--surface)",
-                  cursor: "pointer",
+                  cursor: option.locked ? "not-allowed" : "pointer",
+                  opacity: option.locked ? 0.6 : 1,
                 }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <input
                     type="radio"
                     name="upload-visibility"
+                    value={option.value}
                     checked={chosen}
+                    disabled={option.locked}
                     onChange={() => setVisibility(option.value)}
-                    style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+                    style={{ accentColor: "var(--accent)", cursor: option.locked ? "not-allowed" : "pointer" }}
                   />
                   <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, fontWeight: 600, color: "var(--text-1)" }}>
                     {option.label}
@@ -669,7 +686,7 @@ function NewUploadForm({
 
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" onClick={submit} disabled={busy} className="btn btn-primary">
-          {busy ? "Uploading…" : "Upload for review"}
+          {busy ? "Uploading…" : visibility === "team_and_client" ? "Upload and send to the client" : "Upload for approval"}
         </button>
         <button
           type="button"

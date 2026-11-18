@@ -13,6 +13,7 @@ import { emptyBrandKit, type BrandKit } from "@/lib/brand-kit";
 import { ClientTeamThread, type TeamMessage } from "@/components/ClientTeamThread";
 import { SectionBoundary } from "@/components/SectionBoundary";
 import { loadNamesById } from "@/lib/people";
+import { loadVideographerShare } from "@/lib/team-access";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +125,8 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
   }
 
   const clientRow = client.data;
+  // 0047: whether this videographer may send work straight to the client.
+  const { canShare: canShareWithClient } = user ? await loadVideographerShare(supabase, user.id) : { canShare: false };
 
   const messages = thread.data
     ? (await settle<{ id: string; body: string; sender_role: string | null; created_at: string }[]>(
@@ -181,6 +184,20 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
             <ClientTeamThread clientId={params.id} initialMessages={teamThread} currentUserId={user?.id ?? null} />
           </Panel>
         )}
+      </section>
+
+      <section className="section" style={{ maxWidth: 760 }}>
+        <h2 className="section-title" style={{ marginBottom: 8 }}>
+          Upload a video
+        </h2>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 12px", lineHeight: 1.6 }}>
+          {canShareWithClient
+            ? "Send it to the CEO and team for approval first, or straight to the client."
+            : "It goes to the CEO and the staff on this client for approval. They send it to the client."}
+        </p>
+        <Link href={`/app/uploads?client=${clientRow.id}`} className="btn btn-primary" style={{ textDecoration: "none" }}>
+          + Upload a video for {clientRow.name}
+        </Link>
       </section>
 
       <section className="section">

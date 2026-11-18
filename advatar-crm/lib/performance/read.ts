@@ -21,6 +21,13 @@ import { METRICS, compact, monthName, percent, platformLabel, type Numbers, type
 
 export const readerOn = () => Boolean(process.env[MEETING_KEY_ENV]);
 
+/**
+ * Screenshots go to Claude Haiku 5.5: reading five numbers off an
+ * image is simple work done hundreds of times a month, and it costs a
+ * fraction of a penny each. Reports stay on the meeting model.
+ */
+export const SCREENSHOT_MODEL = "claude-haiku-5-5";
+
 const count = z.number().nullable();
 
 const ScreenshotSchema = z.object({
@@ -64,11 +71,13 @@ export async function readScreenshot(data: string, mediaType: string, platform: 
 
   const client = new Anthropic();
   try {
+    // No `fallbacks` here: Claude Haiku 5.5 has no server-side
+    // fallback, and a refusal is handled below like any other model's.
+    // Thinking counts towards max_tokens, so it has room beyond the
+    // short answer.
     const response = await client.beta.messages.parse({
-      model: MEETING_MODEL,
-      max_tokens: 2000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      model: SCREENSHOT_MODEL,
+      max_tokens: 4000,
       output_config: { effort: "low", format: betaZodOutputFormat(ScreenshotSchema) },
       system: SCREENSHOT_SYSTEM,
       messages: [
@@ -82,7 +91,9 @@ export async function readScreenshot(data: string, mediaType: string, platform: 
       ],
     });
     const out = response.parsed_output;
-    if (response.stop_reason === "refusal" || !out) return { ok: false, error: "That screenshot couldn’t be read. Type the numbers in instead." };
+    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens" || !out) {
+      return { ok: false, error: "That screenshot couldn’t be read. Type the numbers in instead." };
+    }
     const numbers = {} as Numbers;
     for (const m of METRICS) {
       const v = out[m];

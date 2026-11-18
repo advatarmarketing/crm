@@ -1,0 +1,21 @@
+-- VERIFY 0047 - run this after 0047_videographer_sharing.sql.
+-- Safe to run before it too: every check reports rather than crashing.
+
+select '1. the videographer switch is there' as check,
+       case when to_regclass('public.videographer_access') is not null
+             and to_regprocedure('public.videographer_can_share()') is not null then 'OK'
+            else 'PROBLEM - 0047 did not run' end as result;
+
+select '2. only the CEO can change it' as check,
+       case when to_regclass('public.videographer_access') is not null and not exists (
+         select 1 from pg_policies
+         where schemaname = 'public' and tablename = 'videographer_access'
+           and cmd <> 'SELECT' and coalesce(qual, '') not like '%is_ceo_role%'
+       ) then 'OK' else 'PROBLEM - check the videographer_access policies, or 0047 did not run' end as result;
+
+select '3. videographers need the switch to send work to the client' as check,
+       case when exists (
+         select 1 from pg_policies where schemaname = 'public' and tablename = 'submissions'
+           and policyname = 'submissions: videographer create own'
+           and with_check like '%videographer_can_share%' and with_check like '%team_only%'
+       ) then 'OK' else 'PROBLEM - the upload rule ignores the switch, or 0047 did not run' end as result;

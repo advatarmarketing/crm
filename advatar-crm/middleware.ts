@@ -73,9 +73,21 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.delete(VIEW_AS_HEADER);
 
-  // Session-refresh cookies are collected rather than written into a
-  // response straight away, because the response is not built until
-  // the end — the forwarded headers are still being decided.
+  // Staying signed in. Supabase keeps a session in two cookies-worth
+  // of tokens: a short-lived access token and a refresh token that is
+  // swapped for a new pair (and then retired) whenever the access token
+  // runs out. Two things must hold on every request or the person is
+  // quietly signed out a little later:
+  //
+  //   1. the new pair reaches the browser on EVERY response, redirects
+  //      included. A redirect that dropped it left the browser holding
+  //      the retired refresh token, which Supabase then refuses.
+  //   2. the page rendering this same request reads the new pair, not
+  //      the old one. Otherwise its own client tries to refresh again
+  //      with the token that was just retired.
+  //
+  // So refreshed cookies are written onto the forwarded request as
+  // well as collected for the response.
   const pendingCookies: { name: string; value: string; options: CookieOptions }[] = [];
 
   const withCookies = (response: NextResponse) => {
@@ -85,19 +97,23 @@ export async function middleware(request: NextRequest) {
     return response;
   };
 
+  const redirectTo = (path: string) => withCookies(NextResponse.redirect(new URL(path, request.url)));
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+        getAll() {
+          return request.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          pendingCookies.push({ name, value, options });
-        },
-        remove(name: string, options: CookieOptions) {
-          pendingCookies.push({ name, value: "", options });
+        setAll(list: { name: string; value: string; options: CookieOptions }[]) {
+          for (const { name, value, options } of list) {
+            pendingCookies.push({ name, value, options });
+            if (value) request.cookies.set(name, value);
+            else request.cookies.delete(name);
+          }
+          requestHeaders.set("cookie", request.cookies.toString());
         },
       },
     }
@@ -109,14 +125,18 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAppRoute = pathname.startsWith("/app");
+  // The front door. Someone already signed in on this device goes
+  // straight to their own home instead of being shown the sign-in
+  // form again.
+  const isFrontDoor = pathname === "/" || pathname === "/login";
 
-  if (!isAppRoute) {
+  if (!isAppRoute && !isFrontDoor) {
     return withCookies(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   if (!user) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    if (isFrontDoor) return withCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+    return redirectTo("/login");
   }
 
   const { data: profile } = await supabase
@@ -129,10 +149,12 @@ export async function middleware(request: NextRequest) {
 
   if (!role) {
     // No profile row somehow — treat as unauthenticated rather than
-    // guessing a role.
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    // guessing a role. On the sign-in page itself, just show it.
+    if (isFrontDoor) return withCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+    return redirectTo("/login");
   }
+
+  if (isFrontDoor) return redirectTo(HOME_BY_ROLE[role]);
 
   // ---------------------------------------------------------------
   // "View their CRM"
@@ -148,7 +170,7 @@ export async function middleware(request: NextRequest) {
     const ownView = () => {
       const url = request.nextUrl.clone();
       url.searchParams.delete(VIEW_AS_PARAM);
-      return NextResponse.redirect(url);
+      return withCookies(NextResponse.redirect(url));
     };
 
     // Re-checked here rather than trusted from the cookie, so ending
@@ -169,7 +191,7 @@ export async function middleware(request: NextRequest) {
     // would otherwise let the preview sit on a page that person could
     // never reach.
     if (!isAllowed(preview.role, pathname)) {
-      return NextResponse.redirect(new URL(withViewAs(HOME_BY_ROLE[preview.role]), request.url));
+      return redirectTo(withViewAs(HOME_BY_ROLE[preview.role]));
     }
 
     requestHeaders.set(VIEW_AS_HEADER, preview.token);
@@ -177,13 +199,13 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!isAllowed(role, pathname)) {
-    const homeUrl = new URL(HOME_BY_ROLE[role], request.url);
-    return NextResponse.redirect(homeUrl);
+    return redirectTo(HOME_BY_ROLE[role]);
   }
 
   return withCookies(NextResponse.next({ request: { headers: requestHeaders } }));
 }
 
 export const config = {
-  matcher: ["/app/:path*"],
+  // "/" and "/login" too, so a saved session skips the sign-in form.
+  matcher: ["/", "/login", "/app/:path*"],
 };

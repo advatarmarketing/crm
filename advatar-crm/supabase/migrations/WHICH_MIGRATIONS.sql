@@ -99,6 +99,10 @@ from (
     (
       '0046', 'Post links, engagement numbers and performance reports',
       case when to_regclass('public.video_posts') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0047', 'Which videographers may send videos straight to the client',
+      case when to_regclass('public.videographer_access') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;
