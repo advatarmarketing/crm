@@ -2692,3 +2692,124 @@ button.vd-time { cursor: pointer; }
 @media (max-width: 520px) {
   .vbox-num { font-size: 18px; }
 }
+
+/* =================================================================
+   VIDEOS TAB, refined: neutral glass cards, a thin state-coloured rule
+   along the top, a whisper of the state colour behind it, and quiet
+   type. The colour still carries the meaning; it no longer shouts.
+   ================================================================= */
+.vm-months {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+  border: 1px solid var(--border);
+  margin-bottom: 26px;
+}
+.vm-month-tab { border: 0; background: transparent; padding: 7px 16px; font-size: 13px; color: var(--text-2); }
+.vm-month-tab:hover { color: var(--text-1); }
+.vm-month-tab[aria-selected="true"] { background: var(--surface); color: var(--text-1); border: 0; box-shadow: var(--shadow-sm), inset 0 1px 0 var(--glass-hi); }
+.vm-month-tab.is-new { border: 0; color: var(--text-3); }
+.vm-month-tab.is-new[aria-pressed="true"] { background: var(--surface); color: var(--text-1); box-shadow: var(--shadow-sm); }
+
+.vm-title { font-size: 24px; font-weight: 650; letter-spacing: -0.02em; }
+.vm-dates { font-size: 13.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.vm-head { margin-bottom: 18px; }
+.vm-progress p { font-size: 12.5px; color: var(--text-3); }
+.vm-progress strong { font-size: 15px; font-weight: 650; }
+.vm-bar { height: 6px; gap: 2px; padding: 0; border-radius: 999px; background: var(--chart-track); overflow: hidden; }
+.vm-bar-seg { border-radius: 0; background: rgb(var(--vc)); opacity: 0.85; }
+
+.vm-legend { gap: 6px; margin-bottom: 20px; }
+.vm-chip {
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  font-size: 12px;
+  color: var(--text-2);
+  gap: 7px;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.vm-chip:hover:not(:disabled) { color: var(--text-1); border-color: var(--border-2); }
+.vm-chip b { font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.vm-chip[aria-pressed="true"] { box-shadow: none; border-color: rgba(var(--vc), 0.7); color: var(--text-1); background: rgba(var(--vc), 0.08); }
+.vm-chip .vbox-dot { width: 7px; height: 7px; box-shadow: none; }
+
+.vm-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 12px; }
+
+.vbox {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(var(--vc), 0.09) 0%, transparent 70%),
+    var(--surface);
+  box-shadow: 0 1px 2px rgba(16, 16, 32, 0.04), inset 0 1px 0 var(--glass-hi);
+}
+.vbox::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(var(--vc), 0.95), rgba(var(--vc), 0.55));
+}
+.vbox:hover { transform: translateY(-2px); border-color: rgba(var(--vc), 0.45); box-shadow: var(--shadow-md), inset 0 1px 0 var(--glass-hi); }
+.vbox-main { min-height: 150px; padding: 22px 16px 16px; gap: 6px; }
+.vbox-num { font-family: var(--font-display); font-size: 19px; font-weight: 650; letter-spacing: -0.015em; color: var(--text-1); }
+.vbox-what { font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
+.vbox-what.is-empty { color: var(--text-3); font-style: normal; opacity: 0.8; }
+.vbox-pillar,
+.vbox-pillar.is-empty {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-style: normal;
+}
+.vbox-pillar.is-empty { opacity: 0.6; font-weight: 500; }
+.vbox-foot { margin-top: auto; padding-top: 8px; font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.vbox-dot { width: 7px; height: 7px; box-shadow: 0 0 0 3px rgba(var(--vc), 0.16); }
+
+.vbox-tick { top: 11px; right: 11px; width: 24px; height: 24px; font-size: 12px; border: 1px solid var(--border-2); background: color-mix(in srgb, var(--surface) 90%, transparent); opacity: 0.75; }
+.vbox:hover .vbox-tick, .vbox-tick:focus-visible { opacity: 1; }
+.vbox-tick:hover { transform: none; }
+.vbox-tick[aria-pressed="true"] { opacity: 1; }
+
+.vbox--add { border: 1px dashed var(--border-2); background: transparent; }
+.vbox--add::before { display: none; }
+.vbox--add .vbox-main { gap: 4px; }
+.vbox--add .vbox-plus { font-size: 22px; color: var(--text-3); }
+.vbox--add .vbox-what { font-size: 12.5px; color: var(--text-3); }
+.vbox--add:hover { border-color: var(--text-3); transform: none; box-shadow: none; }
+.vbox--add:hover .vbox-what, .vbox--add:hover .vbox-plus { color: var(--text-1); }
+
+/* Inside a video: the same restraint. */
+.vd-hero {
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(90% 120% at 0% 0%, rgba(var(--vc), 0.08) 0%, transparent 60%),
+    var(--surface);
+}
+.vd-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(var(--vc), 0.95), rgba(var(--vc), 0.4));
+}
+.vd-number { font-size: 26px; font-weight: 650; }
+.vd-state { background: transparent; border-color: var(--border); font-weight: 600; color: var(--text-2); }
+
+@media (max-width: 520px) {
+  .vm-grid { gap: 8px; }
+  .vbox-main { min-height: 136px; padding: 20px 12px 12px; }
+  .vbox-num { font-size: 17px; }
+}
