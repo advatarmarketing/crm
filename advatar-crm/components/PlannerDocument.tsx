@@ -11,6 +11,7 @@ import {
 } from "@/lib/planner/content";
 import { PastePlanDialog } from "@/components/planner/PastePlanDialog";
 import { PLANNER_CSS } from "@/lib/planner/css";
+import { OverviewBoard } from "@/components/planner/OverviewBoard";
 
 // Videos first: the video is what the client is paying for, so it is
 // the tab the plan opens on and the one drawn to stand out.
@@ -27,6 +28,10 @@ const NAV_SECTIONS: { id: string; label: string }[] = [
   { id: "timeline", label: "Timeline" },
   { id: "guarantee", label: "Guarantee" },
 ];
+
+// What a client reads first is the Overview, then the videos. The
+// team's editor keeps its own order above.
+const CLIENT_ORDER = ["overview", "videos"];
 
 const SAVE_DEBOUNCE_MS = 600;
 
@@ -190,6 +195,10 @@ export function PlannerDocument({
   // the plan's own slot list, exactly as before.
   const [scheduleReady, setScheduleReady] = useState<boolean | null>(null);
   const [pasting, setPasting] = useState(false);
+  // 0048: the guarantee shows only where it's switched on for this
+  // client. Null while unknown (or before 0048), which hides it.
+  const [showGuarantee, setShowGuarantee] = useState<boolean | null>(null);
+  const [guaranteeError, setGuaranteeError] = useState<string | null>(null);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSentJson = useRef<string | null>(null);
@@ -349,6 +358,33 @@ export function PlannerDocument({
     if (contentRef.current) scheduleSave(contentRef.current, next);
   }
 
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("clients")
+      .select("show_guarantee")
+      .eq("id", clientId)
+      .maybeSingle()
+      .then(({ data, error }: { data: { show_guarantee?: boolean } | null; error: unknown }) => {
+        if (!cancelled) setShowGuarantee(error ? null : data?.show_guarantee === true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
+
+  async function setGuaranteeShown(next: boolean) {
+    setGuaranteeError(null);
+    const before = showGuarantee;
+    setShowGuarantee(next);
+    const { error } = await supabase.from("clients").update({ show_guarantee: next }).eq("id", clientId);
+    if (error) {
+      setShowGuarantee(before);
+      setGuaranteeError(/show_guarantee/.test(error.message) ? "Run database update 0048 in Supabase first." : error.message);
+    }
+  }
+
   // ---------------- is the video schedule there? ----------------
   useEffect(() => {
     let cancelled = false;
@@ -389,7 +425,9 @@ export function PlannerDocument({
   const headFilled = (h: { tag: string; heading: string; desc: string }) => has(h.heading) || has(h.desc);
   const filled: Record<string, boolean> = {
     videos: true,
-    overview: headFilled(content.overview),
+    // Always: until the team fills it in, the client sees example
+    // content on their Overview rather than no tab at all.
+    overview: true,
     branding: content.branding.rows.some((r) => has(r.value)),
     pillars: content.pillars.items.some((p) => has(p.name)),
     format: content.format.stats.some((st) => has(st.value)),
@@ -398,9 +436,13 @@ export function PlannerDocument({
     competitors: content.competitors.links.some((l) => has(l.url) || has(l.title)),
     producing: content.producing.links.some((l) => has(l.url) || has(l.title)),
     timeline: content.timeline.items.some((t) => has(t.title) || has(t.date)),
-    guarantee: has(content.guarantee.body) || content.guarantee.terms.some((t) => has(t.text)),
+    guarantee:
+      showGuarantee === true && (has(content.guarantee.body) || content.guarantee.terms.some((t) => has(t.text))),
   };
-  const tabs = NAV_SECTIONS.filter((sct) => editable || filled[sct.id]);
+  const ordered = editable
+    ? NAV_SECTIONS
+    : [...CLIENT_ORDER.map((id) => NAV_SECTIONS.find((x) => x.id === id)!), ...NAV_SECTIONS.filter((x) => !CLIENT_ORDER.includes(x.id))];
+  const tabs = ordered.filter((sct) => editable || filled[sct.id]);
   const current = tabs.some((t) => t.id === activeSection) ? activeSection : tabs[0]?.id;
   const show = (id: string) => current === id;
 
@@ -507,8 +549,18 @@ export function PlannerDocument({
       </nav>
 
       {show("overview") && (
-      <SectionHead id={sid("overview")} editable={editable} data={content.overview} onCommit={(field, v) => update(["overview", field], v)} ph={PLANNER_PH.overview} />
-
+        <>
+          {(editable || headFilled(content.overview)) && (
+            <SectionHead id={sid("overview")} editable={editable} data={content.overview} onCommit={(field, v) => update(["overview", field], v)} ph={PLANNER_PH.overview} />
+          )}
+          <OverviewBoard
+            clientId={clientId}
+            overview={content.overview}
+            pillars={content.pillars.items}
+            editable={editable}
+            onChange={(field, v) => update(["overview", field], v)}
+          />
+        </>
       )}
       {show("branding") && (
       <section id={sid("branding")} style={{ paddingTop: 0 }}>
@@ -899,6 +951,22 @@ export function PlannerDocument({
       </section>
       )}
 
+      {show("guarantee") && editable && (
+        <div className="guarantee-switch">
+          <label>
+            <input
+              type="checkbox"
+              checked={showGuarantee === true}
+              onChange={(e) => setGuaranteeShown(e.target.checked)}
+            />
+            <span>
+              <strong>Show the guarantee to this client</strong>
+              <small>Off for every client unless you switch it on here.</small>
+            </span>
+          </label>
+          {guaranteeError && <p className="guarantee-switch-error">{guaranteeError}</p>}
+        </div>
+      )}
       {show("guarantee") && (
       <section className="guarantee-section" id={sid("guarantee")}>
         <div className="slate-stripes" />

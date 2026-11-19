@@ -1,33 +1,36 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { loadUploads, loadAssets } from "@/lib/uploads";
-import { UploadsWorkspace } from "@/components/uploads/UploadsWorkspace";
+import { loadAssets } from "@/lib/uploads";
+import { AssetsPanel } from "@/components/uploads/AssetsPanel";
 import { MarkSectionSeen } from "@/components/NavBadge";
+import { FILE_SECTIONS, isFileSection } from "@/lib/files";
 
 export const dynamic = "force-dynamic";
 
+function SectionIcon({ d, size = 22 }: { d: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
+
 /**
- * The client's Uploads tab.
+ * The client's Files.
  *
- * The same workspace the team uses, with the client's own abilities —
- * watch, comment, add material — rather than a separate screen built
- * to look similar. Building a parallel one would mean every fix to
- * the comment thread had to be made twice, and the two would drift.
+ * Five sections — Assets, Raw Footage, Invoices, Proposals, Contracts.
+ * Nothing opens on its own: the client lands on a grid of the five and
+ * picks one. Once a section is open, all five sit along the top as tabs
+ * so they can move between them, with a way back to the grid.
  *
- * What a client sees is narrowed in three places, none of them here:
+ * The section lives in the address (?section=…) so the browser's back
+ * button and a shared link both do what they look like they'll do.
  *
- *   - `submissions` shows them only videos deliberately shared with
- *     them (0025's "client read shared");
- *   - `submission_feedback` shows them only the 'client' audience, so
- *     the team's internal notes on the same video stay invisible
- *     (0028);
- *   - `client_assets` shows them only material marked shared.
- *
- * The `audience: "client"` filter below is belt and braces on top of
- * the second of those: if the policy were ever loosened by accident,
- * this page still wouldn't render an internal note.
+ * Videos are not here any more; they have their own tab.
+ * `client_assets` RLS shows the client only what was shared with them.
  */
-export default async function PortalUploadsPage() {
+export default async function PortalFilesPage({ searchParams }: { searchParams: { section?: string } }) {
   const supabase = createClient();
 
   const {
@@ -37,52 +40,79 @@ export default async function PortalUploadsPage() {
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user.id).maybeSingle();
-
   const clientId = (profile as { client_id?: string | null } | null)?.client_id ?? null;
-
   if (!clientId) return null; // see PortalLayout
 
-  const [{ uploads, problem: uploadsProblem }, { assets, problem: assetsProblem }, { data: client }] =
-    await Promise.all([
-      loadUploads(supabase, { clientId, audience: "client" }),
-      loadAssets(supabase, { clientId }),
-      supabase.from("clients").select("id, name").eq("id", clientId).maybeSingle(),
-    ]);
-
-  const clientRow = client as { id: string; name: string } | null;
+  const { assets, problem } = await loadAssets(supabase, { clientId });
+  const open = isFileSection(searchParams.section) ? searchParams.section : null;
+  const count = (id: string) => assets.filter((a) => a.section === id).length;
 
   return (
-    <main className="page page-xs">
+    <main className="page page-xs files-page">
       <MarkSectionSeen prefix="/app/portal/uploads" />
 
-      <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 8px" }}>Uploads</h1>
-      <p
-        style={{
-          fontFamily: "var(--font-body)",
-          fontSize: 14,
-          color: "var(--text-2)",
-          margin: "0 0 28px",
-          maxWidth: "60ch",
-          lineHeight: 1.6,
-        }}
-      >
-        Every video we&rsquo;ve sent you, with somewhere to say what you think. You can
-        point at an exact moment in a video, add a screenshot, and hand over any
-        footage or images of your own.
-      </p>
+      <h1 style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: "0 0 8px" }}>Files</h1>
 
-      <UploadsWorkspace
-        role="client"
-        currentUserId={user.id}
-        uploads={uploads}
-        assets={assets}
-        clients={clientRow ? [{ id: clientRow.id, name: clientRow.name }] : []}
-        uploadsProblem={uploadsProblem}
-        assetsProblem={assetsProblem}
-        // A client has exactly one client, so there is no "which
-        // client is this for?" question to ask them.
-        fixedClientId={clientId}
-      />
+      {!open ? (
+        <>
+          <p className="files-lede">Everything we&rsquo;ve shared with you, in one place. Choose a section to open it.</p>
+          <div className="files-grid" data-tour="files-grid">
+            {FILE_SECTIONS.map((s) => {
+              const n = count(s.id);
+              return (
+                <Link key={s.id} href={`/app/portal/uploads?section=${s.id}`} className="files-card">
+                  <span className="files-card-icon">
+                    <SectionIcon d={s.icon} />
+                  </span>
+                  <span className="files-card-name">{s.label}</span>
+                  <span className="files-card-count">
+                    {n === 0 ? "No files yet" : n === 1 ? "1 file" : `${n} files`}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="files-bar">
+            <Link href="/app/portal/uploads" className="files-back" aria-label="Back to all sections">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+              All files
+            </Link>
+            <nav className="files-tabs" aria-label="Files sections">
+              {FILE_SECTIONS.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/app/portal/uploads?section=${s.id}`}
+                  className="files-tab"
+                  aria-current={s.id === open ? "page" : undefined}
+                >
+                  <SectionIcon d={s.icon} size={15} />
+                  {s.label}
+                  <span className="files-tab-n">{count(s.id)}</span>
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <p className="files-lede">{FILE_SECTIONS.find((s) => s.id === open)!.blurb}</p>
+
+          <AssetsPanel
+            key={open}
+            assets={assets}
+            clients={[]}
+            currentUserId={user.id}
+            isClient
+            fixedClientId={clientId}
+            canShare={false}
+            problem={problem}
+            section={open}
+          />
+        </>
+      )}
     </main>
   );
 }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PlannerDocument } from "@/components/PlannerDocument";
-import { ClientPlanVideos } from "@/components/videos/ClientPlanVideos";
+import { ClientPlanGrid } from "@/components/videos/ClientPlanGrid";
 
 export default async function ClientPortalPlanPage() {
   const supabase = createClient();
@@ -40,7 +40,8 @@ export default async function ClientPortalPlanPage() {
         editable={false}
         requirePublished
         emptyMessage="Your content plan isn't published yet — check back soon."
-        videos={<ClientPlanVideos clientId={profile.client_id} />}
+        videos={<ClientPlanGrid clientId={profile.client_id} />}
+        initialSection="overview"
       />
     </main>
   );

@@ -17,12 +17,14 @@ const LINKS = [
   { href: "/app/portal/videos", label: "▶ Videos", feature: true },
   { href: "/app/portal/calendar", label: "Calendar" },
   { href: "/app/portal/plan", label: "Content Plan" },
+  // Results sit right beside the plan: what we're making, then how
+  // it's doing.
+  { href: "/app/portal/content", label: "Content Hub" },
   { href: "/app/portal/account", label: "Account" },
   { href: "/app/portal/messages", label: "Messages" },
   { href: "/app/portal/uploads", label: "Files" },
   { href: "/app/portal/documents", label: "Documents" },
   { href: "/app/portal/logins", label: "Logins" },
-  { href: "/app/portal/content", label: "Content Hub" },
   { href: "/app/portal/todo", label: "To-do" },
   { href: "/app/portal/notes", label: "Notes" },
 ] as { href: string; label: string; feature?: boolean }[];
@@ -75,6 +77,7 @@ export function PortalNav({ hidden = [] }: { hidden?: string[] }) {
             aria-current={active ? "page" : undefined}
             className={link.feature ? "nav-feature" : "nav-tab"}
             data-active={active ? "true" : undefined}
+            data-tour-nav={link.href}
           >
             {link.label}
             {/* Counts unread notifications pointing at this tab —

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { AvatarUpload } from "./AvatarUpload";
 import { ClientInfoForm } from "./ClientInfoForm";
 import { ClientFinanceField, type BillingFrequency } from "./ClientFinanceField";
@@ -60,6 +60,7 @@ type TabId = (typeof TABS)[number]["id"];
 
 export function ClientDetailTabs({
   client,
+  socialPanel,
   documents,
   tasks,
   monthlyValue,
@@ -152,6 +153,8 @@ export function ClientDetailTabs({
   justAdded?: boolean;
   /** Parts of adding the client that failed to save. */
   notSaved?: string[];
+  /** The client's social results dashboard (Content Hub), server-rendered. */
+  socialPanel?: ReactNode;
   /** 0043: the client-facing account details; null for non-management. */
   account?: { available: boolean; paymentDay: number | null; note: string | null } | null;
   /** Phase 18: the client's payment agreement. CEO-only, so undefined for everyone else. */
@@ -393,6 +396,14 @@ export function ClientDetailTabs({
 
       {tab === "videos" && (
         <VideoSchedule key={openVideo ?? "videos"} clientId={client.id} editable={canEditVideos} pkg={clientPackage} initialOpenId={openVideo} />
+      )}
+
+      {tab === "performance" && canEditVideos && socialPanel && (
+        <section className="sh-team-wrap">
+          <h2 className="sh-team-title">Social accounts</h2>
+          <p className="sh-team-sub">What the client sees on their Content Hub. Connect their accounts here or let them do it themselves.</p>
+          {socialPanel}
+        </section>
       )}
 
       {tab === "performance" && canEditVideos && (

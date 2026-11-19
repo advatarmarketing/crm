@@ -44,7 +44,8 @@ export function planGaps(content: PlannerContent | null): Gap[] {
   if ((content.metrics?.items ?? []).every((m) => blank(m.label))) gaps.push({ label: "Metrics to track", where: "plan", section: "metrics" });
   if ((content.competitors?.links ?? []).every((l) => blank(l.title))) gaps.push({ label: "Competitors to study", where: "plan", section: "competitors" });
   if ((content.timeline?.items ?? []).every((t) => blank(t.title))) gaps.push({ label: "Client timeline", where: "plan", section: "timeline" });
-  if (blank(content.guarantee?.body)) gaps.push({ label: "Our guarantee", where: "plan", section: "guarantee" });
+  // The guarantee is no longer a gap: since 0048 it is off unless
+  // switched on for a client, so most clients never need one.
 
   return gaps;
 }

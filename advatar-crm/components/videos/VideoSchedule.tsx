@@ -86,7 +86,14 @@ export function VideoSchedule({
   editable,
   pkg: givenPkg,
   initialOpenId = null,
+  openHref,
 }: {
+  /**
+   * The client's view (their Content Plan): the same grid, read-only,
+   * and a box opens that video on their own Videos page instead of the
+   * team's detail view.
+   */
+  openHref?: (id: string) => string;
   /** Opens straight inside this video (from the Performance tab). */
   initialOpenId?: string | null;
   clientId: string;
@@ -333,6 +340,26 @@ export function VideoSchedule({
     const state = stateOf(v);
     const what = v.title?.trim() || v.description?.trim() || v.hook?.trim() || "";
     const name = n ? `Video ${n}` : "Video";
+    const inside = (
+      <>
+        <span className="vbox-num">{name}</span>
+        <span className={what ? "vbox-what" : "vbox-what is-empty"}>{what || "—"}</span>
+        <span className={v.pillar ? "vbox-pillar" : "vbox-pillar is-empty"}>{v.pillar?.trim() || "No pillar yet"}</span>
+        <span className="vbox-foot" title={BOX_LABEL[state]}>
+          <span className="vbox-dot" aria-hidden />
+          {v.publish_on && state !== "posted" && <span className="vbox-date">{prettyDay(v.publish_on, false)}</span>}
+        </span>
+      </>
+    );
+    if (openHref) {
+      return (
+        <li key={v.id} className={`vbox vbox--${state}`} style={{ animationDelay: `${Math.min(i, 14) * 22}ms` }} data-video-id={v.id} data-state={state}>
+          <a className="vbox-main" href={openHref(v.id)} aria-label={`${name}: ${what || "nothing written yet"}. ${BOX_LABEL[state]}.`}>
+            {inside}
+          </a>
+        </li>
+      );
+    }
     return (
       <li key={v.id} className={`vbox vbox--${state}`} style={{ animationDelay: `${Math.min(i, 14) * 22}ms` }} data-video-id={v.id} data-state={state}>
         <button type="button" className="vbox-main" onClick={() => open(v.id)} aria-label={`${name}: ${what || "nothing written yet"}. ${BOX_LABEL[state]}: ${statusLine(v, state, d, pkg, today)}.`}>
@@ -346,7 +373,7 @@ export function VideoSchedule({
             {v.publish_on && state !== "posted" && <span className="vbox-date">{prettyDay(v.publish_on, false)}</span>}
           </span>
         </button>
-        {editable && (
+        {editable && !openHref && (
           <button
             type="button"
             className="vbox-tick"

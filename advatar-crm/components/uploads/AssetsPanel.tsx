@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { AssetEntry } from "@/lib/uploads";
 import type { ClientChoice } from "@/components/SchedulePanel";
 import { EmptyState } from "@/components/EmptyState";
+import { FILE_SECTIONS, sectionLabel, type FileSection } from "@/lib/files";
 import { field, subheading, meta, errorText, safeObjectName, formatBytes } from "./styles";
 
 // The bucket enforces this too (0028). Checked here as well so the
@@ -42,6 +43,7 @@ export function AssetsPanel({
   fixedClientId = null,
   canShare,
   problem,
+  section = null,
 }: {
   assets: AssetEntry[];
   clients: ClientChoice[];
@@ -51,6 +53,12 @@ export function AssetsPanel({
   /** Whether this viewer chooses who sees it. A client's is always shared. */
   canShare: boolean;
   problem: string | null;
+  /**
+   * The one Files section to show (the client's Files page opens one
+   * at a time). Left out, the team sees every section with a row of
+   * filters, and picks the section when adding something.
+   */
+  section?: FileSection | null;
 }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
@@ -61,12 +69,31 @@ export function AssetsPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const [sectionFilter, setSectionFilter] = useState<FileSection | "">("");
+  const [target, setTarget] = useState<FileSection>(section ?? "assets");
+  const activeSection = section ?? sectionFilter;
+  const addInto = section ?? target;
+  const meta_ = FILE_SECTIONS.find((x) => x.id === addInto)!;
+  // Invoices, proposals and contracts only ever come from us — the
+  // database refuses a client's insert there too (0048).
+  const canAdd = !isClient || meta_.clientCanAdd;
+
+  // An invoice, proposal or contract is put here *for* the client, so
+  // the "let the client see this" box starts ticked for those.
+  useEffect(() => {
+    if (!isClient) setShared(!meta_.clientCanAdd);
+  }, [addInto, isClient, meta_.clientCanAdd]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
   const router = useRouter();
 
-  const visible = filter ? assets.filter((a) => a.client_id === filter) : assets;
+  const visible = assets.filter(
+    (a) => (!filter || a.client_id === filter) && (!activeSection || a.section === activeSection)
+  );
+  // Only sent when it isn't the default, so adding to Assets still
+  // works on a database that hasn't had 0048 yet.
+  const sectionField = addInto === "assets" ? {} : { section: addInto };
 
   function resolveClient(): string | null {
     const chosen = fixedClientId ?? clientId;
@@ -91,6 +118,7 @@ export function AssetsPanel({
       kind: "link",
       title: name,
       url: link,
+      ...sectionField,
       notes: notes.trim() || null,
       visibility: isClient || shared ? "team_and_client" : "team",
       uploaded_by: currentUserId,
@@ -148,6 +176,7 @@ export function AssetsPanel({
         storage_path: path,
         mime_type: contentType,
         size_bytes: file.size,
+        ...sectionField,
         notes: notes.trim() || null,
         visibility: isClient || shared ? "team_and_client" : "team",
         uploaded_by: currentUserId,
@@ -191,7 +220,7 @@ export function AssetsPanel({
     setTitle("");
     setUrl("");
     setNotes("");
-    setShared(isClient);
+    setShared(isClient || !meta_.clientCanAdd);
     setAdding(false);
     if (!fixedClientId && clients.length !== 1) setClientId("");
   }
@@ -239,13 +268,53 @@ export function AssetsPanel({
         </div>
       )}
 
+      {!section && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }} role="group" aria-label="Which section">
+          {[{ id: "" as const, label: "All" }, ...FILE_SECTIONS].map((x) => {
+            const n = assets.filter((a) => (!filter || a.client_id === filter) && (!x.id || a.section === x.id)).length;
+            const on = sectionFilter === x.id;
+            return (
+              <button
+                key={x.id || "all"}
+                type="button"
+                className={on ? "chip chip-on" : "chip"}
+                aria-pressed={on}
+                onClick={() => {
+                  setSectionFilter(x.id);
+                  if (x.id) setTarget(x.id);
+                }}
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: 12.5,
+                  padding: "5px 11px",
+                  borderRadius: 999,
+                  border: "1px solid " + (on ? "var(--text-1)" : "var(--border)"),
+                  background: on ? "var(--text-1)" : "var(--surface)",
+                  color: on ? "var(--surface)" : "var(--text-2)",
+                  cursor: "pointer",
+                }}
+              >
+                {x.label}
+                <span style={{ opacity: 0.6, marginLeft: 6 }}>{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {visible.length === 0 ? (
         <EmptyState
           title="Nothing here yet"
           body={
-            isClient
-              ? "Anything your team shares with you — references, stills, footage links — appears here. You can add your own too."
-              : "Raw footage links, location photos, logos and references live here, attached to the client they belong to."
+            section
+              ? isClient
+                ? meta_.clientCanAdd
+                  ? `${meta_.blurb} Anything we share shows up here, and you can add your own too.`
+                  : `${meta_.blurb} We'll add them here as soon as they're ready.`
+                : meta_.blurb
+              : isClient
+                ? "Anything your team shares with you — references, stills, footage links — appears here. You can add your own too."
+                : "Raw footage links, location photos, logos, references, invoices, proposals and contracts live here, attached to the client they belong to."
           }
           compact
         />
@@ -318,6 +387,7 @@ export function AssetsPanel({
                   <span style={{ ...meta, display: "block", marginTop: 4 }}>
                     {[
                       asset.kind === "link" ? "link" : formatBytes(asset.size_bytes) ?? "file",
+                      !section && !sectionFilter ? sectionLabel(asset.section) : null,
                       !isClient ? asset.clientName : null,
                       !isClient && asset.visibility === "team_and_client" ? "shared with client" : null,
                       asset.uploaderName,
@@ -332,6 +402,18 @@ export function AssetsPanel({
                     remove anything on a client they're on. Both are
                     enforced by policy — this only decides what to
                     offer. */}
+                {asset.kind === "file" && asset.fileUrl && (
+                  <a
+                    className="btn"
+                    href={asset.fileUrl}
+                    download={asset.title}
+                    style={{ flexShrink: 0, textDecoration: "none" }}
+                    aria-label={`Download ${asset.title}`}
+                  >
+                    Download
+                  </a>
+                )}
+
                 {(!isClient || mine) && (
                   <button
                     type="button"
@@ -365,9 +447,31 @@ export function AssetsPanel({
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="What is it? e.g. Shoot day 1 — rushes"
+              placeholder={
+                addInto === "invoices"
+                  ? "What is it? e.g. Invoice #104 — March"
+                  : addInto === "contracts"
+                    ? "What is it? e.g. Service agreement 2026"
+                    : addInto === "proposals"
+                      ? "What is it? e.g. Summer campaign proposal"
+                      : "What is it? e.g. Shoot day 1 — rushes"
+              }
               style={{ ...field, flex: "2 1 220px" }}
             />
+            {!section && (
+              <select
+                value={target}
+                onChange={(e) => setTarget(e.target.value as FileSection)}
+                aria-label="Which section does it go in?"
+                style={{ ...field, flex: "1 1 150px" }}
+              >
+                {FILE_SECTIONS.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.label}
+                  </option>
+                ))}
+              </select>
+            )}
             {!fixedClientId && (
               <select
                 value={clientId}
@@ -448,11 +552,11 @@ export function AssetsPanel({
             goes in as a link — that&rsquo;s how rushes travel anyway.
           </p>
         </div>
-      ) : (
+      ) : canAdd ? (
         <button type="button" onClick={() => setAdding(true)} className="btn" style={{ marginTop: 12 }}>
-          + Add footage or a file
+          {section ? `+ Add to ${meta_.label}` : "+ Add a file or link"}
         </button>
-      )}
+      ) : null}
     </div>
   );
 }
