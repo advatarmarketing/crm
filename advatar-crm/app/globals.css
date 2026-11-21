@@ -3187,3 +3187,67 @@ a.vbox-main { text-decoration: none; box-sizing: border-box; }
   padding: 2px 9px; border-radius: 999px; color: rgb(24, 140, 80); background: rgba(34, 160, 90, 0.1); border: 1px solid rgba(34, 160, 90, 0.28);
 }
 .post-auto::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ---------------------------------------------------------------
+   Sign-in backdrop: gold in the top-left corner only, silver moving
+   slowly around the rest of the page. Covers the app-wide wash.
+   --------------------------------------------------------------- */
+:root {
+  --la-base: #f4f4f2;
+  --la-gold: rgba(201, 152, 58, 0.42);
+  --la-gold-2: rgba(232, 196, 120, 0.3);
+  --la-silver: rgba(150, 156, 168, 0.32);
+  --la-silver-2: rgba(196, 200, 208, 0.42);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --la-base: #08080b;
+    --la-gold: rgba(212, 170, 84, 0.42);
+    --la-gold-2: rgba(150, 112, 40, 0.34);
+    --la-silver: rgba(196, 202, 214, 0.2);
+    --la-silver-2: rgba(170, 176, 190, 0.22);
+  }
+}
+:root[data-theme="dark"] {
+  --la-base: #08080b;
+  --la-gold: rgba(212, 170, 84, 0.42);
+  --la-gold-2: rgba(150, 112, 40, 0.34);
+  --la-silver: rgba(196, 202, 214, 0.2);
+  --la-silver-2: rgba(170, 176, 190, 0.22);
+}
+
+.login-shell { position: relative; isolation: isolate; }
+.login-aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--la-base); pointer-events: none; }
+.login-aurora span { position: absolute; border-radius: 50%; filter: blur(70px); will-change: transform; }
+.la-gold {
+  top: -22vmax; left: -22vmax; width: 62vmax; height: 62vmax;
+  background: radial-gradient(circle at 50% 50%, var(--la-gold) 0%, var(--la-gold-2) 32%, transparent 66%);
+  animation: la-gold 22s ease-in-out infinite alternate;
+}
+.la-silver { width: 58vmax; height: 58vmax; background: radial-gradient(circle, var(--la-silver-2) 0%, var(--la-silver) 35%, transparent 68%); }
+.la-s1 { top: -20vmax; right: -24vmax; animation: la-s1 34s ease-in-out infinite alternate; }
+.la-s2 { bottom: -28vmax; right: -14vmax; animation: la-s2 40s ease-in-out infinite alternate; }
+.la-s3 { bottom: -26vmax; left: -10vmax; width: 50vmax; height: 50vmax; animation: la-s3 30s ease-in-out infinite alternate; }
+/* Gold breathes and wanders a little, but never leaves its corner. */
+@keyframes la-gold {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(6vmax, 3vmax, 0) scale(1.08); }
+  100% { transform: translate3d(2vmax, 7vmax, 0) scale(0.96); }
+}
+/* Silver travels across the page. */
+@keyframes la-s1 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-24vmax, 16vmax, 0) scale(1.12); }
+  100% { transform: translate3d(-10vmax, 34vmax, 0) scale(0.94); }
+}
+@keyframes la-s2 {
+  0% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(-30vmax, -14vmax, 0) scale(0.92); }
+  100% { transform: translate3d(-12vmax, -30vmax, 0) scale(1.1); }
+}
+@keyframes la-s3 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(26vmax, -10vmax, 0) scale(1.15); }
+  100% { transform: translate3d(40vmax, -2vmax, 0) scale(0.95); }
+}
+@media (prefers-reduced-motion: reduce) { .login-aurora span { animation: none; } }
