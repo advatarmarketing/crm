@@ -15,9 +15,11 @@ Wherever it says `app.advatar.co.uk`, use your real app address.
 
 ## Before you start
 
-- **A privacy policy page and a terms page on your website.** For example
-  `https://www.advatar.co.uk/privacy` and `https://www.advatar.co.uk/terms`.
-  Both Meta and TikTok refuse to approve an app without them.
+- **A privacy policy page and a terms page.** These are built into the app:
+  `https://app.advatar.co.uk/privacy` and `https://app.advatar.co.uk/terms`.
+  Both Meta and TikTok refuse to approve an app without them. For Meta's
+  **Data deletion instructions URL**, use
+  `https://app.advatar.co.uk/privacy#delete`.
 - **A square logo**, 1024 × 1024 pixels, PNG.
 - **Your business documents**, for Meta's business verification: a company
   registration certificate, a utility bill, or a bank statement showing the
