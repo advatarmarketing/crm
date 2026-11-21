@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { syncAll, syncYoutubeLinks } from "@/lib/social/sync";
-import { syncLookups } from "@/lib/social/agency";
+import { scanAll, syncYoutubeLinks } from "@/lib/social/sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /**
- * The daily refresh (vercel.json runs it every morning). Pulls fresh
- * followers and post numbers for every connected account and saves the
- * day's snapshot, which is what lets the dashboard show growth over
- * time even where a platform doesn't keep that history itself.
+ * The daily refresh (vercel.json runs it every morning). Reads every
+ * linked Instagram, TikTok and Facebook profile and the post links on
+ * videos (lib/social/scan.ts), and YouTube links, and saves the day's
+ * snapshot, which is what lets the dashboard show growth over time.
  *
  * Vercel sends `Authorization: Bearer <CRON_SECRET>` when CRON_SECRET is
  * set; anyone else is turned away. With no secret set the route refuses
- * everything rather than letting anyone trigger API calls.
+ * everything rather than letting anyone spend scanning credits.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -22,11 +21,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const admin = createAdminClient();
-  const results = [...(await syncAll(admin)), ...(await syncLookups(admin))];
+  const results = await scanAll(admin);
   const youtube = await syncYoutubeLinks(admin);
   return NextResponse.json({
-    synced: results.filter((r) => r.ok).length,
+    read: results.filter((r) => r.ok).length,
     failed: results.filter((r) => !r.ok).length,
-    videoLinksUpdated: results.reduce((n, r) => n + (r.linked ?? 0), 0) + youtube,
+    videoLinksUpdated: results.reduce((n, r) => n + r.linked, 0) + youtube,
   });
 }

@@ -1,11 +1,8 @@
 import "server-only";
-import { seal, unseal } from "./crypto";
-import { facebookData, instagramData, TokenProblem, type FetchedAccount, type FetchedPost } from "./meta";
-import { tiktokData, tiktokRefresh } from "./tiktok";
-import { metaConfigured, tiktokConfigured } from "./config";
+import { scanConfigured, scanPosts, scanProfile, ScanProblem, type Fetched, type Wanted } from "./scan";
 import { isShortLink, postKey, socialKeys, type MatchPlatform } from "./match";
 import { youtubeId, youtubeNumbers, youtubeOn } from "@/lib/performance/youtube";
-import type { SocialPlatform } from "@/lib/social";
+import { SOCIAL_PLATFORMS, isSocialPlatform, type SocialPlatform, type SocialUrls } from "@/lib/social";
 
 // The service-role client (lib/supabase/admin.ts) is untyped on purpose.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,9 +20,9 @@ export function londonDay(d = new Date()): string {
 export async function saveFetched(
   admin: Admin,
   conn: { id: string; client_id: string; platform: SocialPlatform },
-  data: { account: FetchedAccount; posts: FetchedPost[] },
-  /** "lookup": read through Advatar's Instagram from the profile link (0051). */
-  status: "connected" | "lookup" = "connected"
+  data: Fetched,
+  /** "lookup": read from the public profile link (0051). */
+  status: "connected" | "lookup" = "lookup"
 ) {
   const now = new Date().toISOString();
 
@@ -97,13 +94,14 @@ async function resolveShort(url: string): Promise<string> {
 }
 
 /** The post links the team has put on this client's videos for one platform, with their match keys. */
-async function linkedPosts(admin: Admin, clientId: string, platform: MatchPlatform) {
+export async function linkedPosts(admin: Admin, clientId: string, platform: MatchPlatform) {
   const { data, error } = await admin.from("video_posts").select("id, url").eq("client_id", clientId).eq("platform", platform);
   if (error) return [];
-  const out: { id: string; key: string }[] = [];
+  const out: { id: string; key: string; url: string }[] = [];
   for (const row of (data ?? []) as { id: string; url: string }[]) {
-    const key = postKey(platform, await resolveShort(row.url));
-    if (key) out.push({ id: row.id, key });
+    const url = await resolveShort(row.url);
+    const key = postKey(platform, url);
+    if (key) out.push({ id: row.id, key, url });
   }
   return out;
 }
@@ -174,73 +172,145 @@ export async function syncYoutubeLinks(admin: Admin, clientId?: string): Promise
   return updated;
 }
 
-/** Pull fresh numbers for one connected account. Never throws. */
-export async function syncConnection(admin: Admin, connectionId: string): Promise<{ ok: boolean; error?: string; linked?: number }> {
-  const { data: conn } = await admin
-    .from("social_connections")
-    .select("id, client_id, platform")
-    .eq("id", connectionId)
-    .maybeSingle();
-  const { data: tok } = await admin.from("social_tokens").select("*").eq("connection_id", connectionId).maybeSingle();
-  if (!conn || !tok) return { ok: false, error: "Not connected." };
+const DAY = 24 * 3600 * 1000;
 
-  const fail = async (message: string, reconnect: boolean) => {
-    await admin
-      .from("social_connections")
-      .update({ last_error: message.slice(0, 300), ...(reconnect ? { status: "needs_reconnect" } : {}) })
-      .eq("id", connectionId);
-    return { ok: false, error: message };
+/**
+ * One client, every platform: the profiles the team linked on their
+ * Performance tab are read in full, and post links on their videos for
+ * a platform with no profile link are read one by one. Never throws.
+ *
+ * `deep` goes back to the day we started posting (90 days at most) for
+ * a first read or when the team presses Save or Refresh; the daily run
+ * only goes back 30 days, which keeps the credits it uses down.
+ */
+export async function scanClient(
+  admin: Admin,
+  clientId: string,
+  opts: { deep?: boolean } = {}
+): Promise<{ platform: SocialPlatform; ok: boolean; error?: string; linked: number }[]> {
+  if (!scanConfigured()) return [];
+  const { data: client, error } = await admin
+    .from("clients")
+    .select("social_platforms, social_urls, posting_started_on")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (error || !client) return [];
+  const urls = (client.social_urls ?? {}) as SocialUrls;
+  const chosen = ((client.social_platforms ?? []) as string[]).filter(isSocialPlatform);
+  const started: string | null = client.posting_started_on ?? null;
+
+  const { data: rows } = await admin.from("social_connections").select("id, platform, last_synced_at").eq("client_id", clientId);
+  const existing = new Map<string, { id: string; last_synced_at: string | null }>(
+    ((rows ?? []) as { id: string; platform: string; last_synced_at: string | null }[]).map((r) => [r.platform, r])
+  );
+
+  const one = async (platform: SocialPlatform) => {
+    const link = chosen.includes(platform) ? urls[platform] : undefined;
+    const links = await linkedPosts(admin, clientId, platform);
+
+    if (!link) {
+      // No profile to read: just the posts linked on videos, if any.
+      if (!links.length) return null;
+      const posts = await scanPosts(platform, links);
+      if (posts.length) await savePosts(admin, clientId, platform, posts);
+      return { platform, ok: true, linked: await applyToVideoPosts(admin, clientId, platform, links) };
+    }
+
+    let row = existing.get(platform);
+    if (!row) {
+      const { data: made, error: makeError } = await admin
+        .from("social_connections")
+        .upsert({ client_id: clientId, platform, status: "lookup", connected_at: new Date().toISOString() }, { onConflict: "client_id,platform" })
+        .select("id, last_synced_at")
+        .single();
+      if (makeError || !made) return { platform, ok: false, error: makeError?.message ?? "Couldn't save.", linked: 0 };
+      row = made as { id: string; last_synced_at: string | null };
+    }
+
+    const deep = opts.deep || !row.last_synced_at;
+    const back = new Date(Date.now() - (deep ? 90 : 30) * DAY);
+    const since = deep && started && new Date(`${started}T00:00:00Z`) > back ? new Date(`${started}T00:00:00Z`) : back;
+    try {
+      const data = await scanProfile(platform, link, { since, maxPages: deep ? 8 : 3 }, links as Wanted);
+      await saveFetched(admin, { id: row.id, client_id: clientId, platform }, data, "lookup");
+      return { platform, ok: true, linked: await applyToVideoPosts(admin, clientId, platform, links) };
+    } catch (e) {
+      const message = e instanceof ScanProblem ? e.message : "The profile couldn't be read just now. It will try again tomorrow.";
+      await admin.from("social_connections").update({ last_error: message.slice(0, 300) }).eq("id", row.id);
+      return { platform, ok: false, error: message, linked: 0 };
+    }
   };
 
-  try {
-    const links = await linkedPosts(admin, conn.client_id, conn.platform);
-    const wanted = new Set(links.map((l) => l.key));
-    let access = unseal(tok.access_token);
-    if (!access) return fail("The saved access couldn't be read. Connect the account again.", true);
-
-    if (conn.platform === "tiktok") {
-      if (!tiktokConfigured()) return fail("TikTok isn't set up on the server yet.", false);
-      // Refresh when there's under two hours left (it lasts a day).
-      if (!tok.expires_at || new Date(tok.expires_at).getTime() - Date.now() < 2 * 3600 * 1000) {
-        const refresh = unseal(tok.refresh_token);
-        if (!refresh) return fail("The saved access couldn't be read. Connect the account again.", true);
-        const next = await tiktokRefresh(refresh);
-        access = next.accessToken;
-        await admin
-          .from("social_tokens")
-          .update({
-            access_token: seal(next.accessToken),
-            refresh_token: seal(next.refreshToken),
-            expires_at: next.expiresAt,
-            refresh_expires_at: next.refreshExpiresAt,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("connection_id", connectionId);
-      }
-      await saveFetched(admin, conn, await tiktokData(access, links.map((l) => l.key.slice(3))));
+  // The three platforms at once: each is a handful of slow requests.
+  const settled = await Promise.allSettled(SOCIAL_PLATFORMS.map((p) => one(p.id)));
+  const out: { platform: SocialPlatform; ok: boolean; error?: string; linked: number }[] = [];
+  settled.forEach((r, i) => {
+    if (r.status === "fulfilled") {
+      if (r.value) out.push(r.value);
     } else {
-      if (!metaConfigured()) return fail("Facebook and Instagram aren't set up on the server yet.", false);
-      const data =
-        conn.platform === "instagram"
-          ? await instagramData(tok.account_id, access, wanted)
-          : await facebookData(tok.account_id, access, wanted);
-      await saveFetched(admin, conn, data);
+      out.push({ platform: SOCIAL_PLATFORMS[i].id, ok: false, error: r.reason instanceof Error ? r.reason.message : "Didn't update.", linked: 0 });
     }
-    return { ok: true, linked: await applyToVideoPosts(admin, conn.client_id, conn.platform, links) };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "The platform didn't answer.";
-    return fail(message, e instanceof TokenProblem);
-  }
+  });
+  return out;
 }
 
-/** Every connected account (or one client's). Used by the daily job. */
-export async function syncAll(admin: Admin, clientId?: string) {
-  let q = admin.from("social_connections").select("id").eq("status", "connected");
-  if (clientId) q = q.eq("client_id", clientId);
-  const { data } = await q;
-  const results: { id: string; ok: boolean; error?: string; linked?: number }[] = [];
-  for (const row of (data ?? []) as { id: string }[]) {
-    results.push({ id: row.id, ...(await syncConnection(admin, row.id)) });
+/** Posts read one by one, saved without touching the account's numbers. */
+export async function savePosts(admin: Admin, clientId: string, platform: SocialPlatform, posts: Fetched["posts"]) {
+  const now = new Date().toISOString();
+  await admin.from("social_posts").upsert(
+    posts.map((p) => ({
+      client_id: clientId,
+      platform,
+      external_id: p.externalId,
+      posted_at: p.postedAt,
+      caption: p.caption ? p.caption.slice(0, 600) : null,
+      thumbnail_url: p.thumbnail,
+      permalink: p.permalink,
+      is_video: p.isVideo,
+      likes: p.likes,
+      comments: p.comments,
+      views: p.views,
+      shares: p.shares,
+      updated_at: now,
+    })),
+    { onConflict: "client_id,platform,external_id" }
+  );
+}
+
+/**
+ * The daily run: every client with a profile link or a post link on a
+ * video. Least recently updated first, a few at a time, and it stops
+ * starting new ones near Vercel's time limit; whoever is left over goes
+ * first tomorrow.
+ */
+export async function scanAll(admin: Admin, budgetMs = 240_000) {
+  if (!scanConfigured()) return [];
+  const started = Date.now();
+  const [{ data: withLinks }, { data: withPosts }, { data: conns }] = await Promise.all([
+    admin.from("clients").select("id, social_urls"),
+    admin.from("video_posts").select("client_id").in("platform", ["instagram", "tiktok", "facebook"]),
+    admin.from("social_connections").select("client_id, last_synced_at"),
+  ]);
+  const ids = new Set<string>();
+  for (const c of (withLinks ?? []) as { id: string; social_urls: SocialUrls | null }[]) {
+    if (c.social_urls && Object.values(c.social_urls).some(Boolean)) ids.add(c.id);
   }
+  for (const p of (withPosts ?? []) as { client_id: string }[]) ids.add(p.client_id);
+  const last = new Map<string, string>();
+  for (const c of (conns ?? []) as { client_id: string; last_synced_at: string | null }[]) {
+    const prev = last.get(c.client_id);
+    const at = c.last_synced_at ?? "";
+    if (prev === undefined || at < prev) last.set(c.client_id, at);
+  }
+  const queue = Array.from(ids).sort((a, b) => (last.get(a) ?? "").localeCompare(last.get(b) ?? ""));
+
+  const results: { client: string; platform: SocialPlatform; ok: boolean; error?: string; linked: number }[] = [];
+  const worker = async () => {
+    while (queue.length && Date.now() - started < budgetMs) {
+      const id = queue.shift()!;
+      for (const r of await scanClient(admin, id)) results.push({ client: id, ...r });
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
   return results;
 }

@@ -1,12 +1,11 @@
 import "server-only";
-import { configuredFor } from "./config";
+import { scanConfigured } from "./scan";
 import { londonDay } from "./sync";
 import {
   SOCIAL_PLATFORMS,
   isSocialPlatform,
   type Range,
   type SocialUrls,
-  handleFromUrl,
   type SocialConnection,
   type SocialPlatform,
   type SocialPost,
@@ -18,7 +17,7 @@ type Db = any;
 
 export interface PlatformResult {
   platform: SocialPlatform;
-  /** The server has the platform's app keys (META_* / TIKTOK_*). */
+  /** Profile scanning is switched on (SCRAPECREATORS_API_KEY). */
   available: boolean;
   connection: SocialConnection | null;
   followers: number | null;
@@ -31,12 +30,12 @@ export interface PlatformResult {
   posts: number;
   /** The profile link the team entered (0050). */
   url: string | null;
-  /** The connected account isn't the one the profile link points to. */
-  mismatch: boolean;
 }
 
 export interface Dashboard {
   ready: boolean;
+  /** Profile scanning is switched on (SCRAPECREATORS_API_KEY in Vercel). */
+  scanning: boolean;
   problem: string | null;
   chosen: SocialPlatform[];
   platforms: PlatformResult[];
@@ -85,6 +84,7 @@ export async function loadDashboard(supabase: Db, clientId: string, range: Range
 
   const empty: Dashboard = {
     ready: false,
+    scanning: scanConfigured(),
     problem: null,
     chosen: [],
     platforms: [],
@@ -157,7 +157,7 @@ export async function loadDashboard(supabase: Db, clientId: string, range: Range
 
     return {
       platform,
-      available: configuredFor(platform),
+      available: scanConfigured(),
       connection,
       followers: connection ? latestSnap?.followers ?? null : null,
       growth: connection ? growth : null,
@@ -167,16 +167,11 @@ export async function loadDashboard(supabase: Db, clientId: string, range: Range
       comments: p.reduce((n, x) => n + (x.comments ?? 0), 0),
       posts: p.length,
       url: urls[platform] ?? null,
-      mismatch: (() => {
-        // Facebook Page names and handles differ too often to compare.
-        if (platform === "facebook" || !connection?.account_handle) return false;
-        const want = handleFromUrl(platform, urls[platform]);
-        return !!want && want !== connection.account_handle.toLowerCase();
-      })(),
     };
   });
 
-  const live = platforms.filter((p) => p.connection);
+  // Only accounts that have actually been read count.
+  const live = platforms.filter((p) => p.connection?.last_synced_at);
   const sumOrNull = (vals: (number | null)[]) => (vals.some((v) => v != null) ? vals.reduce<number>((n, v) => n + (v ?? 0), 0) : null);
   const totalPosts = live.reduce((n, p) => n + p.posts, 0);
   const totalComments = live.reduce((n, p) => n + p.comments, 0);
@@ -189,6 +184,7 @@ export async function loadDashboard(supabase: Db, clientId: string, range: Range
 
   return {
     ready: true,
+    scanning: scanConfigured(),
     problem: null,
     chosen: ordered,
     platforms,

@@ -56,18 +56,16 @@ export default function TermsPage() {
         content we produce for you is set out in your agreement with us.
       </p>
 
-      <h2>Connected social media accounts</h2>
+      <h2>Social media numbers</h2>
       <p>
-        If you, or we on your behalf, connect a Facebook, Instagram or TikTok account, you confirm you are allowed to
-        do so. We only read data from these accounts, to show you how your content is performing; we never post or
-        change anything through the connection. You can disconnect at any time from the Content Hub or from the
-        platform&rsquo;s own settings. Your use of those platforms is also subject to their own terms. See our{" "}
-        <Link href="/privacy">Privacy Policy</Link> for what we read and how we look after it.
+        To report on the accounts we run for you, we read their public numbers from their public profiles. We never
+        post or change anything on your accounts through the dashboard. See our <Link href="/privacy">Privacy Policy</Link>{" "}
+        for what we read and how we look after it.
       </p>
 
       <h2>Numbers and reports</h2>
       <p>
-        Results shown in the dashboard come from the platforms themselves and are shown as they report them. They
+        Results shown in the dashboard come from the platforms&rsquo; public profiles and are shown as they appear there. They
         can be delayed, change later, or be unavailable when a platform has problems. We do our best to keep them
         accurate but can&rsquo;t guarantee they are complete or error-free.
       </p>

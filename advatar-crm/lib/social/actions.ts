@@ -3,12 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { mayConnect, saveMetaPage } from "./connect";
-import { unseal } from "./crypto";
-import { metaPages } from "./meta";
-import { syncAll } from "./sync";
-import { lookupClient, saveAgency, syncLookups } from "./agency";
-import { SOCIAL_PLATFORMS, isSocialPlatform, profileUrl, type SocialPlatform, type SocialUrls } from "@/lib/social";
+import { scanClient } from "./sync";
+import { scanConfigured } from "./scan";
+import { SOCIAL_PLATFORMS, handleFromUrl, isSocialPlatform, profileUrl, type SocialPlatform, type SocialUrls } from "@/lib/social";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -17,94 +14,37 @@ function refresh(clientId: string) {
   revalidatePath(`/app/clients/${clientId}`);
 }
 
-/** After a Facebook login with several Pages: the one that's this client's. */
-export async function chooseMetaPageAction(pendingId: string, pageId: string): Promise<Result> {
-  const admin = createAdminClient();
-  const { data: pending } = await admin.from("social_pending").select("*").eq("id", pendingId).maybeSingle();
-  if (!pending) return { ok: false, error: "That list has expired. Please connect again." };
-
-  const agency = pending.client_id === null;
-  const who = await mayConnect(createClient(), agency ? "agency" : pending.client_id);
-  if (!who.ok) return { ok: false, error: who.reason };
-  if (pending.created_by !== who.userId) return { ok: false, error: "Only the person who signed in to Facebook can choose." };
-  if (Date.now() - new Date(pending.created_at).getTime() > 30 * 60 * 1000) {
-    await admin.from("social_pending").delete().eq("id", pendingId);
-    return { ok: false, error: "That list has expired. Please connect again." };
-  }
-
-  const token = unseal(pending.user_token);
-  if (!token) return { ok: false, error: "Please connect again." };
-
-  try {
-    const page = (await metaPages(token)).find((p) => p.pageId === pageId);
-    if (!page) return { ok: false, error: "That Page is no longer available to this login." };
-    if (agency) {
-      await saveAgency(admin, page, who.userId);
-      await admin.from("social_pending").delete().eq("id", pendingId);
-      await syncLookups(admin);
-      revalidatePath("/app/clients", "layout");
-      return { ok: true, message: "Advatar's Instagram is connected. Clients' Instagram numbers now come from their profile links." };
-    }
-    await saveMetaPage(admin, pending.client_id, page, who.userId);
-    await admin.from("social_pending").delete().eq("id", pendingId);
-    await syncAll(admin, pending.client_id);
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Connecting didn't work." };
-  }
-  refresh(pending.client_id);
-  return { ok: true, message: "Connected. The first numbers are in, and they'll refresh every day." };
+/** The CEO or this client's manager, checked by the database itself. */
+async function manages(clientId: string): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient() as any;
+  const { data } = await supabase.rpc("can_manage_client", { target_client_id: clientId });
+  return data === true;
 }
 
-export async function disconnectSocialAction(clientId: string, platform: SocialPlatform): Promise<Result> {
-  if (!isSocialPlatform(platform)) return { ok: false, error: "Unknown platform." };
-  const who = await mayConnect(createClient(), clientId);
-  if (!who.ok) return { ok: false, error: who.reason };
-
-  // Access is thrown away; the history (snapshots, posts) is kept, so
-  // reconnecting later carries on the same growth line.
-  const { error } = await createAdminClient().from("social_connections").delete().eq("client_id", clientId).eq("platform", platform);
-  if (error) return { ok: false, error: error.message };
-  refresh(clientId);
-  return { ok: true };
+/** Plain words for what a scan did. */
+function summary(results: { platform: SocialPlatform; ok: boolean; error?: string }[]): { ok: boolean; text: string } {
+  const label = (p: SocialPlatform) => SOCIAL_PLATFORMS.find((x) => x.id === p)?.label ?? p;
+  const bad = results.filter((r) => !r.ok);
+  if (!bad.length) return { ok: true, text: "Up to date." };
+  return { ok: false, text: bad.map((r) => `${label(r.platform)}: ${r.error ?? "didn't update."}`).join(" ") };
 }
 
 export async function syncSocialNowAction(clientId: string): Promise<Result> {
-  const who = await mayConnect(createClient(), clientId);
-  if (!who.ok) return { ok: false, error: who.reason };
-  const admin = createAdminClient();
-  const results = [...(await syncAll(admin, clientId)), ...(await syncLookups(admin, clientId))];
+  if (!(await manages(clientId))) return { ok: false, error: "Only the CEO or the client's manager can refresh this." };
+  if (!scanConfigured()) return { ok: false, error: "Profile scanning isn't switched on yet: add SCRAPECREATORS_API_KEY in Vercel." };
+  const results = await scanClient(createAdminClient(), clientId, { deep: true });
   refresh(clientId);
-  const failed = results.filter((r) => !r.ok);
-  if (!results.length) return { ok: false, error: "No accounts are connected yet." };
-  if (failed.length) return { ok: false, error: failed[0].error ?? "One account didn't update." };
-  return { ok: true, message: "Up to date." };
-}
-
-/** The team's choice of which platforms this client posts on. */
-export async function setSocialPlatformsAction(clientId: string, platforms: string[]): Promise<Result> {
-  // Untyped, like the rest of lib/social: the hand-written Database type
-  // doesn't know 0048's columns.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createClient() as any;
-  const { data: manages } = await supabase.rpc("can_manage_client", { target_client_id: clientId });
-  if (manages !== true) return { ok: false, error: "Only the CEO or the client's manager can change this." };
-
-  const clean = Array.from(new Set(platforms.filter(isSocialPlatform)));
-  const { error } = await supabase.from("clients").update({ social_platforms: clean }).eq("id", clientId);
-  if (error) {
-    return {
-      ok: false,
-      error: /social_platforms/.test(error.message) ? "Run migration 0048 in Supabase first." : error.message,
-    };
-  }
-  refresh(clientId);
-  return { ok: true };
+  if (!results.length) return { ok: false, error: "Add their profile links above first." };
+  const s = summary(results);
+  return s.ok ? { ok: true, message: s.text } : { ok: false, error: s.text };
 }
 
 /**
  * The Performance tab's "Accounts we manage": which platforms we post on
  * for this client, each one's profile link, and the day we started
- * posting (nothing before it counts on their dashboard).
+ * posting (nothing before it counts on their dashboard). Saving reads
+ * the profiles straight away.
  */
 export async function saveSocialSetupAction(
   clientId: string,
@@ -112,8 +52,7 @@ export async function saveSocialSetupAction(
 ): Promise<Result & { urls?: SocialUrls; message?: string }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createClient() as any;
-  const { data: manages } = await supabase.rpc("can_manage_client", { target_client_id: clientId });
-  if (manages !== true) return { ok: false, error: "Only the CEO or the client's manager can change this." };
+  if (!(await manages(clientId))) return { ok: false, error: "Only the CEO or the client's manager can change this." };
 
   const urls: SocialUrls = {};
   for (const p of SOCIAL_PLATFORMS) {
@@ -129,6 +68,9 @@ export async function saveSocialSetupAction(
   const started = input.startedOn?.trim() || null;
   if (started && !/^\d{4}-\d{2}-\d{2}$/.test(started)) return { ok: false, error: "That date isn't valid." };
 
+  const { data: before } = await supabase.from("clients").select("social_urls").eq("id", clientId).maybeSingle();
+  const old = (before?.social_urls ?? {}) as SocialUrls;
+
   const { error } = await supabase.from("clients").update({ social_platforms: platforms, social_urls: urls, posting_started_on: started }).eq("id", clientId);
   if (error) {
     return {
@@ -136,19 +78,34 @@ export async function saveSocialSetupAction(
       error: /social_urls|posting_started_on|social_platforms/.test(error.message) ? "Run database update 0050 in Supabase first." : error.message,
     };
   }
-  // Instagram no longer linked: drop what was being read from the old link.
-  if (!urls.instagram) {
-    await createAdminClient().from("social_connections").delete().eq("client_id", clientId).eq("platform", "instagram").eq("status", "lookup");
+
+  // A link taken away stops that platform being read. A link changed to
+  // a different account also clears what was read from the old one, so
+  // two accounts' numbers never mix on the dashboard.
+  const admin = createAdminClient();
+  for (const p of SOCIAL_PLATFORMS) {
+    const was = old[p.id];
+    const now = urls[p.id];
+    const same = (a?: string) => (a ? handleFromUrl(p.id, a) ?? a.toLowerCase() : null);
+    if (!was || same(was) === same(now)) continue;
+    await admin.from("social_connections").delete().eq("client_id", clientId).eq("platform", p.id);
+    if (now) {
+      await admin.from("social_posts").delete().eq("client_id", clientId).eq("platform", p.id);
+      await admin.from("social_snapshots").delete().eq("client_id", clientId).eq("platform", p.id);
+    }
   }
 
-  // Read their Instagram from the new link straight away, if Advatar's
-  // Instagram is connected. A problem here doesn't undo the save.
+  // Read the profiles straight away. A problem here doesn't undo the save.
   let note: string | undefined;
-  try {
-    const r = await lookupClient(createAdminClient(), clientId);
-    if (!r.ok && r.error) note = r.error;
-  } catch {
-    // Left for the daily refresh.
+  if (Object.keys(urls).length && !scanConfigured()) {
+    note = "profile scanning isn't switched on yet (SCRAPECREATORS_API_KEY in Vercel), so no numbers yet.";
+  } else {
+    try {
+      const s = summary(await scanClient(admin, clientId, { deep: true }));
+      if (!s.ok) note = s.text;
+    } catch {
+      // Left for the daily refresh.
+    }
   }
   refresh(clientId);
   return { ok: true, urls, message: note };

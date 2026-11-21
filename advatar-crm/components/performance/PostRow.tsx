@@ -23,7 +23,7 @@ import {
 export interface MetricsSetup {
   screenshots: boolean;
   youtube: boolean;
-  /** This client's connected accounts (0048), e.g. ["instagram"]. */
+  /** Platforms whose post links fill in by themselves (profile scanning on), e.g. ["instagram"]. */
   connected?: string[];
 }
 
@@ -195,7 +195,7 @@ export function PostRow({
             </span>
           ) : couldBeAuto ? (
             <span className="vm-hint">
-              Connect this client&rsquo;s {platformLabel(post.platform)} (Performance tab → Social accounts) and these fill in by themselves every day.
+              Once profile scanning is switched on (SCRAPECREATORS_API_KEY in Vercel), these fill in by themselves every day.
             </span>
           ) : manual && !hasNumbers(post) ? (
             <span className="vm-hint">or click here and paste one (Ctrl/⌘ + V)</span>

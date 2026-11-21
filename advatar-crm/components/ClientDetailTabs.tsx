@@ -401,7 +401,7 @@ export function ClientDetailTabs({
       {tab === "performance" && canEditVideos && socialPanel && (
         <section className="sh-team-wrap">
           <h2 className="sh-team-title">Social accounts</h2>
-          <p className="sh-team-sub">What the client sees on their Content Hub. Connect their accounts here or let them do it themselves.</p>
+          <p className="sh-team-sub">What the client sees on their Content Hub, read from the profile links below.</p>
           {socialPanel}
         </section>
       )}

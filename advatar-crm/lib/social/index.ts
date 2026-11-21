@@ -2,9 +2,9 @@
  * The client results dashboard (Content Hub): shared names, colours and
  * row shapes. Safe to import anywhere — nothing secret lives here.
  *
- * Numbers only ever come from the platforms' own APIs (lib/social/
- * meta.ts and tiktok.ts, run by lib/social/sync.ts). Nothing here makes
- * a number up; where a platform has not given us something, the
+ * Numbers only ever come from the public profiles the team linked, read
+ * by lib/social/scan.ts (run by lib/social/sync.ts). Nothing here makes
+ * a number up; where a profile has not given us something, the
  * dashboard says so instead of showing a zero.
  */
 export type SocialPlatform = "instagram" | "facebook" | "tiktok";
@@ -85,7 +85,7 @@ export interface SocialConnection {
   account_name: string | null;
   account_handle: string | null;
   avatar_url: string | null;
-  /** "lookup": public numbers read from the profile link via Advatar's Instagram (0051). */
+  /** "lookup": public numbers read from the profile link (lib/social/scan.ts). "connected"/"needs_reconnect" are from the old logins. */
   status: "connected" | "needs_reconnect" | "lookup";
   connected_at: string;
   last_synced_at: string | null;

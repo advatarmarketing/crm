@@ -6,8 +6,8 @@ import { logActivity } from "@/lib/activity";
 import { METRICS, POST_COLUMNS, detectPlatform, loadPerformance, summarise, PLATFORMS, type Numbers, type PlatformId, type VideoPost } from "@/lib/performance";
 import { youtubeId, youtubeNumbers, youtubeOn } from "@/lib/performance/youtube";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { applyToVideoPosts, syncAll, syncConnection } from "@/lib/social/sync";
-import { syncLookups } from "@/lib/social/agency";
+import { applyToVideoPosts, linkedPosts, savePosts, scanClient } from "@/lib/social/sync";
+import { scanConfigured, scanPosts } from "@/lib/social/scan";
 import { readScreenshot, readerOn, writeAnalysis, type ReportContent } from "@/lib/performance/read";
 import { linkFromPaste } from "@/lib/video-links";
 
@@ -40,17 +40,12 @@ async function signedIn() {
 
 const wrote = (data: unknown) => (Array.isArray(data) ? data.length > 0 : Boolean(data));
 
-/** What is connected, so the screen only offers what will work. */
+/** What is switched on, so the screen only offers what will work. */
 export async function metricsSetupAction(clientId?: string): Promise<{ screenshots: boolean; youtube: boolean; connected: string[] }> {
-  // Which of this client's accounts are connected (0048), so a post
-  // link on that platform can say its numbers come in by themselves.
-  let connected: string[] = [];
-  if (clientId) {
-    const { supabase } = await signedIn();
-    const { data, error } = await supabase.from("social_connections").select("platform, status").eq("client_id", clientId);
-    if (!error) connected = ((data ?? []) as { platform: string; status: string }[]).filter((c) => c.status === "connected" || c.status === "lookup").map((c) => c.platform);
-  }
-  return { screenshots: readerOn(), youtube: youtubeOn(), connected };
+  // With profile scanning on (lib/social/scan.ts), any Instagram, TikTok
+  // or Facebook post link gets its numbers by itself.
+  void clientId;
+  return { screenshots: readerOn(), youtube: youtubeOn(), connected: scanConfigured() ? ["instagram", "tiktok", "facebook"] : [] };
 }
 
 export async function addPostAction(videoId: string, pasted: string, platform: PlatformId | null): Promise<PerfResult> {
@@ -73,24 +68,26 @@ export async function addPostAction(videoId: string, pasted: string, platform: P
   if (!wrote(data)) return { error: friendly("row-level security") };
   const postId = (data as { id: string }[])[0].id;
 
-  // Numbers straight away, without anyone typing them: from the
-  // connected account for Instagram, TikTok and Facebook (what was
-  // already collected, or a fresh read if this post is new to us), and
+  // Numbers straight away, without anyone typing them: for Instagram,
+  // TikTok and Facebook, from what was already read off the profile, or
+  // by reading this one post (lib/social/scan.ts); and
   // from YouTube's public numbers for a YouTube link. Any failure here
   // just leaves the link waiting for the daily refresh.
   try {
-    if (where === "instagram" || where === "tiktok" || where === "facebook") {
+    if ((where === "instagram" || where === "tiktok" || where === "facebook") && scanConfigured()) {
       const admin = createAdminClient();
-      const { data: conn } = await admin
-        .from("social_connections")
-        .select("id, status")
-        .eq("client_id", clientId)
-        .eq("platform", where)
-        .maybeSingle();
-      if (conn && (conn as { status: string }).status === "connected") {
-        await applyToVideoPosts(admin, clientId, where);
-        const { data: after } = await admin.from("video_posts").select("metrics_at").eq("id", postId).maybeSingle();
-        if (!(after as { metrics_at: string | null } | null)?.metrics_at) await syncConnection(admin, (conn as { id: string }).id);
+      // Already read with their profile? Otherwise read this one post.
+      await applyToVideoPosts(admin, clientId, where);
+      const { data: after } = await admin.from("video_posts").select("metrics_at").eq("id", postId).maybeSingle();
+      if (!(after as { metrics_at: string | null } | null)?.metrics_at) {
+        const link = (await linkedPosts(admin, clientId, where)).find((l) => l.id === postId);
+        if (link) {
+          const posts = await scanPosts(where, [link]);
+          if (posts.length) {
+            await savePosts(admin, clientId, where, posts);
+            await applyToVideoPosts(admin, clientId, where, [link]);
+          }
+        }
       }
     } else if (where === "youtube" && youtubeOn()) {
       await refreshYoutube(supabase, user.id, [{ id: postId, url }]);
@@ -221,7 +218,7 @@ export interface GatherResult extends PerfResult {
   /** YouTube links there, but no key to fetch them with. */
   youtubeWaiting: number;
   youtubeProblem: string | null;
-  /** Instagram/TikTok/Facebook post links refreshed from the connected accounts. */
+  /** Instagram/TikTok/Facebook post links refreshed from their profiles. */
   platformUpdated?: number;
   platformProblem?: string | null;
 }
@@ -245,12 +242,11 @@ export async function gatherMetricsAction(clientId: string): Promise<GatherResul
   const { data: visible } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
   if (visible) {
     try {
-      const admin = createAdminClient();
-      const results = [...(await syncAll(admin, clientId)), ...(await syncLookups(admin, clientId))];
+      const results = await scanClient(createAdminClient(), clientId, { deep: true });
       const failed = results.find((r) => !r.ok);
       platform = {
-        platformUpdated: results.reduce((n, r) => n + (r.linked ?? 0), 0),
-        platformProblem: failed?.error ? `A connected account didn’t update: ${failed.error}` : null,
+        platformUpdated: results.reduce((n, r) => n + r.linked, 0),
+        platformProblem: failed?.error ? `${failed.platform[0].toUpperCase()}${failed.platform.slice(1)} didn’t update: ${failed.error}` : null,
       };
     } catch {
       // Social tables not there yet (before 0048): nothing connected.
