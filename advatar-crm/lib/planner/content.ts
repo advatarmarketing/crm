@@ -114,6 +114,56 @@ export interface PlannerTimelineItem {
   milestone?: string;
 }
 
+export interface PlannerOverviewGoal {
+  id: string;
+  text: string;
+  done?: boolean;
+}
+
+export interface PlannerOverviewSlot {
+  id: string;
+  /** "Mon", "Tuesday", "Weekends"… free text. */
+  day: string;
+  what: string;
+}
+
+export interface PlannerOverviewShoot {
+  id: string;
+  /** yyyy-mm-dd when it parses, else shown as typed. */
+  date: string;
+  title: string;
+}
+
+/**
+ * What a client sees on their Overview until the team writes their own.
+ * Written to read well for any client; replace it per client from the
+ * Content Plan's Overview tab on the admin side.
+ */
+export const OVERVIEW_PLACEHOLDER = {
+  focus: "Building momentum",
+  goals: [
+    { id: "pg1", text: "Post consistently across every platform we manage", done: true },
+    { id: "pg2", text: "Grow followers with content people want to share", done: false },
+    { id: "pg3", text: "Test two new video formats and keep what works", done: false },
+    { id: "pg4", text: "Turn more viewers into enquiries", done: false },
+  ] as PlannerOverviewGoal[],
+  schedule: [
+    { id: "ps1", day: "Mon", what: "Short-form video" },
+    { id: "ps2", day: "Wed", what: "Behind the scenes" },
+    { id: "ps3", day: "Fri", what: "Feature video" },
+    { id: "ps4", day: "Sun", what: "Stories & engagement" },
+  ] as PlannerOverviewSlot[],
+  shoots: [
+    { id: "pd1", date: "", title: "Next shoot day — date to be confirmed" },
+    { id: "pd2", date: "", title: "Content planning call" },
+  ] as PlannerOverviewShoot[],
+  pillars: [
+    { name: "Educate", pct: 40, color: "#5b6cff" },
+    { name: "Entertain", pct: 35, color: "#e0567a" },
+    { name: "Convert", pct: 25, color: "#1fa67a" },
+  ],
+};
+
 export interface PlannerGuaranteeTerm {
   id: string;
   text: string;
@@ -140,6 +190,17 @@ export interface PlannerContent {
     tag: string;
     heading: string;
     desc: string;
+    /**
+     * The client's Overview board (what they see first in their plan).
+     * All optional: plans written before it existed don't carry them,
+     * and an empty list shows OVERVIEW_PLACEHOLDER to the client until
+     * the team fills it in.
+     */
+    goals?: PlannerOverviewGoal[];
+    schedule?: PlannerOverviewSlot[];
+    shoots?: PlannerOverviewShoot[];
+    /** e.g. "Month 3 of 6" — shown above the progress bar. */
+    focus?: string;
   };
 
   branding: {

@@ -103,6 +103,10 @@ from (
     (
       '0047', 'Which videographers may send videos straight to the client',
       case when to_regclass('public.videographer_access') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0048', 'Client side: Files sections, Content Hub results, guarantee switch, welcome tour',
+      case when to_regclass('public.social_snapshots') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

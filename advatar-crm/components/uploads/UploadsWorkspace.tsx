@@ -145,7 +145,7 @@ export function UploadsWorkspace({
         {(
           [
             { id: "videos" as const, label: "Videos", count: uploads.length },
-            { id: "assets" as const, label: "Raw footage & assets", count: assets.length },
+            { id: "assets" as const, label: "Files", count: assets.length },
           ]
         ).map((t) => {
           const active = tab === t.id;

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PortalNav } from "@/components/PortalNav";
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
+import { ClientTour } from "@/components/portal/ClientTour";
 
 // Phase 9: shared shell for every /app/portal/* page. Does the one
 // check every portal page previously had to repeat on its own (Phase
@@ -68,6 +69,16 @@ export default async function PortalLayout({ children }: { children: ReactNode }
   // logins, or no invoices and no account note yet, gets no tab that
   // would open on an empty page. Each count may fail before its
   // migration runs, which reads as "nothing yet".
+  // The welcome and tour, the first time this account ever signs in
+  // (0048). Read on its own: before 0048 the column isn't there, and
+  // then nothing is shown rather than showing it on every visit.
+  const { data: seenRow, error: seenError } = await supabase
+    .from("profiles")
+    .select("tour_seen_at")
+    .eq("id", user.id)
+    .maybeSingle();
+  const firstVisit = !seenError && !(seenRow as { tour_seen_at?: string | null } | null)?.tour_seen_at;
+
   const [logins, invoices, account] = await Promise.all([
     supabase.from("client_credentials").select("id", { count: "exact", head: true }).eq("client_id", clientId),
     supabase.from("invoices").select("id", { count: "exact", head: true }).eq("client_id", clientId),
@@ -89,6 +100,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
       />
       <PortalNav hidden={hidden} />
       {children}
+      <ClientTour autoStart={firstVisit} hidden={hidden} />
     </div>
   );
 }

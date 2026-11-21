@@ -1,5 +1,6 @@
 import type { SubmissionStatus, SubmissionVisibility } from "@/lib/supabase/types";
 import { loadNamesById } from "@/lib/people";
+import { isFileSection, type FileSection } from "@/lib/files";
 
 /**
  * Structural rather than `SupabaseClient<Database>`, for the same
@@ -83,6 +84,8 @@ export interface AssetEntry {
   visibility: "team" | "team_and_client";
   uploaded_by: string | null;
   created_at: string;
+  /** 0048 — which Files section it sits in. "assets" before that runs. */
+  section: FileSection;
   clientName: string | null;
   uploaderName: string | null;
   /** Signed link for a stored file; null for links, which carry `url`. */
@@ -259,20 +262,24 @@ export async function loadAssets(
   supabase: QueryableClient,
   filter?: { clientId?: string }
 ): Promise<{ assets: AssetEntry[]; problem: string | null }> {
-  let query = supabase
-    .from("client_assets")
-    .select(
-      "id, client_id, submission_id, kind, title, url, storage_path, mime_type, size_bytes, notes, visibility, uploaded_by, created_at"
-    )
-    .order("created_at", { ascending: false });
+  const base = "id, client_id, submission_id, kind, title, url, storage_path, mime_type, size_bytes, notes, visibility, uploaded_by, created_at";
+  const run = (columns: string) => {
+    let query = supabase.from("client_assets").select(columns).order("created_at", { ascending: false });
+    if (filter?.clientId) query = query.eq("client_id", filter.clientId);
+    return query;
+  };
 
-  if (filter?.clientId) query = query.eq("client_id", filter.clientId);
-
-  const { data, error } = await query;
+  // `section` arrives with 0048. Until it runs, ask without it and
+  // treat everything as Assets, so the page still loads.
+  let { data, error } = await run(`${base}, section`);
+  if (error && /section/i.test(error.message)) ({ data, error } = await run(base));
 
   if (error) return { assets: [], problem: error.message };
 
-  const rows = (data ?? []) as Omit<AssetEntry, "clientName" | "uploaderName" | "fileUrl">[];
+  const rows = ((data ?? []) as Omit<AssetEntry, "clientName" | "uploaderName" | "fileUrl">[]).map((a) => ({
+    ...a,
+    section: isFileSection(a.section) ? a.section : ("assets" as const),
+  }));
 
   if (rows.length === 0) return { assets: [], problem: null };
 

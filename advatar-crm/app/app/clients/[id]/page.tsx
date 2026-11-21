@@ -10,13 +10,26 @@ import { packageFromRow, type ClientPackage, type PackagePreset } from "@/lib/pa
 import type { AssignedTeamMember, AssignableProfile } from "@/components/AssignedTeamPanel";
 import type { BrandKit } from "@/components/BrandKitPanel";
 import type { TeamMessage } from "@/components/ClientTeamThread";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { loadDashboard } from "@/lib/social/dashboard";
+import { loadPicker } from "@/lib/social/connect";
+import { parseRange } from "@/lib/social";
+import { SocialDashboard } from "@/components/social/SocialDashboard";
 
 export default async function ClientDetailPage({
   params,
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { tab?: string; added?: string; missing?: string };
+  searchParams: {
+    tab?: string;
+    added?: string;
+    missing?: string;
+    range?: string;
+    choose?: string;
+    social_error?: string;
+    social_connected?: string;
+  };
 }) {
   const supabase = createClient();
 
@@ -293,9 +306,32 @@ export default async function ClientDetailPage({
       ? assignable
       : assignable.filter((p) => p.id !== user?.id && (p.role === "staff" || p.role === "videographer"));
 
+  // The client's social results, shown on the Performance tab. Only
+  // loaded for the people who can open that tab.
+  const showsPerformance = callerRole === "ceo" || callerRole === "operations_manager" || callerRole === "staff";
+  const socialRange = parseRange(searchParams?.range);
+  const socialPanel =
+    showsPerformance && client ? (
+      <SocialDashboard
+        data={await loadDashboard(supabase, client.id, socialRange)}
+        clientId={client.id}
+        audience="team"
+        basePath={`/app/clients/${client.id}?tab=performance`}
+        range={socialRange}
+        canConnect={canAssign}
+        notice={{ error: searchParams?.social_error?.slice(0, 300) ?? null, connected: searchParams?.social_connected ?? null }}
+        picker={
+          canAssign && user && searchParams?.choose
+            ? await loadPicker(createAdminClient(), searchParams.choose, user.id, client.id)
+            : null
+        }
+      />
+    ) : null;
+
   return (
     <main className="page">
       <ClientDetailTabs
+        socialPanel={socialPanel}
         client={client}
         documents={documents ?? []}
         tasks={tasks ?? []}
