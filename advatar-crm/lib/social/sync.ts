@@ -207,11 +207,12 @@ export async function scanClient(
   const one = async (platform: SocialPlatform) => {
     const link = chosen.includes(platform) ? urls[platform] : undefined;
     const links = await linkedPosts(admin, clientId, platform);
+    const due = opts.deep ? links : await dueForRead(admin, clientId, platform, links);
 
     if (!link) {
       // No profile to read: just the posts linked on videos, if any.
       if (!links.length) return null;
-      const posts = await scanPosts(platform, links);
+      const posts = due.length ? await scanPosts(platform, due) : [];
       if (posts.length) await savePosts(admin, clientId, platform, posts);
       return { platform, ok: true, linked: await applyToVideoPosts(admin, clientId, platform, links) };
     }
@@ -231,7 +232,7 @@ export async function scanClient(
     const back = new Date(Date.now() - (deep ? 90 : 30) * DAY);
     const since = deep && started && new Date(`${started}T00:00:00Z`) > back ? new Date(`${started}T00:00:00Z`) : back;
     try {
-      const data = await scanProfile(platform, link, { since, maxPages: deep ? 8 : 3 }, links as Wanted);
+      const data = await scanProfile(platform, link, { since, maxPages: deep ? 8 : 3 }, (deep ? links : due) as Wanted);
       await saveFetched(admin, { id: row.id, client_id: clientId, platform }, data, "lookup");
       return { platform, ok: true, linked: await applyToVideoPosts(admin, clientId, platform, links) };
     } catch (e) {
@@ -252,6 +253,27 @@ export async function scanClient(
     }
   });
   return out;
+}
+
+/**
+ * Which linked posts are worth a one-off read today. Each costs a
+ * credit, so a post older than a month (its numbers barely move) is
+ * read once a week rather than every day; anything not read yet, or
+ * newer, is read daily.
+ */
+async function dueForRead(admin: Admin, clientId: string, platform: MatchPlatform, links: { id: string; key: string; url: string }[]) {
+  if (!links.length) return links;
+  const { data } = await admin.from("social_posts").select("external_id, permalink, posted_at, updated_at").eq("client_id", clientId).eq("platform", platform);
+  const settled = new Set<string>();
+  const monthAgo = Date.now() - 30 * DAY;
+  const weekAgo = Date.now() - 7 * DAY;
+  for (const p of (data ?? []) as { external_id: string; permalink: string | null; posted_at: string; updated_at: string | null }[]) {
+    if (new Date(p.posted_at).getTime() >= monthAgo) continue;
+    if (!p.updated_at || new Date(p.updated_at).getTime() < weekAgo) continue;
+    for (const k of socialKeys(platform, p.external_id, p.permalink)) settled.add(k);
+    if (platform === "instagram") settled.add(`ig:${p.external_id}`);
+  }
+  return links.filter((l) => !settled.has(l.key));
 }
 
 /** Posts read one by one, saved without touching the account's numbers. */
