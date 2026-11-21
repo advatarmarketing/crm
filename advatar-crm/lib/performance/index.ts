@@ -39,7 +39,8 @@ export interface VideoPost extends Numbers {
   platform: PlatformId;
   url: string;
   metrics_at: string | null;
-  metrics_source: "typed" | "screenshot" | "youtube" | null;
+  /** "platform": copied from the connected Instagram/TikTok/Facebook account (0049). */
+  metrics_source: "typed" | "screenshot" | "youtube" | "platform" | null;
 }
 
 export const POST_COLUMNS = "id, video_id, client_id, platform, url, views, likes, comments, shares, saves, metrics_at, metrics_source";

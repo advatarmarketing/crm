@@ -1,5 +1,6 @@
 import "server-only";
 import { GRAPH } from "./config";
+import { socialKeys } from "./match";
 
 /**
  * Meta Graph API: Facebook Pages and the Instagram professional
@@ -149,33 +150,58 @@ async function insight(id: string, token: string, metrics: string[]): Promise<nu
   return null;
 }
 
-export async function instagramData(igId: string, token: string): Promise<{ account: FetchedAccount; posts: FetchedPost[] }> {
+type IgMedia = {
+  id: string;
+  shortcode?: string;
+  caption?: string;
+  media_type?: string;
+  media_product_type?: string;
+  thumbnail_url?: string;
+  media_url?: string;
+  permalink?: string;
+  timestamp: string;
+  like_count?: number;
+  comments_count?: number;
+};
+
+/**
+ * `wanted` holds the keys (lib/social/match.ts) of posts the team has
+ * linked to a video. The newest 50 posts are always read; if a linked
+ * post is older than that, up to 200 are read to find it, and linked
+ * posts always get their views fetched.
+ */
+export async function instagramData(
+  igId: string,
+  token: string,
+  wanted: Set<string> = new Set()
+): Promise<{ account: FetchedAccount; posts: FetchedPost[] }> {
   const a = await graph<{ username?: string; name?: string; followers_count?: number; follows_count?: number; media_count?: number; profile_picture_url?: string }>(
     `/${igId}`,
     { access_token: token, fields: "username,name,followers_count,follows_count,media_count,profile_picture_url" }
   );
-  const media = await graph<{
-    data: {
-      id: string;
-      caption?: string;
-      media_type?: string;
-      media_product_type?: string;
-      thumbnail_url?: string;
-      media_url?: string;
-      permalink?: string;
-      timestamp: string;
-      like_count?: number;
-      comments_count?: number;
-    }[];
-  }>(`/${igId}/media`, {
-    access_token: token,
-    fields: "id,caption,media_type,media_product_type,thumbnail_url,media_url,permalink,timestamp,like_count,comments_count",
-    limit: "50",
-  });
+  const all: IgMedia[] = [];
+  const found = new Set<string>();
+  let next: string | null = null;
+  for (let page = 0; page < 4; page++) {
+    const res: { data?: IgMedia[]; paging?: { next?: string } } = next
+      ? await graph(next, {})
+      : await graph(`/${igId}/media`, {
+          access_token: token,
+          fields: "id,shortcode,caption,media_type,media_product_type,thumbnail_url,media_url,permalink,timestamp,like_count,comments_count",
+          limit: "50",
+        });
+    for (const m of res.data ?? []) {
+      all.push(m);
+      for (const k of socialKeys("instagram", m.id, m.permalink ?? (m.shortcode ? `https://instagram.com/p/${m.shortcode}/` : null))) found.add(k);
+    }
+    next = res.paging?.next ?? null;
+    if (!next || Array.from(wanted).every((k) => found.has(k))) break;
+  }
 
   const posts: FetchedPost[] = [];
-  for (const [i, m] of (media.data ?? []).entries()) {
+  for (const [i, m] of all.entries()) {
     const isVideo = m.media_type === "VIDEO" || m.media_product_type === "REELS";
+    const linked = socialKeys("instagram", m.id, m.permalink ?? null).some((k) => wanted.has(k));
     posts.push({
       externalId: m.id,
       postedAt: m.timestamp,
@@ -185,9 +211,10 @@ export async function instagramData(igId: string, token: string): Promise<{ acco
       isVideo,
       likes: num(m.like_count),
       comments: num(m.comments_count),
-      // Views cost one call per post; the newest 25 are what the
-      // dashboard ranks, which keeps a daily sync well inside limits.
-      views: i < 25 ? await insight(m.id, token, ["views", "plays", "video_views"]) : null,
+      // Views cost one call per post: the newest 25 (what the dashboard
+      // ranks) and any post linked to a video, which keeps a daily sync
+      // well inside Meta's limits.
+      views: i < 25 || linked ? await insight(m.id, token, ["views", "plays", "video_views"]) : null,
       shares: null,
     });
   }
@@ -205,34 +232,52 @@ export async function instagramData(igId: string, token: string): Promise<{ acco
   };
 }
 
-export async function facebookData(pageId: string, token: string): Promise<{ account: FetchedAccount; posts: FetchedPost[] }> {
+type FbPost = {
+  id: string;
+  created_time: string;
+  message?: string;
+  permalink_url?: string;
+  full_picture?: string;
+  attachments?: { data?: { media_type?: string }[] };
+  reactions?: { summary?: { total_count?: number } };
+  comments?: { summary?: { total_count?: number } };
+  shares?: { count?: number };
+};
+
+export async function facebookData(
+  pageId: string,
+  token: string,
+  wanted: Set<string> = new Set()
+): Promise<{ account: FetchedAccount; posts: FetchedPost[] }> {
   const a = await graph<{ name?: string; username?: string; followers_count?: number; fan_count?: number; picture?: { data?: { url?: string } } }>(
     `/${pageId}`,
     { access_token: token, fields: "name,username,followers_count,fan_count,picture{url}" }
   );
-  const feed = await graph<{
-    data: {
-      id: string;
-      created_time: string;
-      message?: string;
-      permalink_url?: string;
-      full_picture?: string;
-      attachments?: { data?: { media_type?: string }[] };
-      reactions?: { summary?: { total_count?: number } };
-      comments?: { summary?: { total_count?: number } };
-      shares?: { count?: number };
-    }[];
-  }>(`/${pageId}/posts`, {
-    access_token: token,
-    fields:
-      "id,created_time,message,permalink_url,full_picture,attachments{media_type},reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares",
-    limit: "50",
-  });
+  const all: FbPost[] = [];
+  const found = new Set<string>();
+  let next: string | null = null;
+  for (let page = 0; page < 4; page++) {
+    const res: { data?: FbPost[]; paging?: { next?: string } } = next
+      ? await graph(next, {})
+      : await graph(`/${pageId}/posts`, {
+          access_token: token,
+          fields:
+            "id,created_time,message,permalink_url,full_picture,attachments{media_type},reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares",
+          limit: "50",
+        });
+    for (const p of res.data ?? []) {
+      all.push(p);
+      for (const k of socialKeys("facebook", p.id, p.permalink_url ?? null)) found.add(k);
+    }
+    next = res.paging?.next ?? null;
+    if (!next || Array.from(wanted).every((k) => found.has(k))) break;
+  }
 
   const posts: FetchedPost[] = [];
-  for (const [i, p] of (feed.data ?? []).entries()) {
+  for (const [i, p] of all.entries()) {
     const type = p.attachments?.data?.[0]?.media_type ?? "";
     const isVideo = /video|reel/i.test(type);
+    const linked = socialKeys("facebook", p.id, p.permalink_url ?? null).some((k) => wanted.has(k));
     posts.push({
       externalId: p.id,
       postedAt: p.created_time,
@@ -242,7 +287,7 @@ export async function facebookData(pageId: string, token: string): Promise<{ acc
       isVideo,
       likes: num(p.reactions?.summary?.total_count),
       comments: num(p.comments?.summary?.total_count),
-      views: isVideo && i < 25 ? await insight(p.id, token, ["post_media_view", "post_video_views"]) : null,
+      views: isVideo && (i < 25 || linked) ? await insight(p.id, token, ["post_media_view", "post_video_views"]) : null,
       shares: num(p.shares?.count) ?? 0,
     });
   }

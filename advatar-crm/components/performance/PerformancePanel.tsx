@@ -68,7 +68,7 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
 
   useEffect(() => {
     load();
-    metricsSetupAction().then(setSetup);
+    metricsSetupAction(clientId).then(setSetup);
   }, [load]);
 
   // The time chosen, as two dates and the words for it.
@@ -255,6 +255,13 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
               ? `Everything is in: ${t.videos} video${t.videos === 1 ? "" : "s"} with numbers in this time.`
               : `Gathered ${t.videos} video${t.videos === 1 ? "" : "s"}. ${missing} thing${missing === 1 ? " is" : "s are"} missing, listed below.`}
           </strong>
+          {(gathered.platformUpdated ?? 0) > 0 && (
+            <span>
+              {" "}
+              {gathered.platformUpdated} Instagram/TikTok/Facebook link{gathered.platformUpdated === 1 ? "" : "s"} refreshed from the connected accounts.
+            </span>
+          )}
+          {gathered.platformProblem && <span> {gathered.platformProblem}</span>}
           {gathered.youtubeUpdated > 0 && <span> {gathered.youtubeUpdated} YouTube link{gathered.youtubeUpdated === 1 ? "" : "s"} refreshed just now.</span>}
           {gathered.youtubeWaiting > 0 && (
             <span>

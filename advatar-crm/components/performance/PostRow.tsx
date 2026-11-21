@@ -13,14 +13,25 @@ import {
 /**
  * One place a video was posted: its link and the numbers it reached.
  *
- * Numbers get in three ways. Typed. Read off a screenshot of the
- * post's insights (choose a file, or copy the screenshot and paste it
- * onto the row). Or, for YouTube, fetched.
+ * Numbers come in by themselves wherever they can: from the client's
+ * connected Instagram, TikTok or Facebook account (refreshed every
+ * day, lib/social/sync.ts), and from YouTube's public numbers. Only for
+ * a platform that isn't connected are they typed, or read off a
+ * screenshot as a fallback.
  */
 
 export interface MetricsSetup {
   screenshots: boolean;
   youtube: boolean;
+  /** This client's connected accounts (0048), e.g. ["instagram"]. */
+  connected?: string[];
+}
+
+const CONNECTABLE = ["instagram", "tiktok", "facebook"];
+
+/** Whether this link's numbers fill themselves in. */
+export function isAutomatic(platform: string, setup: MetricsSetup): boolean {
+  return (CONNECTABLE.includes(platform) && (setup.connected ?? []).includes(platform)) || (platform === "youtube" && setup.youtube);
 }
 
 /** Shrinks a screenshot in the browser so it travels quickly and stays readable. */
@@ -38,7 +49,7 @@ async function shrink(file: Blob): Promise<{ data: string; type: string }> {
 function when(iso: string | null, source: VideoPost["metrics_source"]): string {
   if (!iso) return "No numbers yet";
   const day = new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  return `Updated ${day}${source === "screenshot" ? " from a screenshot" : source === "youtube" ? " from YouTube" : ""}`;
+  return `Updated ${day}${source === "screenshot" ? " from a screenshot" : source === "youtube" ? " from YouTube" : source === "platform" ? " automatically" : ""}`;
 }
 
 export function PostRow({
@@ -111,6 +122,11 @@ export function PostRow({
   }
 
   const rgb = PLATFORMS.find((p) => p.id === post.platform)?.rgb ?? "139, 92, 246";
+  const auto = isAutomatic(post.platform, setup);
+  // A connectable platform that isn't connected yet: say how to make it
+  // automatic, and keep the screenshot reader only as the fallback.
+  const couldBeAuto = !auto && CONNECTABLE.includes(post.platform);
+  const manual = !auto && setup.screenshots;
 
   return (
     <div
@@ -118,7 +134,7 @@ export function PostRow({
       style={{ ["--pc" as string]: rgb }}
       data-post-id={post.id}
       onPaste={
-        editable && setup.screenshots
+        editable && manual
           ? (e) => {
               const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
               if (item) {
@@ -135,14 +151,21 @@ export function PostRow({
         <a href={post.url} target="_blank" rel="noopener noreferrer" className="post-url">
           {post.url.replace(/^https?:\/\/(www\.)?/, "")}
         </a>
-        <span className="vm-hint post-when">{when(post.metrics_at, post.metrics_source)}</span>
+        {auto && (
+          <span className="post-auto" title="Refreshed every morning, and whenever you press Gather all metrics">
+            Automatic
+          </span>
+        )}
+        <span className="vm-hint post-when">
+          {auto && !post.metrics_at ? "Numbers arrive with the next refresh" : when(post.metrics_at, post.metrics_source)}
+        </span>
       </div>
 
       <div className="post-numbers" key={stamp}>
         {METRICS.map((m) => (
           <label key={m} className={m === "views" ? "is-main" : undefined}>
             <span className="vm-label">{METRIC_LABEL[m]}</span>
-            {editable ? (
+            {editable && !auto ? (
               <input inputMode="numeric" defaultValue={post[m] ?? ""} placeholder="–" aria-label={`${METRIC_LABEL[m]} on ${platformLabel(post.platform)}`} onBlur={(e) => typed(m, e.target.value)} />
             ) : (
               <strong>{post[m] === null ? "–" : post[m]!.toLocaleString("en-GB")}</strong>
@@ -153,7 +176,7 @@ export function PostRow({
 
       {editable && (
         <div className="post-actions">
-          {setup.screenshots && (
+          {manual && (
             <>
               <button type="button" className="btn" onClick={() => file.current?.click()} disabled={Boolean(busy)}>
                 Read from a screenshot
@@ -163,14 +186,18 @@ export function PostRow({
           )}
           {post.platform === "youtube" && setup.youtube && (
             <button type="button" className="btn" onClick={youtube} disabled={Boolean(busy)}>
-              Fetch from YouTube
+              Refresh now
             </button>
           )}
           {busy ? (
             <span className="vm-hint" role="status">
               {busy}
             </span>
-          ) : setup.screenshots && !hasNumbers(post) ? (
+          ) : couldBeAuto ? (
+            <span className="vm-hint">
+              Connect this client&rsquo;s {platformLabel(post.platform)} (Performance tab → Social accounts) and these fill in by themselves every day.
+            </span>
+          ) : manual && !hasNumbers(post) ? (
             <span className="vm-hint">or click here and paste one (Ctrl/⌘ + V)</span>
           ) : null}
           <span style={{ flex: 1 }} />

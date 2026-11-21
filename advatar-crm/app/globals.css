@@ -3182,3 +3182,8 @@ a.vbox-main { text-decoration: none; box-sizing: border-box; }
    page it's pointing at (the shared [role="dialog"] rule above). */
 .ct-tour { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important; }
 .ct-tour > .ct-block, .ct-tour > .ct-pop { animation: none !important; }
+.post-auto {
+  display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-body); font-size: 11.5px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px; color: rgb(24, 140, 80); background: rgba(34, 160, 90, 0.1); border: 1px solid rgba(34, 160, 90, 0.28);
+}
+.post-auto::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }

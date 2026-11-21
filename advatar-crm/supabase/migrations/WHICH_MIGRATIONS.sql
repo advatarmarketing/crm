@@ -107,6 +107,10 @@ from (
     (
       '0048', 'Client side: Files sections, Content Hub results, guarantee switch, welcome tour',
       case when to_regclass('public.social_snapshots') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0049', 'Video post numbers fill in automatically from connected accounts',
+      case when exists (select 1 from pg_constraint where conname = 'video_posts_metrics_source_check' and pg_get_constraintdef(oid) like '%platform%') then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

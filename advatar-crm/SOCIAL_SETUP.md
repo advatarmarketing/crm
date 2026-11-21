@@ -170,8 +170,8 @@ switched on yet, instead of showing a Connect button.
 
 ## Part 4: Using it
 
-1. Run database update **0048** in Supabase (SQL editor). Then run
-   `VERIFY_0048.sql`; every line should say OK.
+1. Run database updates **0048** and **0049** in Supabase (SQL editor). Then
+   run `VERIFY_0048.sql` and `VERIFY_0049.sql`; every line should say OK.
 2. Open a client in the CRM, go to the **Performance** tab, and under
    **Social accounts** tick the platforms you post on for them.
 3. Either you press **Connect** there (if you have the client's logins), or
@@ -179,6 +179,13 @@ switched on yet, instead of showing a Connect button.
 4. Numbers appear straight away and refresh every morning at about 5–6am UK
    time. A snapshot of followers is saved every day, so the growth charts
    build up from the day you connect.
+5. Video post numbers fill themselves in too. On a video, under **Where it's
+   posted**, paste the post's link. If that platform is connected for the
+   client, its views, likes, comments and shares appear on their own and
+   update every morning. The row is marked **Automatic**. YouTube links do
+   the same once `YOUTUBE_API_KEY` is set. **Gather all metrics** on the
+   Performance tab refreshes everything for that client straight away.
+   Screenshots are only needed for a platform that isn't connected.
 
 **If an account says "Reconnect"**, the platform stopped letting us read it.
 That usually happens after a password change or when someone removed the app

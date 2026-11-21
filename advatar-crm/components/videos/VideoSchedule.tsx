@@ -196,7 +196,7 @@ export function VideoSchedule({
   }, [load]);
 
   useEffect(() => {
-    metricsSetupAction().then(setSetup);
+    metricsSetupAction(clientId).then(setSetup);
   }, []);
 
   // The month in progress today, else the latest one.
