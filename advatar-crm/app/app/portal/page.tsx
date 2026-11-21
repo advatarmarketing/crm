@@ -7,14 +7,15 @@ import { firstName as firstNameOf } from "@/lib/names";
 import { addDays, loadVideos, monthBounds, prettyDay, todayKey, videoLabel, videoStage } from "@/lib/videos";
 import { loadClientAccount, money } from "@/lib/account";
 
-// Same order as PortalNav — Documents after Content Plan.
+// Same order as PortalNav.
 const JUMP_LINKS = [
   { href: "/app/portal/videos", label: "Your videos" },
   { href: "/app/portal/calendar", label: "Calendar" },
   { href: "/app/portal/plan", label: "Content Plan" },
+  { href: "/app/portal/content", label: "Content Hub" },
   { href: "/app/portal/account", label: "Account" },
   { href: "/app/portal/messages", label: "Messages" },
-  { href: "/app/portal/documents", label: "Documents" },
+  { href: "/app/portal/uploads", label: "Files" },
 ];
 
 // Phase 9: Overview. Everything here re-derives from tables this
@@ -223,7 +224,7 @@ export default async function PortalOverviewPage() {
           tone={publishedPlanner ? "ok" : "warn"}
           hint={publishedPlanner ? "ready to read" : "your team is working on it"}
         />
-        {!schedule.available && <StatTile label="Documents" value={String(documentCount ?? 0)} tone="info" hint="shared with you" />}
+        {!schedule.available && <StatTile label="Documents" value={String(documentCount ?? 0)} tone="info" hint="in your Files" />}
         {!schedule.available && <StatTile label="Messages" value={String(messageCount)} tone="violet" hint="in your thread" />}
       </div>
 

@@ -3182,3 +3182,121 @@ a.vbox-main { text-decoration: none; box-sizing: border-box; }
    page it's pointing at (the shared [role="dialog"] rule above). */
 .ct-tour { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important; }
 .ct-tour > .ct-block, .ct-tour > .ct-pop { animation: none !important; }
+.post-auto {
+  display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-body); font-size: 11.5px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px; color: rgb(24, 140, 80); background: rgba(34, 160, 90, 0.1); border: 1px solid rgba(34, 160, 90, 0.28);
+}
+.post-auto::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ---------------------------------------------------------------
+   Sign-in backdrop: gold in the top-left corner only, silver moving
+   slowly around the rest of the page. Covers the app-wide wash.
+   --------------------------------------------------------------- */
+:root {
+  --la-base: #f4f4f2;
+  --la-gold: rgba(201, 152, 58, 0.42);
+  --la-gold-2: rgba(232, 196, 120, 0.3);
+  --la-silver: rgba(150, 156, 168, 0.32);
+  --la-silver-2: rgba(196, 200, 208, 0.42);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --la-base: #08080b;
+    --la-gold: rgba(212, 170, 84, 0.42);
+    --la-gold-2: rgba(150, 112, 40, 0.34);
+    --la-silver: rgba(196, 202, 214, 0.2);
+    --la-silver-2: rgba(170, 176, 190, 0.22);
+  }
+}
+:root[data-theme="dark"] {
+  --la-base: #08080b;
+  --la-gold: rgba(212, 170, 84, 0.42);
+  --la-gold-2: rgba(150, 112, 40, 0.34);
+  --la-silver: rgba(196, 202, 214, 0.2);
+  --la-silver-2: rgba(170, 176, 190, 0.22);
+}
+
+.login-shell { position: relative; isolation: isolate; }
+.login-aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--la-base); pointer-events: none; }
+.login-aurora span { position: absolute; border-radius: 50%; filter: blur(70px); will-change: transform; }
+.la-gold {
+  top: -22vmax; left: -22vmax; width: 62vmax; height: 62vmax;
+  background: radial-gradient(circle at 50% 50%, var(--la-gold) 0%, var(--la-gold-2) 32%, transparent 66%);
+  animation: la-gold 22s ease-in-out infinite alternate;
+}
+.la-silver { width: 58vmax; height: 58vmax; background: radial-gradient(circle, var(--la-silver-2) 0%, var(--la-silver) 35%, transparent 68%); }
+.la-s1 { top: -20vmax; right: -24vmax; animation: la-s1 34s ease-in-out infinite alternate; }
+.la-s2 { bottom: -28vmax; right: -14vmax; animation: la-s2 40s ease-in-out infinite alternate; }
+.la-s3 { bottom: -26vmax; left: -10vmax; width: 50vmax; height: 50vmax; animation: la-s3 30s ease-in-out infinite alternate; }
+/* Gold breathes and wanders a little, but never leaves its corner. */
+@keyframes la-gold {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(6vmax, 3vmax, 0) scale(1.08); }
+  100% { transform: translate3d(2vmax, 7vmax, 0) scale(0.96); }
+}
+/* Silver travels across the page. */
+@keyframes la-s1 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-24vmax, 16vmax, 0) scale(1.12); }
+  100% { transform: translate3d(-10vmax, 34vmax, 0) scale(0.94); }
+}
+@keyframes la-s2 {
+  0% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(-30vmax, -14vmax, 0) scale(0.92); }
+  100% { transform: translate3d(-12vmax, -30vmax, 0) scale(1.1); }
+}
+@keyframes la-s3 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(26vmax, -10vmax, 0) scale(1.15); }
+  100% { transform: translate3d(40vmax, -2vmax, 0) scale(0.95); }
+}
+@media (prefers-reduced-motion: reduce) { .login-aurora span { animation: none; } }
+
+/* Content Hub: the faded preview behind an empty dashboard */
+.shp { position: relative; border-radius: var(--radius-md); overflow: hidden; }
+.shp-ghost {
+  display: flex; flex-direction: column; gap: 22px; pointer-events: none; user-select: none;
+  opacity: .5; filter: saturate(.6);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 35%, transparent 96%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 35%, transparent 96%);
+}
+.shp-bar {
+  display: block; border-radius: 6px; max-width: 100%;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--text-1) 8%, transparent) 0%, color-mix(in srgb, var(--text-1) 15%, transparent) 50%, color-mix(in srgb, var(--text-1) 8%, transparent) 100%);
+  background-size: 200% 100%; animation: shp-shimmer 2.4s ease-in-out infinite;
+}
+.shp .sh-account-name .shp-bar { margin-top: 5px; }
+.shp .sh-post-body { gap: 8px; }
+.shp-line { width: 100%; height: 34px; opacity: .55; }
+.shp-posts .sh-thumb { aspect-ratio: 4 / 3; }
+.shp-msg {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(440px, calc(100% - 32px)); box-sizing: border-box; text-align: center;
+  padding: 24px 24px 22px; border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--border); box-shadow: var(--shadow-md);
+}
+.shp-msg h3 { margin: 0 0 6px; font-family: var(--font-display); font-size: 19px; letter-spacing: -0.01em; }
+.shp-msg p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-2); }
+@keyframes shp-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .shp-bar { animation: none; } }
+@media (max-width: 760px) { .shp-posts > *:not(:first-child) { display: none; } .shp-posts { transform: none !important; } }
+
+/* Performance tab: "Accounts we manage" */
+.sh-setup { padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-sm); }
+.sh-setup-head h3 { margin: 0 0 4px; font-family: var(--font-display); font-size: 17px; }
+.sh-setup-head p { margin: 0 0 14px; font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.sh-setup-rows { display: flex; flex-direction: column; gap: 8px; }
+.sh-setup-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: center; }
+.sh-setup-tick { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-3); cursor: pointer; }
+.sh-setup-tick input { accent-color: rgb(var(--pc)); }
+.sh-setup-row[data-on] .sh-setup-tick { color: var(--text-1); font-weight: 600; }
+.sh-setup-row:not([data-on]) .sh-dot { opacity: .35; }
+.sh-setup-url, .sh-setup-date input { font: inherit; font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-1); min-width: 0; }
+.sh-setup-foot { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.sh-setup-date { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--text-2); font-weight: 600; }
+.sh-profile { margin-left: auto; font-size: 12px; color: var(--text-2); text-decoration: none; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; }
+.sh-profile:hover { color: var(--text-1); border-color: var(--text-3); }
+.sh-mismatch { font-size: 12.5px; padding: 8px 10px; }
+@media (max-width: 560px) { .sh-setup-row { grid-template-columns: 1fr; gap: 6px; } }

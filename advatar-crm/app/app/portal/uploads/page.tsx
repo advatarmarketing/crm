@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { loadAssets } from "@/lib/uploads";
 import { AssetsPanel } from "@/components/uploads/AssetsPanel";
 import { MarkSectionSeen } from "@/components/NavBadge";
-import { FILE_SECTIONS, isFileSection } from "@/lib/files";
+import { FILE_SECTIONS, documentSection, isFileSection } from "@/lib/files";
+import { DocumentsList } from "@/components/DocumentsList";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,10 @@ function SectionIcon({ d, size = 22 }: { d: string; size?: number }) {
  * The section lives in the address (?section=…) so the browser's back
  * button and a shared link both do what they look like they'll do.
  *
- * Videos are not here any more; they have their own tab.
+ * Videos are not here any more; they have their own tab. Documents
+ * shared through the older Documents tab (the `documents` table, which
+ * the team's Documents section still writes to) are shown here too, in
+ * the section their name points to, so that tab could go.
  * `client_assets` RLS shows the client only what was shared with them.
  */
 export default async function PortalFilesPage({ searchParams }: { searchParams: { section?: string } }) {
@@ -43,9 +47,15 @@ export default async function PortalFilesPage({ searchParams }: { searchParams: 
   const clientId = (profile as { client_id?: string | null } | null)?.client_id ?? null;
   if (!clientId) return null; // see PortalLayout
 
-  const { assets, problem } = await loadAssets(supabase, { clientId });
+  const [{ assets, problem }, { data: docRows }] = await Promise.all([
+    loadAssets(supabase, { clientId }),
+    supabase.from("documents").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
+  ]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const documents = ((docRows ?? []) as any[]).map((d) => ({ ...d, section: documentSection(d) }));
   const open = isFileSection(searchParams.section) ? searchParams.section : null;
-  const count = (id: string) => assets.filter((a) => a.section === id).length;
+  const count = (id: string) => assets.filter((a) => a.section === id).length + documents.filter((d) => d.section === id).length;
+  const docsHere = open ? documents.filter((d) => d.section === open) : [];
 
   return (
     <main className="page page-xs files-page">
@@ -99,6 +109,12 @@ export default async function PortalFilesPage({ searchParams }: { searchParams: 
           </div>
 
           <p className="files-lede">{FILE_SECTIONS.find((s) => s.id === open)!.blurb}</p>
+
+          {docsHere.length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <DocumentsList key={`docs-${open}`} initialDocuments={docsHere} editable={false} />
+            </div>
+          )}
 
           <AssetsPanel
             key={open}

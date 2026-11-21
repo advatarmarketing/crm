@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   chooseMetaPageAction,
   disconnectSocialAction,
+  saveSocialSetupAction,
   setSocialPlatformsAction,
   syncSocialNowAction,
 } from "@/lib/social/actions";
@@ -102,6 +103,94 @@ export function PlatformChooser({ clientId, chosen }: { clientId: string; chosen
       </div>
       {error && <span className="sh-error">{error}</span>}
     </div>
+  );
+}
+
+/**
+ * "Accounts we manage", at the top of the client's Performance tab:
+ * each platform's profile link and whether we post there, and the day
+ * we started posting for them, so their dashboard only counts our work.
+ */
+export function AccountsSetup({
+  clientId,
+  chosen,
+  urls,
+  startedOn,
+}: {
+  clientId: string;
+  chosen: SocialPlatform[];
+  urls: Partial<Record<SocialPlatform, string>>;
+  startedOn: string | null;
+}) {
+  const [on, setOn] = useState<SocialPlatform[]>(chosen);
+  const [links, setLinks] = useState<Record<string, string>>({ ...urls });
+  const [date, setDate] = useState(startedOn ?? "");
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const router = useRouter();
+  const dirty =
+    JSON.stringify([...on].sort()) !== JSON.stringify([...chosen].sort()) ||
+    SOCIAL_PLATFORMS.some((p) => (links[p.id] ?? "") !== (urls[p.id] ?? "")) ||
+    date !== (startedOn ?? "");
+
+  function save() {
+    setNote(null);
+    start(async () => {
+      const r = await saveSocialSetupAction(clientId, { platforms: on, urls: links, startedOn: date || null });
+      if (!r.ok) return setNote({ ok: false, text: r.error });
+      if (r.urls) setLinks({ ...r.urls });
+      setOn((prev) => Array.from(new Set([...prev, ...(Object.keys(r.urls ?? {}) as SocialPlatform[])])));
+      setNote({ ok: true, text: "Saved." });
+      router.refresh();
+    });
+  }
+
+  return (
+    <section className="sh-setup" aria-labelledby="sh-setup-h">
+      <div className="sh-setup-head">
+        <h3 id="sh-setup-h">Accounts we manage</h3>
+        <p>Their profile on each platform we post on, and when we started. Only posts from that day on count on their dashboard.</p>
+      </div>
+      <div className="sh-setup-rows">
+        {SOCIAL_PLATFORMS.map((p) => {
+          const ticked = on.includes(p.id);
+          return (
+            <div key={p.id} className="sh-setup-row" style={{ ["--pc" as string]: p.rgb }} data-on={ticked ? "true" : undefined}>
+              <label className="sh-setup-tick">
+                <input
+                  type="checkbox"
+                  checked={ticked}
+                  onChange={(e) => setOn((prev) => (e.target.checked ? [...prev, p.id] : prev.filter((x) => x !== p.id)))}
+                />
+                <span className="sh-dot" aria-hidden="true" />
+                {p.label}
+              </label>
+              <input
+                className="sh-setup-url"
+                value={links[p.id] ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setLinks((prev) => ({ ...prev, [p.id]: v }));
+                  if (v.trim() && !on.includes(p.id)) setOn((prev) => [...prev, p.id]);
+                }}
+                placeholder={p.id === "tiktok" ? "tiktok.com/@theirname" : p.id === "instagram" ? "instagram.com/theirname" : "facebook.com/theirpage"}
+                aria-label={`${p.label} profile link`}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="sh-setup-foot">
+        <label className="sh-setup-date">
+          <span>First posting date</span>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </label>
+        <button type="button" className="btn btn-primary" onClick={save} disabled={pending || !dirty}>
+          {pending ? "Saving…" : "Save"}
+        </button>
+        {note && <span className={note.ok ? "sh-note" : "sh-error"}>{note.text}</span>}
+      </div>
+    </section>
   );
 }
 

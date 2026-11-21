@@ -93,7 +93,27 @@ async function api<T>(path: string, token: string, init?: { body?: unknown }): P
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
-export async function tiktokData(token: string): Promise<{ account: FetchedAccount; posts: FetchedPost[] }> {
+type TtVideo = {
+  id: string;
+  create_time: number;
+  cover_image_url?: string;
+  share_url?: string;
+  title?: string;
+  video_description?: string;
+  like_count?: number;
+  comment_count?: number;
+  share_count?: number;
+  view_count?: number;
+};
+
+const VIDEO_FIELDS = "id,create_time,cover_image_url,share_url,title,video_description,like_count,comment_count,share_count,view_count";
+
+/**
+ * `wantedIds` are TikTok video ids the team has linked to a video. The
+ * newest 40 are always read; any linked video older than that is asked
+ * for by id, so its numbers keep updating however old it is.
+ */
+export async function tiktokData(token: string, wantedIds: string[] = []): Promise<{ account: FetchedAccount; posts: FetchedPost[] }> {
   const info = await api<{
     user?: {
       display_name?: string;
@@ -106,45 +126,37 @@ export async function tiktokData(token: string): Promise<{ account: FetchedAccou
   }>("/user/info/?fields=open_id,display_name,username,avatar_url,follower_count,following_count,likes_count,video_count", token);
 
   const posts: FetchedPost[] = [];
+  const toPost = (v: TtVideo): FetchedPost => ({
+    externalId: v.id,
+    postedAt: new Date(v.create_time * 1000).toISOString(),
+    caption: v.title || v.video_description || null,
+    thumbnail: v.cover_image_url ?? null,
+    permalink: v.share_url ?? null,
+    isVideo: true,
+    likes: num(v.like_count),
+    comments: num(v.comment_count),
+    views: num(v.view_count),
+    shares: num(v.share_count),
+  });
   let cursor: number | undefined;
   // Two pages of 20 — the newest 40 videos — is plenty for a 90-day view.
   for (let page = 0; page < 2; page++) {
-    const list = await api<{
-      videos?: {
-        id: string;
-        create_time: number;
-        cover_image_url?: string;
-        share_url?: string;
-        title?: string;
-        video_description?: string;
-        like_count?: number;
-        comment_count?: number;
-        share_count?: number;
-        view_count?: number;
-      }[];
-      cursor?: number;
-      has_more?: boolean;
-    }>(
-      "/video/list/?fields=id,create_time,cover_image_url,share_url,title,video_description,like_count,comment_count,share_count,view_count",
-      token,
-      { body: cursor ? { max_count: 20, cursor } : { max_count: 20 } }
-    );
-    for (const v of list.videos ?? []) {
-      posts.push({
-        externalId: v.id,
-        postedAt: new Date(v.create_time * 1000).toISOString(),
-        caption: v.title || v.video_description || null,
-        thumbnail: v.cover_image_url ?? null,
-        permalink: v.share_url ?? null,
-        isVideo: true,
-        likes: num(v.like_count),
-        comments: num(v.comment_count),
-        views: num(v.view_count),
-        shares: num(v.share_count),
-      });
-    }
+    const list = await api<{ videos?: TtVideo[]; cursor?: number; has_more?: boolean }>(`/video/list/?fields=${VIDEO_FIELDS}`, token, {
+      body: cursor ? { max_count: 20, cursor } : { max_count: 20 },
+    });
+    for (const v of list.videos ?? []) posts.push(toPost(v));
     if (!list.has_more || !list.cursor) break;
     cursor = list.cursor;
+  }
+
+  // Older linked videos, by id, 20 at a time (TikTok's limit).
+  const have = new Set(posts.map((x) => x.externalId));
+  const missing = Array.from(new Set(wantedIds)).filter((id) => !have.has(id));
+  for (let i = 0; i < missing.length; i += 20) {
+    const q = await api<{ videos?: TtVideo[] }>(`/video/query/?fields=${VIDEO_FIELDS}`, token, {
+      body: { filters: { video_ids: missing.slice(i, i + 20) } },
+    });
+    for (const v of q.videos ?? []) posts.push(toPost(v));
   }
 
   const u = info.user ?? {};

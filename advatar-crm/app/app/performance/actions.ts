@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity";
 import { METRICS, POST_COLUMNS, detectPlatform, loadPerformance, summarise, PLATFORMS, type Numbers, type PlatformId, type VideoPost } from "@/lib/performance";
 import { youtubeId, youtubeNumbers, youtubeOn } from "@/lib/performance/youtube";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { applyToVideoPosts, syncAll, syncConnection } from "@/lib/social/sync";
 import { readScreenshot, readerOn, writeAnalysis, type ReportContent } from "@/lib/performance/read";
 import { linkFromPaste } from "@/lib/video-links";
 
@@ -38,8 +40,16 @@ async function signedIn() {
 const wrote = (data: unknown) => (Array.isArray(data) ? data.length > 0 : Boolean(data));
 
 /** What is connected, so the screen only offers what will work. */
-export async function metricsSetupAction(): Promise<{ screenshots: boolean; youtube: boolean }> {
-  return { screenshots: readerOn(), youtube: youtubeOn() };
+export async function metricsSetupAction(clientId?: string): Promise<{ screenshots: boolean; youtube: boolean; connected: string[] }> {
+  // Which of this client's accounts are connected (0048), so a post
+  // link on that platform can say its numbers come in by themselves.
+  let connected: string[] = [];
+  if (clientId) {
+    const { supabase } = await signedIn();
+    const { data, error } = await supabase.from("social_connections").select("platform, status").eq("client_id", clientId);
+    if (!error) connected = ((data ?? []) as { platform: string; status: string }[]).filter((c) => c.status === "connected").map((c) => c.platform);
+  }
+  return { screenshots: readerOn(), youtube: youtubeOn(), connected };
 }
 
 export async function addPostAction(videoId: string, pasted: string, platform: PlatformId | null): Promise<PerfResult> {
@@ -60,6 +70,34 @@ export async function addPostAction(videoId: string, pasted: string, platform: P
     .select("id");
   if (error) return { error: friendly(error.message, error.code) };
   if (!wrote(data)) return { error: friendly("row-level security") };
+  const postId = (data as { id: string }[])[0].id;
+
+  // Numbers straight away, without anyone typing them: from the
+  // connected account for Instagram, TikTok and Facebook (what was
+  // already collected, or a fresh read if this post is new to us), and
+  // from YouTube's public numbers for a YouTube link. Any failure here
+  // just leaves the link waiting for the daily refresh.
+  try {
+    if (where === "instagram" || where === "tiktok" || where === "facebook") {
+      const admin = createAdminClient();
+      const { data: conn } = await admin
+        .from("social_connections")
+        .select("id, status")
+        .eq("client_id", clientId)
+        .eq("platform", where)
+        .maybeSingle();
+      if (conn && (conn as { status: string }).status === "connected") {
+        await applyToVideoPosts(admin, clientId, where);
+        const { data: after } = await admin.from("video_posts").select("metrics_at").eq("id", postId).maybeSingle();
+        if (!(after as { metrics_at: string | null } | null)?.metrics_at) await syncConnection(admin, (conn as { id: string }).id);
+      }
+    } else if (where === "youtube" && youtubeOn()) {
+      await refreshYoutube(supabase, user.id, [{ id: postId, url }]);
+    }
+  } catch {
+    // Left for the daily refresh.
+  }
+
   revalidatePath(`/app/clients/${clientId}`);
   return { error: null };
 }
@@ -182,6 +220,9 @@ export interface GatherResult extends PerfResult {
   /** YouTube links there, but no key to fetch them with. */
   youtubeWaiting: number;
   youtubeProblem: string | null;
+  /** Instagram/TikTok/Facebook post links refreshed from the connected accounts. */
+  platformUpdated?: number;
+  platformProblem?: string | null;
 }
 
 /**
@@ -194,13 +235,33 @@ export async function gatherMetricsAction(clientId: string): Promise<GatherResul
   const { supabase, user } = await signedIn();
   const none = { youtubeUpdated: 0, youtubeWaiting: 0, youtubeProblem: null };
   if (!user) return { error: "Not signed in.", ...none };
+
+  // The connected Instagram, TikTok and Facebook accounts first: the
+  // same refresh the daily job runs, for this client, right now. Only
+  // for someone who can see this client (checked with their own
+  // session, so the database decides).
+  let platform: { platformUpdated: number; platformProblem: string | null } = { platformUpdated: 0, platformProblem: null };
+  const { data: visible } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
+  if (visible) {
+    try {
+      const results = await syncAll(createAdminClient(), clientId);
+      const failed = results.find((r) => !r.ok);
+      platform = {
+        platformUpdated: results.reduce((n, r) => n + (r.linked ?? 0), 0),
+        platformProblem: failed?.error ? `A connected account didn’t update: ${failed.error}` : null,
+      };
+    } catch {
+      // Social tables not there yet (before 0048): nothing connected.
+    }
+  }
+
   const { data, error } = await supabase.from("video_posts").select("id, url").eq("client_id", clientId).eq("platform", "youtube");
-  if (error) return { error: friendly(error.message, error.code), ...none };
+  if (error) return { error: friendly(error.message, error.code), ...none, ...platform };
   const posts = (data ?? []) as { id: string; url: string }[];
-  if (posts.length === 0) return { error: null, ...none };
-  if (!youtubeOn()) return { error: null, ...none, youtubeWaiting: posts.length };
+  if (posts.length === 0) return { error: null, ...none, ...platform };
+  if (!youtubeOn()) return { error: null, ...none, ...platform, youtubeWaiting: posts.length };
   const res = await refreshYoutube(supabase, user.id, posts);
-  return { error: null, youtubeUpdated: res.updated, youtubeWaiting: 0, youtubeProblem: res.error ?? (res.notFound ? `${res.notFound} YouTube link${res.notFound === 1 ? " isn’t" : "s aren’t"} public videos, so ${res.notFound === 1 ? "it" : "they"} couldn’t be fetched.` : null) };
+  return { error: null, ...platform, youtubeUpdated: res.updated, youtubeWaiting: 0, youtubeProblem: res.error ?? (res.notFound ? `${res.notFound} YouTube link${res.notFound === 1 ? " isn’t" : "s aren’t"} public videos, so ${res.notFound === 1 ? "it" : "they"} couldn’t be fetched.` : null) };
 }
 
 /** Works the numbers out again on the server, writes them up, and saves the report. */

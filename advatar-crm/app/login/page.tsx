@@ -17,6 +17,15 @@ export default function LoginPage() {
 
   return (
     <main className="login-shell">
+      {/* The moving backdrop: one gold glow held in the top-left
+          corner, silver drifting slowly around everywhere else. Drawn
+          in CSS (globals.css, "Sign-in backdrop"), so nothing loads. */}
+      <div className="login-aurora" aria-hidden="true">
+        <span className="la-gold" />
+        <span className="la-silver la-s1" />
+        <span className="la-silver la-s2" />
+        <span className="la-silver la-s3" />
+      </div>
       <div className="login-card">
         {/* The only switch a signed-out visitor gets. It is here
             because this is the first screen anyone sees, and because

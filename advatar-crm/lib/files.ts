@@ -64,3 +64,16 @@ export function isFileSection(v: unknown): v is FileSection {
 export function sectionLabel(id: FileSection | null | undefined): string {
   return FILE_SECTIONS.find((s) => s.id === id)?.label ?? "Assets";
 }
+
+/**
+ * Where a document from the older Documents tab (the `documents` table)
+ * shows inside Files, now that Files is where clients find everything.
+ * Worked out from its type and name; contracts and briefs were what that
+ * tab was for, so anything unrecognised sits with Contracts.
+ */
+export function documentSection(doc: { name?: string | null; type?: string | null }): FileSection {
+  const text = `${doc.type ?? ""} ${doc.name ?? ""}`.toLowerCase();
+  if (/invoice|receipt|bill\b/.test(text)) return "invoices";
+  if (/proposal|quote|quotation|pitch|estimate/.test(text)) return "proposals";
+  return "contracts";
+}

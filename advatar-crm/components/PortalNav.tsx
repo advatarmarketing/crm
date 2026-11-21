@@ -23,7 +23,6 @@ const LINKS = [
   { href: "/app/portal/account", label: "Account" },
   { href: "/app/portal/messages", label: "Messages" },
   { href: "/app/portal/uploads", label: "Files" },
-  { href: "/app/portal/documents", label: "Documents" },
   { href: "/app/portal/logins", label: "Logins" },
   { href: "/app/portal/todo", label: "To-do" },
   { href: "/app/portal/notes", label: "Notes" },
