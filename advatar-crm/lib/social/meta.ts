@@ -32,7 +32,10 @@ async function graph<T>(path: string, params: Record<string, string>): Promise<T
   if (!res.ok || body.error) {
     const e = body.error ?? {};
     // 190: the token is no good any more. 10/200-299: permission removed.
-    if (e.code === 190 || e.code === 10 || (e.code && e.code >= 200 && e.code < 300) || e.type === "OAuthException") {
+    // Meta labels many unrelated errors "OAuthException" (an unknown
+    // username in a lookup, for one), so only these codes mean the
+    // access itself is gone.
+    if (e.code === 190 || e.code === 10 || (e.code && e.code >= 200 && e.code < 300)) {
       throw new TokenProblem(e.message ?? "Facebook no longer accepts this connection.");
     }
     throw new Error(e.message ?? `Facebook returned ${res.status}.`);
@@ -302,5 +305,68 @@ export async function facebookData(
       postsCount: null,
     },
     posts,
+  };
+}
+
+/**
+ * A public Instagram business or creator account's numbers, read through
+ * Advatar's own connected Instagram (Meta's "business discovery").
+ * Followers, post count and each post's likes and comments; Meta doesn't
+ * give views this way. Fails for a personal or private account.
+ */
+export async function instagramLookup(
+  agencyIgId: string,
+  token: string,
+  username: string
+): Promise<{ account: FetchedAccount; posts: FetchedPost[] }> {
+  const fields =
+    `business_discovery.username(${username}){username,name,profile_picture_url,followers_count,follows_count,media_count,` +
+    `media.limit(50){id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count}}`;
+  let res: {
+    business_discovery?: {
+      username?: string;
+      name?: string;
+      profile_picture_url?: string;
+      followers_count?: number;
+      follows_count?: number;
+      media_count?: number;
+      media?: { data?: { id: string; caption?: string; media_type?: string; media_url?: string; permalink?: string; timestamp: string; like_count?: number; comments_count?: number }[] };
+    };
+  };
+  try {
+    res = await graph(`/${agencyIgId}`, { access_token: token, fields });
+  } catch (e) {
+    // Meta answers "Invalid user id" (code 110 / subcode 2207013) for
+    // an account it can't look up: personal, private, or misspelt.
+    if (e instanceof TokenProblem) throw e;
+    const msg = e instanceof Error ? e.message : "";
+    if (/invalid user id|cannot be found|does not exist|2207013/i.test(msg)) {
+      throw new Error(`Instagram couldn't find @${username} as a business or creator account. Check the link, and that the account is set to Business or Creator.`);
+    }
+    throw e;
+  }
+  const b = res.business_discovery;
+  if (!b) throw new Error(`Instagram didn't return @${username}.`);
+  return {
+    account: {
+      name: b.name ?? b.username ?? null,
+      handle: b.username ? `@${b.username}` : `@${username}`,
+      avatar: b.profile_picture_url ?? null,
+      followers: num(b.followers_count),
+      following: num(b.follows_count),
+      postsCount: num(b.media_count),
+    },
+    posts: (b.media?.data ?? []).map((m) => ({
+      externalId: m.id,
+      postedAt: m.timestamp,
+      caption: m.caption ?? null,
+      thumbnail: m.media_type === "VIDEO" ? null : m.media_url ?? null,
+      permalink: m.permalink ?? null,
+      isVideo: m.media_type === "VIDEO",
+      likes: num(m.like_count),
+      comments: num(m.comments_count),
+      views: null,
+      shares: null,
+    })),
   };
 }

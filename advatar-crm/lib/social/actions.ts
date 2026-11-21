@@ -7,6 +7,7 @@ import { mayConnect, saveMetaPage } from "./connect";
 import { unseal } from "./crypto";
 import { metaPages } from "./meta";
 import { syncAll } from "./sync";
+import { lookupClient, saveAgency, syncLookups } from "./agency";
 import { SOCIAL_PLATFORMS, isSocialPlatform, profileUrl, type SocialPlatform, type SocialUrls } from "@/lib/social";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
@@ -22,7 +23,8 @@ export async function chooseMetaPageAction(pendingId: string, pageId: string): P
   const { data: pending } = await admin.from("social_pending").select("*").eq("id", pendingId).maybeSingle();
   if (!pending) return { ok: false, error: "That list has expired. Please connect again." };
 
-  const who = await mayConnect(createClient(), pending.client_id);
+  const agency = pending.client_id === null;
+  const who = await mayConnect(createClient(), agency ? "agency" : pending.client_id);
   if (!who.ok) return { ok: false, error: who.reason };
   if (pending.created_by !== who.userId) return { ok: false, error: "Only the person who signed in to Facebook can choose." };
   if (Date.now() - new Date(pending.created_at).getTime() > 30 * 60 * 1000) {
@@ -36,6 +38,13 @@ export async function chooseMetaPageAction(pendingId: string, pageId: string): P
   try {
     const page = (await metaPages(token)).find((p) => p.pageId === pageId);
     if (!page) return { ok: false, error: "That Page is no longer available to this login." };
+    if (agency) {
+      await saveAgency(admin, page, who.userId);
+      await admin.from("social_pending").delete().eq("id", pendingId);
+      await syncLookups(admin);
+      revalidatePath("/app/clients", "layout");
+      return { ok: true, message: "Advatar's Instagram is connected. Clients' Instagram numbers now come from their profile links." };
+    }
     await saveMetaPage(admin, pending.client_id, page, who.userId);
     await admin.from("social_pending").delete().eq("id", pendingId);
     await syncAll(admin, pending.client_id);
@@ -62,7 +71,8 @@ export async function disconnectSocialAction(clientId: string, platform: SocialP
 export async function syncSocialNowAction(clientId: string): Promise<Result> {
   const who = await mayConnect(createClient(), clientId);
   if (!who.ok) return { ok: false, error: who.reason };
-  const results = await syncAll(createAdminClient(), clientId);
+  const admin = createAdminClient();
+  const results = [...(await syncAll(admin, clientId)), ...(await syncLookups(admin, clientId))];
   refresh(clientId);
   const failed = results.filter((r) => !r.ok);
   if (!results.length) return { ok: false, error: "No accounts are connected yet." };
@@ -99,7 +109,7 @@ export async function setSocialPlatformsAction(clientId: string, platforms: stri
 export async function saveSocialSetupAction(
   clientId: string,
   input: { platforms: string[]; urls: Record<string, string>; startedOn: string | null }
-): Promise<Result & { urls?: SocialUrls }> {
+): Promise<Result & { urls?: SocialUrls; message?: string }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createClient() as any;
   const { data: manages } = await supabase.rpc("can_manage_client", { target_client_id: clientId });
@@ -126,6 +136,20 @@ export async function saveSocialSetupAction(
       error: /social_urls|posting_started_on|social_platforms/.test(error.message) ? "Run database update 0050 in Supabase first." : error.message,
     };
   }
+  // Instagram no longer linked: drop what was being read from the old link.
+  if (!urls.instagram) {
+    await createAdminClient().from("social_connections").delete().eq("client_id", clientId).eq("platform", "instagram").eq("status", "lookup");
+  }
+
+  // Read their Instagram from the new link straight away, if Advatar's
+  // Instagram is connected. A problem here doesn't undo the save.
+  let note: string | undefined;
+  try {
+    const r = await lookupClient(createAdminClient(), clientId);
+    if (!r.ok && r.error) note = r.error;
+  } catch {
+    // Left for the daily refresh.
+  }
   refresh(clientId);
-  return { ok: true, urls };
+  return { ok: true, urls, message: note };
 }

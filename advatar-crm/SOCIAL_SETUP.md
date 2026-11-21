@@ -143,6 +143,32 @@ At the top of the app dashboard, switch the app from **Development** to
 
 ---
 
+## Part 2½: Instagram from profile links (recommended)
+
+This lets the app read any client's **public** Instagram numbers straight
+from the profile link on their Performance tab: followers, posts, likes
+and comments. The client doesn't have to log in. Views aren't available
+this way; they still need the client's own account connected.
+
+It works through **Advatar's own Instagram**, connected once:
+
+1. Advatar's Instagram must be a **Business or Creator** account, linked to
+   Advatar's Facebook Page (Instagram app → Settings → Account type and
+   tools).
+2. Do Part 1 and Part 3 (the Meta app and the Vercel codes).
+3. As the CEO, open any client → **Performance** → **Accounts we manage**,
+   and click **Connect Advatar's Instagram**. Log in with the Facebook
+   account that runs Advatar's Page, and pick that Page if asked.
+4. For each client, paste their Instagram profile link (or @name) and click
+   **Save**. Their numbers appear straight away and refresh every morning.
+
+Because it's your own account, this should work while the Meta app is
+still in Development mode, so you don't have to wait for App Review.
+It only works for client accounts that are Business or Creator. For a
+personal account, the card explains that.
+
+---
+
 ## Part 3: Put the codes into Vercel
 
 In **Vercel → your project → Settings → Environment Variables**, add these
@@ -170,8 +196,8 @@ switched on yet, instead of showing a Connect button.
 
 ## Part 4: Using it
 
-1. Run database updates **0048** and **0049** in Supabase (SQL editor). Then
-   run `VERIFY_0048.sql` and `VERIFY_0049.sql`; every line should say OK.
+1. Run database updates **0048 to 0051** in Supabase (SQL editor), each
+   followed by its `VERIFY_…` file. Every line should say OK.
 2. Open a client in the CRM, go to the **Performance** tab, and under
    **Social accounts** tick the platforms you post on for them.
 3. Either you press **Connect** there (if you have the client's logins), or

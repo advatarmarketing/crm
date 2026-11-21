@@ -7,6 +7,7 @@ import { METRICS, POST_COLUMNS, detectPlatform, loadPerformance, summarise, PLAT
 import { youtubeId, youtubeNumbers, youtubeOn } from "@/lib/performance/youtube";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { applyToVideoPosts, syncAll, syncConnection } from "@/lib/social/sync";
+import { syncLookups } from "@/lib/social/agency";
 import { readScreenshot, readerOn, writeAnalysis, type ReportContent } from "@/lib/performance/read";
 import { linkFromPaste } from "@/lib/video-links";
 
@@ -47,7 +48,7 @@ export async function metricsSetupAction(clientId?: string): Promise<{ screensho
   if (clientId) {
     const { supabase } = await signedIn();
     const { data, error } = await supabase.from("social_connections").select("platform, status").eq("client_id", clientId);
-    if (!error) connected = ((data ?? []) as { platform: string; status: string }[]).filter((c) => c.status === "connected").map((c) => c.platform);
+    if (!error) connected = ((data ?? []) as { platform: string; status: string }[]).filter((c) => c.status === "connected" || c.status === "lookup").map((c) => c.platform);
   }
   return { screenshots: readerOn(), youtube: youtubeOn(), connected };
 }
@@ -244,7 +245,8 @@ export async function gatherMetricsAction(clientId: string): Promise<GatherResul
   const { data: visible } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
   if (visible) {
     try {
-      const results = await syncAll(createAdminClient(), clientId);
+      const admin = createAdminClient();
+      const results = [...(await syncAll(admin, clientId)), ...(await syncLookups(admin, clientId))];
       const failed = results.find((r) => !r.ok);
       platform = {
         platformUpdated: results.reduce((n, r) => n + (r.linked ?? 0), 0),

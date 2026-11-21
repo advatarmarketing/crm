@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase/server";
-import { mayConnect, safeReturn } from "@/lib/social/connect";
+import { AGENCY, mayConnect, safeReturn } from "@/lib/social/connect";
 import { signState } from "@/lib/social/crypto";
 import { callbackUrl, metaConfigured, tiktokConfigured } from "@/lib/social/config";
 import { metaAuthorizeUrl } from "@/lib/social/meta";
@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: { params: { provider: st
     return NextResponse.redirect(to);
   };
 
-  if (!provider || !/^[0-9a-f-]{36}$/i.test(clientId)) return fail("That link isn't right.");
+  if (!provider || !(/^[0-9a-f-]{36}$/i.test(clientId) || (clientId === AGENCY && provider === "meta"))) return fail("That link isn't right.");
   if (provider === "meta" && !metaConfigured()) return fail("Facebook and Instagram aren't switched on yet. Your team is setting this up.");
   if (provider === "tiktok" && !tiktokConfigured()) return fail("TikTok isn't switched on yet. Your team is setting this up.");
 

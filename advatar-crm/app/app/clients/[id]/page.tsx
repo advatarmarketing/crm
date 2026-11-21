@@ -13,6 +13,7 @@ import type { TeamMessage } from "@/components/ClientTeamThread";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDashboard } from "@/lib/social/dashboard";
 import { loadPicker } from "@/lib/social/connect";
+import { agencyStatus } from "@/lib/social/agency";
 import { parseRange } from "@/lib/social";
 import { SocialDashboard } from "@/components/social/SocialDashboard";
 
@@ -319,6 +320,7 @@ export default async function ClientDetailPage({
         basePath={`/app/clients/${client.id}?tab=performance`}
         range={socialRange}
         canConnect={canAssign}
+        agency={callerRole === "ceo" ? { ...(await agencyStatus(createAdminClient())), canConnect: true } : null}
         notice={{ error: searchParams?.social_error?.slice(0, 300) ?? null, connected: searchParams?.social_connected ?? null }}
         picker={
           canAssign && user && searchParams?.choose

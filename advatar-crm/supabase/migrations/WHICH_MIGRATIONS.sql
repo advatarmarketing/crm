@@ -115,6 +115,10 @@ from (
     (
       '0050', 'Accounts we manage: profile links and first posting date',
       case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'clients' and column_name = 'posting_started_on') then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0051', 'Instagram numbers from a profile link (via Advatar''s own Instagram)',
+      case when to_regclass('public.agency_instagram') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

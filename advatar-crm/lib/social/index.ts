@@ -85,7 +85,8 @@ export interface SocialConnection {
   account_name: string | null;
   account_handle: string | null;
   avatar_url: string | null;
-  status: "connected" | "needs_reconnect";
+  /** "lookup": public numbers read from the profile link via Advatar's Instagram (0051). */
+  status: "connected" | "needs_reconnect" | "lookup";
   connected_at: string;
   last_synced_at: string | null;
   last_error: string | null;

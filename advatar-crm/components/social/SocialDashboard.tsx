@@ -52,6 +52,7 @@ function AccountCard({
   const connectHref = `/api/social/connect/${provider}?client=${clientId}&return=${encodeURIComponent(returnPath)}`;
   const c = p.connection;
   const needsReconnect = c?.status === "needs_reconnect";
+  const lookup = c?.status === "lookup";
 
   return (
     <div className="sh-account" style={{ ["--pc" as string]: meta.rgb }} data-state={c ? (needsReconnect ? "warn" : "on") : "off"}>
@@ -91,8 +92,19 @@ function AccountCard({
           </dl>
           <div className="sh-account-foot">
             <span className="sh-muted">{c.last_synced_at ? `Updated ${when(c.last_synced_at)}` : "Waiting for first update"}</span>
-            {canConnect && <DisconnectButton clientId={clientId} platform={p.platform} />}
+            {canConnect && !lookup && <DisconnectButton clientId={clientId} platform={p.platform} />}
           </div>
+          {lookup && (
+            <div className="sh-lookup">
+              <span>From their public profile. Views need their own account connected.</span>
+              {p.available && canConnect && (
+                <a className="sh-link" href={connectHref}>
+                  Connect {meta.label}
+                </a>
+              )}
+            </div>
+          )}
+          {lookup && team && c?.last_error && <p className="sh-banner sh-banner-bad sh-mismatch">{c.last_error}</p>}
         </>
       ) : (
         <div className="sh-account-empty">
@@ -242,6 +254,7 @@ export function SocialDashboard({
   notice,
   picker,
   canConnect = true,
+  agency = null,
 }: {
   data: Dashboard;
   clientId: string;
@@ -253,12 +266,14 @@ export function SocialDashboard({
   picker?: { pendingId: string; options: { pageId: string; pageName: string; igUsername: string | null; pagePicture: string | null }[] } | null;
   /** The client, or management on this client. Others see the numbers only. */
   canConnect?: boolean;
+  /** Advatar's own Instagram status, for the CEO (0051). */
+  agency?: { available: boolean; username: string | null; lastError: string | null; canConnect: boolean } | null;
 }) {
   const join = basePath.includes("?") ? "&" : "?";
   const returnPath = `${basePath}${join}range=${range}`;
   const team = audience === "team";
   const manage = team && canConnect;
-  const live = data.platforms.filter((p) => p.connection && p.connection.status === "connected");
+  const live = data.platforms.filter((p) => p.connection && (p.connection.status === "connected" || p.connection.status === "lookup"));
 
   return (
     <div className="sh" data-tour="hub-dashboard">
@@ -291,12 +306,14 @@ export function SocialDashboard({
       {notice?.error && <p className="sh-banner sh-banner-bad">{notice.error}</p>}
       {notice?.connected && !notice.error && (
         <p className="sh-banner sh-banner-good">
-          {notice.connected === "tiktok" ? "TikTok" : "Facebook and Instagram"} connected. Numbers refresh automatically every day.
+          {notice.connected === "agency"
+            ? "Advatar’s Instagram connected. Clients’ Instagram numbers now come in from their profile links, every day."
+            : `${notice.connected === "tiktok" ? "TikTok" : "Facebook and Instagram"} connected. Numbers refresh automatically every day.`}
         </p>
       )}
       {picker && <MetaPagePicker pendingId={picker.pendingId} options={picker.options} />}
 
-      {manage && <AccountsSetup clientId={clientId} chosen={data.chosen} urls={data.urls} startedOn={data.startedOn} />}
+      {manage && <AccountsSetup clientId={clientId} chosen={data.chosen} urls={data.urls} startedOn={data.startedOn} agency={agency} returnPath={returnPath} />}
 
       {data.problem && <p className="sh-banner sh-banner-bad">The results couldn&rsquo;t be loaded. {data.problem}</p>}
 

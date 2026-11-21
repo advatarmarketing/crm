@@ -23,7 +23,9 @@ export function londonDay(d = new Date()): string {
 export async function saveFetched(
   admin: Admin,
   conn: { id: string; client_id: string; platform: SocialPlatform },
-  data: { account: FetchedAccount; posts: FetchedPost[] }
+  data: { account: FetchedAccount; posts: FetchedPost[] },
+  /** "lookup": read through Advatar's Instagram from the profile link (0051). */
+  status: "connected" | "lookup" = "connected"
 ) {
   const now = new Date().toISOString();
 
@@ -33,7 +35,7 @@ export async function saveFetched(
       account_name: data.account.name,
       account_handle: data.account.handle,
       avatar_url: data.account.avatar,
-      status: "connected",
+      status,
       last_synced_at: now,
       last_error: null,
     })
