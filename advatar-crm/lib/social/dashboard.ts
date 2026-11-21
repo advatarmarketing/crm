@@ -4,7 +4,9 @@ import { londonDay } from "./sync";
 import {
   SOCIAL_PLATFORMS,
   isSocialPlatform,
-  type RangeDays,
+  type Range,
+  type SocialUrls,
+  handleFromUrl,
   type SocialConnection,
   type SocialPlatform,
   type SocialPost,
@@ -27,6 +29,10 @@ export interface PlatformResult {
   likes: number;
   comments: number;
   posts: number;
+  /** The profile link the team entered (0050). */
+  url: string | null;
+  /** The connected account isn't the one the profile link points to. */
+  mismatch: boolean;
 }
 
 export interface Dashboard {
@@ -41,6 +47,11 @@ export interface Dashboard {
   topVideos: SocialPost[];
   lastUpdated: string | null;
   from: string;
+  /** The day we started posting for them (0050); nothing before it counts. */
+  startedOn: string | null;
+  urls: SocialUrls;
+  /** "the last 30 days", "since 3 Mar 2026"… */
+  rangeLabel: string;
 }
 
 function shiftDay(day: string, by: number): string {
@@ -54,10 +65,23 @@ function shiftDay(day: string, by: number): string {
  * Read with the viewer's own session: RLS (0048) lets a client read
  * their own rows and the team read the clients they're on.
  */
-export async function loadDashboard(supabase: Db, clientId: string, days: RangeDays): Promise<Dashboard> {
+export async function loadDashboard(supabase: Db, clientId: string, range: Range): Promise<Dashboard> {
   const today = londonDay();
-  const from = shiftDay(today, -days);
+
+  // 0050's columns, read on their own so the dashboard still works
+  // before that update has been run.
+  const { data: setup } = await supabase.from("clients").select("social_urls, posting_started_on").eq("id", clientId).maybeSingle();
+  const startedOn: string | null = setup?.posting_started_on ?? null;
+  const urls: SocialUrls = (setup?.social_urls ?? {}) as SocialUrls;
+
+  // Only our work counts: the period never reaches back before the day
+  // we started posting for them.
+  const asked = range === "since" ? startedOn ?? shiftDay(today, -30) : shiftDay(today, -range);
+  const from = startedOn && startedOn > asked ? startedOn : asked;
   const fromIso = `${from}T00:00:00Z`;
+  const startIso = startedOn ? `${startedOn}T00:00:00Z` : "1970-01-01T00:00:00Z";
+  const pretty = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const rangeLabel = from !== asked || range === "since" ? `since ${pretty(from)}` : `the last ${range} days`;
 
   const empty: Dashboard = {
     ready: false,
@@ -71,6 +95,9 @@ export async function loadDashboard(supabase: Db, clientId: string, days: RangeD
     topVideos: [],
     lastUpdated: null,
     from,
+    startedOn,
+    urls,
+    rangeLabel,
   };
 
   const { data: client, error: clientError } = await supabase.from("clients").select("social_platforms").eq("id", clientId).maybeSingle();
@@ -102,6 +129,7 @@ export async function loadDashboard(supabase: Db, clientId: string, days: RangeD
       .from("social_posts")
       .select("id, platform, external_id, posted_at, caption, thumbnail_url, permalink, is_video, likes, comments, views, shares")
       .eq("client_id", clientId)
+      .gte("posted_at", startIso)
       .order("posted_at", { ascending: false })
       .limit(60),
   ]);
@@ -138,6 +166,13 @@ export async function loadDashboard(supabase: Db, clientId: string, days: RangeD
       likes: p.reduce((n, x) => n + (x.likes ?? 0), 0),
       comments: p.reduce((n, x) => n + (x.comments ?? 0), 0),
       posts: p.length,
+      url: urls[platform] ?? null,
+      mismatch: (() => {
+        // Facebook Page names and handles differ too often to compare.
+        if (platform === "facebook" || !connection?.account_handle) return false;
+        const want = handleFromUrl(platform, urls[platform]);
+        return !!want && want !== connection.account_handle.toLowerCase();
+      })(),
     };
   });
 
@@ -176,5 +211,8 @@ export async function loadDashboard(supabase: Db, clientId: string, days: RangeD
     // least fresh number on the page.
     lastUpdated: synced[0] ?? null,
     from,
+    startedOn,
+    urls,
+    rangeLabel,
   };
 }

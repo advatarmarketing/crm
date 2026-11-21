@@ -111,6 +111,10 @@ from (
     (
       '0049', 'Video post numbers fill in automatically from connected accounts',
       case when exists (select 1 from pg_constraint where conname = 'video_posts_metrics_source_check' and pg_get_constraintdef(oid) like '%platform%') then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0050', 'Accounts we manage: profile links and first posting date',
+      case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'clients' and column_name = 'posting_started_on') then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

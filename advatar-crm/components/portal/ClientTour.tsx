@@ -70,12 +70,6 @@ const ALL_STEPS: Step[] = [
     body: "Assets, raw footage, invoices, proposals and contracts, each in its own section. Tap one to open it.",
   },
   {
-    path: "/app/portal/documents",
-    selector: "main",
-    title: "Documents",
-    body: "Briefs and other documents we’ve shared with you.",
-  },
-  {
     path: "/app/portal/logins",
     selector: "main",
     title: "Logins",

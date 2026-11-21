@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Sparkline } from "@/components/Sparkline";
 import type { Dashboard, PlatformResult } from "@/lib/social/dashboard";
-import { RANGES, SOCIAL_PLATFORMS, compactNumber, platformLabel, type RangeDays, type SocialPost } from "@/lib/social";
-import { DisconnectButton, MetaPagePicker, PlatformChooser, RecentPosts, SyncNowButton } from "./SocialControls";
+import { RANGES, SOCIAL_PLATFORMS, compactNumber, platformLabel, type Range, type SocialPost } from "@/lib/social";
+import { AccountsSetup, DisconnectButton, MetaPagePicker, RecentPosts, SyncNowButton } from "./SocialControls";
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
@@ -38,11 +38,14 @@ function AccountCard({
   clientId,
   returnPath,
   canConnect,
+  team = false,
 }: {
   p: PlatformResult;
   clientId: string;
   returnPath: string;
   canConnect: boolean;
+  /** The mismatch warning is for the team, not the client. */
+  team?: boolean;
 }) {
   const meta = SOCIAL_PLATFORMS.find((x) => x.id === p.platform)!;
   const provider = meta.provider;
@@ -59,7 +62,17 @@ function AccountCard({
           <strong>{meta.label}</strong>
           <small>{c ? c.account_handle || c.account_name || "Connected" : "Not connected yet"}</small>
         </span>
+        {p.url && (
+          <a className="sh-profile" href={p.url} target="_blank" rel="noopener noreferrer" aria-label={`Open the ${meta.label} profile`}>
+            Profile ↗
+          </a>
+        )}
       </div>
+      {p.mismatch && team && (
+        <p className="sh-banner sh-banner-bad sh-mismatch">
+          This is connected to {c?.account_handle}, but the profile link is a different account. Disconnect and connect the right one.
+        </p>
+      )}
 
       {c && !needsReconnect ? (
         <>
@@ -97,6 +110,83 @@ function AccountCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * What the dashboard will look like, faded, behind a short message —
+ * so an empty Content Hub shows what's coming rather than a blank box.
+ * Labels only: every number is a grey bar, never a made-up figure.
+ */
+function Preview({ title, body, withAccounts }: { title: string; body: string; withAccounts: boolean }) {
+  const bar = (w: number | string, h = 12) => <span className="shp-bar" style={{ width: w, height: h }} />;
+  return (
+    <div className="shp">
+      <div className="shp-ghost" aria-hidden="true">
+        {withAccounts && (
+          <div className="sh-accounts">
+            {SOCIAL_PLATFORMS.map((p) => (
+              <div key={p.id} className="sh-account" style={{ ["--pc" as string]: p.rgb }}>
+                <div className="sh-account-head">
+                  <span className="sh-avatar sh-avatar-blank">
+                    <span className="sh-dot" />
+                  </span>
+                  <span className="sh-account-name">
+                    <strong>{p.label}</strong>
+                    {bar(70, 9)}
+                  </span>
+                </div>
+                <div className="sh-account-stat">{bar(110, 26)}</div>
+                <svg className="shp-line" viewBox="0 0 140 34" preserveAspectRatio="none">
+                  <path d="M0 30 C 25 28, 40 24, 60 21 S 100 12, 140 4" fill="none" stroke={`rgb(${p.rgb})`} strokeWidth="2" />
+                </svg>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="sh-tiles">
+          {["Total followers", "Likes", "Comments", "Posts published"].map((l) => (
+            <div key={l} className="sh-tile">
+              <span className="sh-tile-label">{l}</span>
+              {bar("60%", 24)}
+            </div>
+          ))}
+        </div>
+        <div className="sh-section">
+          <h3>Recent posts</h3>
+          <div className="sh-track shp-posts">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="sh-post">
+                <span className="sh-thumb" />
+                <span className="sh-post-body">
+                  {bar("90%", 10)}
+                  {bar("55%", 10)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="sh-section">
+          <h3>Most popular videos</h3>
+          <div className="sh-lines">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="sh-line">
+                <span className="sh-rank">{i + 1}</span>
+                <span className="sh-thumb-blank" />
+                <span className="sh-line-main">{bar(`${70 - i * 12}%`, 10)}</span>
+                <span className="sh-line-nums">{bar(40, 12)}</span>
+                <span className="sh-line-nums sh-hide-sm">{bar(34, 12)}</span>
+                <span className="sh-line-nums sh-hide-sm">{bar(34, 12)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="shp-msg">
+        <h3>{title}</h3>
+        <p>{body}</p>
+      </div>
     </div>
   );
 }
@@ -158,7 +248,7 @@ export function SocialDashboard({
   audience: "client" | "team";
   /** The page this sits on, with any query it needs (e.g. ?tab=performance). */
   basePath: string;
-  range: RangeDays;
+  range: Range;
   notice?: { error?: string | null; connected?: string | null };
   picker?: { pendingId: string; options: { pageId: string; pageName: string; igUsername: string | null; pagePicture: string | null }[] } | null;
   /** The client, or management on this client. Others see the numbers only. */
@@ -177,6 +267,9 @@ export function SocialDashboard({
           <p className="sh-updated">
             {data.lastUpdated ? `Last updated ${when(data.lastUpdated)}` : live.length ? "Waiting for the first update" : " "}
           </p>
+          {data.startedOn && (
+            <p className="sh-updated">Counting our work from {dayLabel(data.startedOn)} {data.startedOn.slice(0, 4)}</p>
+          )}
         </div>
         <div className="sh-head-right">
           {manage && live.length > 0 && <SyncNowButton clientId={clientId} />}
@@ -186,6 +279,11 @@ export function SocialDashboard({
                 {r} days
               </Link>
             ))}
+            {data.startedOn && (
+              <Link href={`${basePath}${join}range=since`} aria-current={range === "since" ? "page" : undefined} scroll={false}>
+                Since we started
+              </Link>
+            )}
           </nav>
         </div>
       </div>
@@ -198,48 +296,49 @@ export function SocialDashboard({
       )}
       {picker && <MetaPagePicker pendingId={picker.pendingId} options={picker.options} />}
 
-      {manage && <PlatformChooser clientId={clientId} chosen={data.chosen} />}
+      {manage && <AccountsSetup clientId={clientId} chosen={data.chosen} urls={data.urls} startedOn={data.startedOn} />}
 
       {data.problem && <p className="sh-banner sh-banner-bad">The results couldn&rsquo;t be loaded. {data.problem}</p>}
 
       {data.chosen.length === 0 ? (
-        <div className="sh-empty">
-          <h3>Not set up yet</h3>
-          <p>
-            {team
+        <Preview
+          withAccounts
+          title="Your results are on their way"
+          body={
+            team
               ? manage
                 ? "Choose the platforms this client posts on above. Only those show on their dashboard."
                 : "The CEO or this client's manager chooses which platforms show here."
-              : "Your results will appear here as soon as we’ve linked the platforms we post on for you."}
-          </p>
-        </div>
+              : "Followers, likes, comments and your most popular videos will appear here as soon as we’ve linked the platforms we post on for you."
+          }
+        />
       ) : (
         <>
           <section className="sh-accounts">
             {data.platforms.map((p) => (
-              <AccountCard key={p.platform} p={p} clientId={clientId} returnPath={returnPath} canConnect={canConnect} />
+              <AccountCard key={p.platform} p={p} clientId={clientId} returnPath={returnPath} canConnect={canConnect} team={team} />
             ))}
           </section>
 
           {live.length === 0 ? (
-            <div className="sh-empty">
-              <h3>Not connected yet</h3>
-              <p>
-                Once {data.chosen.map(platformLabel).join(data.chosen.length > 2 ? ", " : " and ")}{" "}
-                {data.chosen.length > 1 ? "are" : "is"} connected, followers, likes, comments and your best videos will show here.
-              </p>
-            </div>
+            <Preview
+              withAccounts={false}
+              title="Not connected yet"
+              body={`Once ${data.chosen.map(platformLabel).join(data.chosen.length > 2 ? ", " : " and ")} ${
+                data.chosen.length > 1 ? "are" : "is"
+              } connected, your followers, likes, comments and best videos will show here.`}
+            />
           ) : (
             <>
-              <section className="sh-tiles" aria-label={`The last ${range} days`}>
+              <section className="sh-tiles" aria-label={data.rangeLabel}>
                 <Tile label="Total followers" value={compactNumber(data.totals.followers)} sub={<Growth value={data.totals.growth} />} />
-                <Tile label={`Likes · ${range} days`} value={compactNumber(data.totals.likes)} />
+                <Tile label="Likes" value={compactNumber(data.totals.likes)} sub={data.rangeLabel} />
                 <Tile
-                  label={`Comments · ${range} days`}
+                  label="Comments"
                   value={compactNumber(data.totals.comments)}
                   sub={data.totals.avgComments != null ? `${data.totals.avgComments.toFixed(1)} per post on average` : undefined}
                 />
-                <Tile label="Posts published" value={String(data.totals.posts)} sub={`in the last ${range} days`} />
+                <Tile label="Posts published" value={String(data.totals.posts)} sub={data.rangeLabel} />
               </section>
 
               {data.mostCommented && (
@@ -263,7 +362,7 @@ export function SocialDashboard({
                     ))}
                   </div>
                 ) : (
-                  <p className="sh-muted">No videos with view counts in the last {range} days yet.</p>
+                  <p className="sh-muted">No videos with view counts {data.rangeLabel} yet.</p>
                 )}
               </section>
             </>

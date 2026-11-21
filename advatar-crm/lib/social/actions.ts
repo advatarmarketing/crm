@@ -7,7 +7,7 @@ import { mayConnect, saveMetaPage } from "./connect";
 import { unseal } from "./crypto";
 import { metaPages } from "./meta";
 import { syncAll } from "./sync";
-import { isSocialPlatform, type SocialPlatform } from "@/lib/social";
+import { SOCIAL_PLATFORMS, isSocialPlatform, profileUrl, type SocialPlatform, type SocialUrls } from "@/lib/social";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -89,4 +89,43 @@ export async function setSocialPlatformsAction(clientId: string, platforms: stri
   }
   refresh(clientId);
   return { ok: true };
+}
+
+/**
+ * The Performance tab's "Accounts we manage": which platforms we post on
+ * for this client, each one's profile link, and the day we started
+ * posting (nothing before it counts on their dashboard).
+ */
+export async function saveSocialSetupAction(
+  clientId: string,
+  input: { platforms: string[]; urls: Record<string, string>; startedOn: string | null }
+): Promise<Result & { urls?: SocialUrls }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient() as any;
+  const { data: manages } = await supabase.rpc("can_manage_client", { target_client_id: clientId });
+  if (manages !== true) return { ok: false, error: "Only the CEO or the client's manager can change this." };
+
+  const urls: SocialUrls = {};
+  for (const p of SOCIAL_PLATFORMS) {
+    const typed = (input.urls[p.id] ?? "").trim();
+    if (!typed) continue;
+    const clean = profileUrl(p.id, typed);
+    if (!clean) return { ok: false, error: `That doesn't look like a ${p.label} profile link. Paste the address of their profile, or their @name.` };
+    urls[p.id] = clean;
+  }
+  // A profile link means we post there.
+  const platforms = Array.from(new Set([...input.platforms.filter(isSocialPlatform), ...(Object.keys(urls) as SocialPlatform[])]));
+
+  const started = input.startedOn?.trim() || null;
+  if (started && !/^\d{4}-\d{2}-\d{2}$/.test(started)) return { ok: false, error: "That date isn't valid." };
+
+  const { error } = await supabase.from("clients").update({ social_platforms: platforms, social_urls: urls, posting_started_on: started }).eq("id", clientId);
+  if (error) {
+    return {
+      ok: false,
+      error: /social_urls|posting_started_on|social_platforms/.test(error.message) ? "Run database update 0050 in Supabase first." : error.message,
+    };
+  }
+  refresh(clientId);
+  return { ok: true, urls };
 }
