@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Sparkline } from "@/components/Sparkline";
 import type { Dashboard, PlatformResult } from "@/lib/social/dashboard";
 import { RANGES, SOCIAL_PLATFORMS, compactNumber, platformLabel, type Range, type SocialPost } from "@/lib/social";
-import { AccountsSetup, DisconnectButton, MetaPagePicker, RecentPosts, SyncNowButton } from "./SocialControls";
+import { AccountsSetup, RecentPosts, SyncNowButton } from "./SocialControls";
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
@@ -33,35 +33,35 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: React
   );
 }
 
-function AccountCard({
-  p,
-  clientId,
-  returnPath,
-  canConnect,
-  team = false,
-}: {
-  p: PlatformResult;
-  clientId: string;
-  returnPath: string;
-  canConnect: boolean;
-  /** The mismatch warning is for the team, not the client. */
-  team?: boolean;
-}) {
+function AccountCard({ p, team, scanning }: { p: PlatformResult; team: boolean; scanning: boolean }) {
   const meta = SOCIAL_PLATFORMS.find((x) => x.id === p.platform)!;
-  const provider = meta.provider;
-  const connectHref = `/api/social/connect/${provider}?client=${clientId}&return=${encodeURIComponent(returnPath)}`;
   const c = p.connection;
-  const needsReconnect = c?.status === "needs_reconnect";
-  const lookup = c?.status === "lookup";
+  const read = !!c?.last_synced_at;
+
+  // Before anything has been read: say plainly why, to the team; to the
+  // client, only that it's on its way.
+  const waiting = !p.url
+    ? team
+      ? `Add their ${meta.label} profile link above and its numbers come in by themselves.`
+      : `We're linking your ${meta.label}. Its numbers will appear here soon.`
+    : !scanning
+      ? team
+        ? "Profile scanning isn't switched on yet (SCRAPECREATORS_API_KEY in Vercel)."
+        : `We're linking your ${meta.label}. Its numbers will appear here soon.`
+      : team && c?.last_error
+        ? c.last_error
+        : team
+          ? "Reading this profile. Press Refresh now if nothing appears in a minute."
+          : `We're linking your ${meta.label}. Its numbers will appear here soon.`;
 
   return (
-    <div className="sh-account" style={{ ["--pc" as string]: meta.rgb }} data-state={c ? (needsReconnect ? "warn" : "on") : "off"}>
+    <div className="sh-account" style={{ ["--pc" as string]: meta.rgb }} data-state={read ? "on" : "off"}>
       <div className="sh-account-head">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {c?.avatar_url ? <img className="sh-avatar" src={c.avatar_url} alt="" referrerPolicy="no-referrer" /> : <span className="sh-avatar sh-avatar-blank"><span className="sh-dot" /></span>}
         <span className="sh-account-name">
           <strong>{meta.label}</strong>
-          <small>{c ? c.account_handle || c.account_name || "Connected" : "Not connected yet"}</small>
+          <small>{read ? c?.account_handle || c?.account_name || meta.label : "Not linked yet"}</small>
         </span>
         {p.url && (
           <a className="sh-profile" href={p.url} target="_blank" rel="noopener noreferrer" aria-label={`Open the ${meta.label} profile`}>
@@ -69,13 +69,8 @@ function AccountCard({
           </a>
         )}
       </div>
-      {p.mismatch && team && (
-        <p className="sh-banner sh-banner-bad sh-mismatch">
-          This is connected to {c?.account_handle}, but the profile link is a different account. Disconnect and connect the right one.
-        </p>
-      )}
 
-      {c && !needsReconnect ? (
+      {read ? (
         <>
           <div className="sh-account-stat">
             <span className="sh-big">{compactNumber(p.followers)}</span>
@@ -91,35 +86,15 @@ function AccountCard({
             <div><dt>Posts</dt><dd>{p.posts}</dd></div>
           </dl>
           <div className="sh-account-foot">
-            <span className="sh-muted">{c.last_synced_at ? `Updated ${when(c.last_synced_at)}` : "Waiting for first update"}</span>
-            {canConnect && !lookup && <DisconnectButton clientId={clientId} platform={p.platform} />}
+            <span className="sh-muted">Updated {when(c!.last_synced_at!)}</span>
           </div>
-          {lookup && (
-            <div className="sh-lookup">
-              <span>From their public profile. Views need their own account connected.</span>
-              {p.available && canConnect && (
-                <a className="sh-link" href={connectHref}>
-                  Connect {meta.label}
-                </a>
-              )}
-            </div>
+          {team && c?.last_error && (
+            <p className="sh-banner sh-banner-bad sh-mismatch">The latest refresh didn&rsquo;t work, so these are from before. {c.last_error}</p>
           )}
-          {lookup && team && c?.last_error && <p className="sh-banner sh-banner-bad sh-mismatch">{c.last_error}</p>}
         </>
       ) : (
         <div className="sh-account-empty">
-          <p>
-            {needsReconnect
-              ? `${meta.label} stopped letting us read this account (a password change or removed access usually does this). Connect it again to carry on.`
-              : p.available
-                ? `Connect ${meta.label} to see followers, likes, comments and views here.`
-                : `${meta.label} isn't switched on yet. We're setting this up.`}
-          </p>
-          {p.available && canConnect && (
-            <a className="btn btn-primary" href={connectHref}>
-              {needsReconnect ? "Reconnect" : `Connect ${meta.label}`}
-            </a>
-          )}
+          <p>{waiting}</p>
         </div>
       )}
     </div>
@@ -241,8 +216,8 @@ function PostLine({ post, rank }: { post: SocialPost; rank: number }) {
 }
 
 /**
- * The client results dashboard: Facebook, Instagram and TikTok, from
- * their own APIs. Used on the client's Content Hub and on the team's
+ * The client results dashboard: Facebook, Instagram and TikTok, read
+ * from the public profiles the team linked (lib/social/scan.ts). Used on the client's Content Hub and on the team's
  * view of a client (Performance tab), so both see the same numbers.
  */
 export function SocialDashboard({
@@ -251,10 +226,7 @@ export function SocialDashboard({
   audience,
   basePath,
   range,
-  notice,
-  picker,
-  canConnect = true,
-  agency = null,
+  canConnect = false,
 }: {
   data: Dashboard;
   clientId: string;
@@ -262,18 +234,13 @@ export function SocialDashboard({
   /** The page this sits on, with any query it needs (e.g. ?tab=performance). */
   basePath: string;
   range: Range;
-  notice?: { error?: string | null; connected?: string | null };
-  picker?: { pendingId: string; options: { pageId: string; pageName: string; igUsername: string | null; pagePicture: string | null }[] } | null;
-  /** The client, or management on this client. Others see the numbers only. */
+  /** The CEO or this client's manager: may change the profile links. */
   canConnect?: boolean;
-  /** Advatar's own Instagram status, for the CEO (0051). */
-  agency?: { available: boolean; username: string | null; lastError: string | null; canConnect: boolean } | null;
 }) {
   const join = basePath.includes("?") ? "&" : "?";
-  const returnPath = `${basePath}${join}range=${range}`;
   const team = audience === "team";
   const manage = team && canConnect;
-  const live = data.platforms.filter((p) => p.connection && (p.connection.status === "connected" || p.connection.status === "lookup"));
+  const live = data.platforms.filter((p) => p.connection?.last_synced_at);
 
   return (
     <div className="sh" data-tour="hub-dashboard">
@@ -287,7 +254,7 @@ export function SocialDashboard({
           )}
         </div>
         <div className="sh-head-right">
-          {manage && live.length > 0 && <SyncNowButton clientId={clientId} />}
+          {manage && data.scanning && Object.values(data.urls).some(Boolean) && <SyncNowButton clientId={clientId} />}
           <nav className="sh-range" aria-label="Period">
             {RANGES.map((r) => (
               <Link key={r} href={`${basePath}${join}range=${r}`} aria-current={r === range ? "page" : undefined} scroll={false}>
@@ -303,17 +270,7 @@ export function SocialDashboard({
         </div>
       </div>
 
-      {notice?.error && <p className="sh-banner sh-banner-bad">{notice.error}</p>}
-      {notice?.connected && !notice.error && (
-        <p className="sh-banner sh-banner-good">
-          {notice.connected === "agency"
-            ? "Advatar’s Instagram connected. Clients’ Instagram numbers now come in from their profile links, every day."
-            : `${notice.connected === "tiktok" ? "TikTok" : "Facebook and Instagram"} connected. Numbers refresh automatically every day.`}
-        </p>
-      )}
-      {picker && <MetaPagePicker pendingId={picker.pendingId} options={picker.options} />}
-
-      {manage && <AccountsSetup clientId={clientId} chosen={data.chosen} urls={data.urls} startedOn={data.startedOn} agency={agency} returnPath={returnPath} />}
+      {manage && <AccountsSetup clientId={clientId} chosen={data.chosen} urls={data.urls} startedOn={data.startedOn} scanning={data.scanning} />}
 
       {data.problem && <p className="sh-banner sh-banner-bad">The results couldn&rsquo;t be loaded. {data.problem}</p>}
 
@@ -324,8 +281,8 @@ export function SocialDashboard({
           body={
             team
               ? manage
-                ? "Choose the platforms this client posts on above. Only those show on their dashboard."
-                : "The CEO or this client's manager chooses which platforms show here."
+                ? "Paste this client's profile links above. Their numbers come in by themselves, and only those platforms show on their dashboard."
+                : "The CEO or this client's manager adds the profile links that show here."
               : "Followers, likes, comments and your most popular videos will appear here as soon as we’ve linked the platforms we post on for you."
           }
         />
@@ -333,17 +290,17 @@ export function SocialDashboard({
         <>
           <section className="sh-accounts">
             {data.platforms.map((p) => (
-              <AccountCard key={p.platform} p={p} clientId={clientId} returnPath={returnPath} canConnect={canConnect} team={team} />
+              <AccountCard key={p.platform} p={p} team={team} scanning={data.scanning} />
             ))}
           </section>
 
           {live.length === 0 ? (
             <Preview
               withAccounts={false}
-              title="Not connected yet"
+              title="Numbers on their way"
               body={`Once ${data.chosen.map(platformLabel).join(data.chosen.length > 2 ? ", " : " and ")} ${
-                data.chosen.length > 1 ? "are" : "is"
-              } connected, your followers, likes, comments and best videos will show here.`}
+                data.chosen.length > 1 ? "have" : "has"
+              } been read, followers, likes, comments and the best videos will show here.`}
             />
           ) : (
             <>

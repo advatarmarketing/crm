@@ -13,9 +13,7 @@ const CONTACT = "marketing@advatar.co.uk";
 /**
  * The public Privacy Policy, app.advatar.co.uk/privacy.
  *
- * Meta and TikTok both ask for this address when setting up the apps
- * behind the Content Hub. The #delete section is also what Meta's
- * "Data deletion instructions URL" points at.
+ * The #delete section is where deletion requests are explained.
  *
  * If the app starts using a new outside service that sees personal
  * information, add it under "Who we share it with".
@@ -62,26 +60,18 @@ export default function PrivacyPage() {
 
       <h2>Facebook, Instagram and TikTok</h2>
       <p>
-        If you, or we on your behalf, connect a Facebook Page, Instagram business account or TikTok account to the
-        dashboard, we read from that account:
+        To report on the social media accounts we run for you, we read their <strong>public</strong> information:
       </p>
       <ul>
-        <li>its name, username, profile picture and follower count;</li>
-        <li>its posts and videos, with their captions, links, thumbnails and dates;</li>
-        <li>the numbers for those posts: views, likes, comments and shares.</li>
+        <li>the account&rsquo;s name, username, profile picture and follower count;</li>
+        <li>its public posts and videos, with their captions, links, thumbnails and dates;</li>
+        <li>the public numbers for those posts: views, likes, comments and shares.</li>
       </ul>
       <p>
-        We may also read the public numbers of an Instagram business or creator account from its public profile,
-        through Advatar&rsquo;s own Instagram account.
-      </p>
-      <p>
-        We use this only to show you, and our team working on your account, how your content is performing. We
-        only ever read; we never post, comment, send messages or change anything on your accounts. We do not sell
-        this data, use it for advertising, or share it with anyone else except the service providers listed below.
-        The access keys the platforms give us are stored encrypted and are only used by our servers.
-      </p>
-      <p>
-        Our use of information received from Meta and TikTok follows their platform terms and developer policies.
+        This is the same information anyone can see on the profile. We never ask for your social media passwords
+        for this, and we never post, comment, send messages or change anything on your accounts. We use it only to
+        show you, and our team working on your account, how your content is performing. We do not sell it or use it
+        for advertising.
       </p>
 
       <h2>Why we use it</h2>
@@ -91,15 +81,11 @@ export default function PrivacyPage() {
           and posting content, sharing files, and reporting results.
         </li>
         <li>
-          <strong>For our legitimate interests:</strong> running and securing the dashboard, answering enquiries,
-          and improving how we work.
+          <strong>For our legitimate interests:</strong> running and securing the dashboard, reporting on the
+          public performance of the accounts we manage, answering enquiries, and improving how we work.
         </li>
         <li>
           <strong>To meet legal obligations</strong>, such as keeping financial records.
-        </li>
-        <li>
-          <strong>With your consent</strong>, where you connect a social media account. You can withdraw this at
-          any time (see below).
         </li>
       </ul>
 
@@ -111,8 +97,9 @@ export default function PrivacyPage() {
         <li>Resend, which sends our emails;</li>
         <li>Stripe, for payments;</li>
         <li>Anthropic, whose AI reads documents and screenshots we upload so we don&rsquo;t have to type them out;</li>
+        <li>ScrapeCreators, which reads the public numbers from the social media profiles we manage for you;</li>
         <li>Fathom, which records and summarises meetings we hold with you;</li>
-        <li>Meta, TikTok and Google (YouTube), when we read numbers from accounts connected to them.</li>
+        <li>Google (YouTube), when we read the public numbers of YouTube videos.</li>
       </ul>
       <p>
         Some of these providers store information outside the UK. Where they do, the transfer is protected by
@@ -124,34 +111,23 @@ export default function PrivacyPage() {
       <h2>How long we keep it</h2>
       <p>
         We keep your information while we work together, and for up to six years afterwards for accounting and
-        legal reasons. When a social media account is disconnected, we delete its access key straight away and
-        stop reading it. The numbers already collected stay in your dashboard as history until our work together
-        ends or you ask us to delete them, which we do within 30 days.
+        legal reasons. When we stop reading a social media account, the numbers already collected stay in your
+        dashboard as history until our work together ends or you ask us to delete them, which we do within 30 days.
       </p>
 
       <h2>How we protect it</h2>
       <p>
         The dashboard is only available over an encrypted connection (HTTPS). Each person can only see what their
-        role allows: clients only ever see their own business. Passwords are never stored in readable form, and
-        social media access keys are encrypted. Access to the systems behind the dashboard is limited to the people
+        role allows: clients only ever see their own business. Passwords are never stored in readable form. Access to the systems behind the dashboard is limited to the people
         who need it.
       </p>
 
-      <h2 id="delete">Disconnecting an account and deleting your data</h2>
-      <p>To stop us reading a Facebook, Instagram or TikTok account, you can do any of these:</p>
-      <ul>
-        <li>In the dashboard, open Content Hub and press Disconnect on that account.</li>
-        <li>
-          On Facebook, go to Settings &amp; privacy &rarr; Settings &rarr; Business integrations, and remove
-          &ldquo;Advatar Dashboard&rdquo;.
-        </li>
-        <li>On TikTok, go to Settings and privacy &rarr; Security &rarr; Apps and services, and remove it there.</li>
-      </ul>
+      <h2 id="delete">Stopping and deleting your data</h2>
       <p>
-        To have the data we hold deleted, social media data or anything else, email{" "}
-        <a href={`mailto:${CONTACT}?subject=Delete%20my%20data`}>{CONTACT}</a> with the subject &ldquo;Delete my
-        data&rdquo; from the email address on your account. We will confirm within 30 days. We may keep a small
-        amount of information where the law requires us to, such as invoices.
+        To have us stop reading a social media account, or to have the data we hold deleted (social media numbers or
+        anything else), email <a href={`mailto:${CONTACT}?subject=Delete%20my%20data`}>{CONTACT}</a> with the
+        subject &ldquo;Delete my data&rdquo; from the email address on your account. We will confirm within 30 days.
+        We may keep a small amount of information where the law requires us to, such as invoices.
       </p>
 
       <h2>Your rights</h2>

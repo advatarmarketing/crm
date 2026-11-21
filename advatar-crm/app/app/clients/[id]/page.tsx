@@ -10,12 +10,13 @@ import { packageFromRow, type ClientPackage, type PackagePreset } from "@/lib/pa
 import type { AssignedTeamMember, AssignableProfile } from "@/components/AssignedTeamPanel";
 import type { BrandKit } from "@/components/BrandKitPanel";
 import type { TeamMessage } from "@/components/ClientTeamThread";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDashboard } from "@/lib/social/dashboard";
-import { loadPicker } from "@/lib/social/connect";
-import { agencyStatus } from "@/lib/social/agency";
 import { parseRange } from "@/lib/social";
 import { SocialDashboard } from "@/components/social/SocialDashboard";
+
+// Saving a client's profile links on the Performance tab reads those
+// profiles there and then (lib/social/scan.ts), which can take a while.
+export const maxDuration = 300;
 
 export default async function ClientDetailPage({
   params,
@@ -27,9 +28,6 @@ export default async function ClientDetailPage({
     added?: string;
     missing?: string;
     range?: string;
-    choose?: string;
-    social_error?: string;
-    social_connected?: string;
   };
 }) {
   const supabase = createClient();
@@ -320,13 +318,6 @@ export default async function ClientDetailPage({
         basePath={`/app/clients/${client.id}?tab=performance`}
         range={socialRange}
         canConnect={canAssign}
-        agency={callerRole === "ceo" ? { ...(await agencyStatus(createAdminClient())), canConnect: true } : null}
-        notice={{ error: searchParams?.social_error?.slice(0, 300) ?? null, connected: searchParams?.social_connected ?? null }}
-        picker={
-          canAssign && user && searchParams?.choose
-            ? await loadPicker(createAdminClient(), searchParams.choose, user.id, client.id)
-            : null
-        }
       />
     ) : null;
 

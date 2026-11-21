@@ -258,7 +258,7 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
           {(gathered.platformUpdated ?? 0) > 0 && (
             <span>
               {" "}
-              {gathered.platformUpdated} Instagram/TikTok/Facebook link{gathered.platformUpdated === 1 ? "" : "s"} refreshed from the connected accounts.
+              {gathered.platformUpdated} Instagram/TikTok/Facebook link{gathered.platformUpdated === 1 ? "" : "s"} refreshed from their profiles.
             </span>
           )}
           {gathered.platformProblem && <span> {gathered.platformProblem}</span>}
