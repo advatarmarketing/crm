@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncAll, syncYoutubeLinks } from "@/lib/social/sync";
+import { syncLookups } from "@/lib/social/agency";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const admin = createAdminClient();
-  const results = await syncAll(admin);
+  const results = [...(await syncAll(admin)), ...(await syncLookups(admin))];
   const youtube = await syncYoutubeLinks(admin);
   return NextResponse.json({
     synced: results.filter((r) => r.ok).length,

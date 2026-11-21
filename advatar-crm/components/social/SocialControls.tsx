@@ -116,11 +116,16 @@ export function AccountsSetup({
   chosen,
   urls,
   startedOn,
+  agency = null,
+  returnPath,
 }: {
   clientId: string;
   chosen: SocialPlatform[];
   urls: Partial<Record<SocialPlatform, string>>;
   startedOn: string | null;
+  /** Advatar's own Instagram (0051), shown to the CEO only. */
+  agency?: { available: boolean; username: string | null; lastError: string | null; canConnect: boolean } | null;
+  returnPath: string;
 }) {
   const [on, setOn] = useState<SocialPlatform[]>(chosen);
   const [links, setLinks] = useState<Record<string, string>>({ ...urls });
@@ -140,7 +145,7 @@ export function AccountsSetup({
       if (!r.ok) return setNote({ ok: false, text: r.error });
       if (r.urls) setLinks({ ...r.urls });
       setOn((prev) => Array.from(new Set([...prev, ...(Object.keys(r.urls ?? {}) as SocialPlatform[])])));
-      setNote({ ok: true, text: "Saved." });
+      setNote(r.message ? { ok: false, text: `Saved, but: ${r.message}` } : { ok: true, text: "Saved." });
       router.refresh();
     });
   }
@@ -180,6 +185,33 @@ export function AccountsSetup({
           );
         })}
       </div>
+      {agency && agency.available && (
+        <div className="sh-agency" data-on={agency.username && !agency.lastError ? "true" : undefined}>
+          <span className="sh-agency-text">
+            {agency.username && !agency.lastError ? (
+              <>
+                <strong>Instagram from profile links is on</strong>, through Advatar&rsquo;s @{agency.username}. Followers, likes and comments
+                come in without the client logging in; views still need their own account connected.
+              </>
+            ) : agency.lastError ? (
+              <>
+                <strong>Advatar&rsquo;s Instagram needs connecting again.</strong> {agency.lastError}
+              </>
+            ) : (
+              <>
+                <strong>Read Instagram from profile links.</strong> Connect Advatar&rsquo;s own Instagram once, and every client&rsquo;s public
+                Instagram numbers come in from the link above, without them logging in.
+              </>
+            )}
+          </span>
+          {agency.canConnect && (
+            <a className="btn" href={`/api/social/connect/meta?client=agency&return=${encodeURIComponent(returnPath)}`}>
+              {agency.username ? "Reconnect" : "Connect Advatar\u2019s Instagram"}
+            </a>
+          )}
+        </div>
+      )}
+
       <div className="sh-setup-foot">
         <label className="sh-setup-date">
           <span>First posting date</span>

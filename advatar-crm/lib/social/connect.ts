@@ -7,6 +7,9 @@ import type { SocialPlatform } from "@/lib/social";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
 
+/** Stands in for a client id when connecting Advatar's own Instagram. */
+export const AGENCY = "agency";
+
 /**
  * Who may connect or disconnect a client's social accounts: the client
  * themselves, or someone who manages that client (the CEO, or the
@@ -23,6 +26,13 @@ export async function mayConnect(
   if (!user) return { ok: false, reason: "Please sign in again." };
 
   const { data: profile } = await supabase.from("profiles").select("role, client_id").eq("id", user.id).maybeSingle();
+
+  // Advatar's own Instagram (0051): the CEO only.
+  if (clientId === AGENCY) {
+    return profile?.role === "ceo"
+      ? { ok: true, userId: user.id, isClient: false }
+      : { ok: false, reason: "Only the CEO can connect Advatar's Instagram." };
+  }
   if (profile?.role === "client") {
     return profile.client_id === clientId
       ? { ok: true, userId: user.id, isClient: true }
@@ -124,7 +134,8 @@ export async function saveTikTok(admin: Db, clientId: string, tokens: TikTokToke
 export async function loadPicker(admin: Db, pendingId: string | undefined, userId: string, clientId: string) {
   if (!pendingId || !/^[0-9a-f-]{36}$/i.test(pendingId)) return null;
   const { data } = await admin.from("social_pending").select("id, client_id, created_by, options").eq("id", pendingId).maybeSingle();
-  if (!data || data.created_by !== userId || data.client_id !== clientId) return null;
+  // Advatar's own Instagram has no client (client_id null).
+  if (!data || data.created_by !== userId || (data.client_id !== null && data.client_id !== clientId)) return null;
   return {
     pendingId: data.id as string,
     options: (data.options ?? []) as { pageId: string; pageName: string; igUsername: string | null; pagePicture: string | null }[],

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { mayConnect, saveMetaPage, saveTikTok } from "@/lib/social/connect";
+import { AGENCY, mayConnect, saveMetaPage, saveTikTok } from "@/lib/social/connect";
+import { saveAgency, syncLookups } from "@/lib/social/agency";
 import { readState, seal } from "@/lib/social/crypto";
 import { callbackUrl } from "@/lib/social/config";
 import { metaExchangeCode, metaPages } from "@/lib/social/meta";
@@ -55,7 +56,34 @@ export async function GET(request: Request, { params }: { params: { provider: st
     }
 
     const userToken = await metaExchangeCode(code, redirectUri);
-    const pages = await metaPages(userToken);
+    const allPages = await metaPages(userToken);
+
+    // Advatar's own Instagram: only Pages with an Instagram account.
+    if (state.c === AGENCY) {
+      const pages = allPages.filter((p) => p.igId);
+      if (pages.length === 0) {
+        return back({ social_error: "None of your Facebook Pages has an Instagram business account linked. Link Advatar's Instagram to its Facebook Page (Instagram → Settings → Account type and tools), then try again." });
+      }
+      if (pages.length === 1) {
+        await saveAgency(admin, pages[0], who.userId);
+        await syncLookups(admin);
+        return back({ social_connected: "agency" });
+      }
+      const { data: pending, error } = await admin
+        .from("social_pending")
+        .insert({
+          client_id: null,
+          created_by: who.userId,
+          user_token: seal(userToken),
+          options: pages.map((p) => ({ pageId: p.pageId, pageName: p.pageName, igUsername: p.igUsername, pagePicture: p.pagePicture })),
+        })
+        .select("id")
+        .single();
+      if (error || !pending) throw new Error(error?.message ?? "Couldn't save the list of Pages.");
+      return back({ choose: pending.id });
+    }
+
+    const pages = allPages;
     if (pages.length === 0) {
       return back({
         social_error:
