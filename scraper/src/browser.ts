@@ -23,8 +23,30 @@ export async function newContext(browser: Browser): Promise<BrowserContext> {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
   });
   context.setDefaultTimeout(15_000);
+  await instagramLogin(context);
   await fixtures(context);
   return context;
+}
+
+/** True when an Instagram login is saved in the job's secrets. */
+export function instagramLoggedIn(): boolean {
+  return !!process.env.INSTAGRAM_SESSIONID?.trim();
+}
+
+/**
+ * An Instagram login, when one is saved (GitHub secret
+ * INSTAGRAM_SESSIONID): the "sessionid" cookie from a browser where that
+ * account is logged in. Nothing types a password; logging that session
+ * out in Instagram (Settings → Accounts Centre → Password and security →
+ * Where you're logged in) cancels it. The cookie only ever goes to
+ * instagram.com.
+ */
+async function instagramLogin(context: BrowserContext) {
+  const value = process.env.INSTAGRAM_SESSIONID?.trim();
+  if (!value) return;
+  await context.addCookies([
+    { name: "sessionid", value: decodeURIComponent(value), domain: ".instagram.com", path: "/", httpOnly: true, secure: true, sameSite: "Lax" },
+  ]);
 }
 
 /**

@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
 import type { BrowserContext, Page } from "playwright";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { links, load, meta, newContext, nudge, openBrowser, pageState, shot } from "./browser.js";
+import { instagramLoggedIn, links, load, meta, newContext, nudge, openBrowser, pageState, shot } from "./browser.js";
 import { LABEL, PLATFORMS, POSTS_READY, PROFILE_READY, countsFromSummary, embedPost, embedProfile, plausible, postFromLink, postedFromKey, postsPage, xHandle, type Platform } from "./platforms.js";
 import { parseCount } from "./numbers.js";
 import { clean, pick, readScreenshot, type Clean } from "./read.js";
@@ -54,6 +54,7 @@ async function main() {
   const sb = db();
   if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error("ANTHROPIC_API_KEY must be set (GitHub → Settings → Secrets and variables → Actions).");
 
+  if (instagramLoggedIn()) log("Instagram: using the saved login.");
   const k = londonMarks();
   if (trigger === "schedule") {
     // Two daily triggers, one of which lands at 5pm London depending on
@@ -214,7 +215,10 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
       // Don't pay for a read of an empty page or a login screen.
       const seen = await pageState(page);
       if (seen.loginWall) {
-        problem = `${LABEL[platform]} sent us to a login page instead of the profile.`;
+        problem =
+          platform === "instagram" && instagramLoggedIn()
+            ? "Instagram's saved login has expired or was logged out. Update INSTAGRAM_SESSIONID in GitHub."
+            : `${LABEL[platform]} sent us to a login page instead of the profile.`;
         log(`  ${LABEL[platform]}: login page (${seen.url})`);
         continue;
       }
