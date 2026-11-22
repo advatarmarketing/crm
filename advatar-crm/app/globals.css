@@ -3380,3 +3380,4 @@ a.vbox-main { text-decoration: none; box-sizing: border-box; }
 .ai-settings input { font: inherit; font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-1); min-width: 0; width: 100%; }
 .ai-prices td input { padding: 6px 8px; }
 .ai-settings-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.sh-pending-note { margin: 0; font-size: 13px; color: var(--text-2); }
