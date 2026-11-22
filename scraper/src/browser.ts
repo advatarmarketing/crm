@@ -58,6 +58,9 @@ const HIDE_NAGS = `(() => {
   for (const el of Array.from(document.querySelectorAll("body *"))) {
     const s = getComputedStyle(el);
     if (s.position !== "fixed" && s.position !== "sticky") continue;
+    // Never the page itself: some sites lay their whole page out in a
+    // fixed box, and a nag box has little text of its own.
+    if (el.querySelector("main, header, article, [role=main]") || (el.innerText || "").length > 600) continue;
     const r = el.getBoundingClientRect();
     const covers = r.width * r.height > vw * vh * 0.25;
     const dialog = el.getAttribute("role") === "dialog" || el.getAttribute("aria-modal") === "true";
@@ -92,14 +95,35 @@ export async function clearPopups(page: Page) {
   await page.evaluate(HIDE_NAGS).catch(() => {});
 }
 
-/** Open a page, give it a moment to draw, and clear pop-ups. */
-export async function load(page: Page, url: string) {
+/** How much readable text is on the page, and where it ended up. */
+export async function pageState(page: Page): Promise<{ text: number; url: string; loginWall: boolean }> {
+  const text = (await page.evaluate(`(document.body && document.body.innerText || "").trim().length`).catch(() => 0)) as number;
+  const url = page.url();
+  return { text, url, loginWall: /\/accounts\/login|\/login\b|authwall|checkpoint|\/i\/flow\/login|signup/i.test(new URL(url).pathname + new URL(url).search) };
+}
+
+/**
+ * Open a page, wait until it has actually drawn something (and, when
+ * given, until `waitFor` appears), then clear pop-ups. Many of these
+ * sites draw the page with JavaScript a few seconds after it "loads".
+ */
+export async function load(page: Page, url: string, waitFor?: string) {
   const res = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
   await page.waitForLoadState("load", { timeout: 15_000 }).catch(() => {});
-  await page.waitForTimeout(2_500);
+  await page.waitForFunction(`(document.body && document.body.innerText || "").trim().length > 120`, null, { timeout: 12_000 }).catch(() => {});
+  if (waitFor) await page.waitForSelector(waitFor, { timeout: 8_000 }).catch(() => {});
+  await page.waitForTimeout(1_500);
   await clearPopups(page);
   await page.waitForTimeout(800);
   return res?.status() ?? 0;
+}
+
+/** Scroll down to make a post grid load, then back to the top. */
+export async function nudge(page: Page, waitFor?: string) {
+  await page.evaluate(`window.scrollTo(0, 1400)`).catch(() => {});
+  await page.waitForTimeout(1_500);
+  if (waitFor) await page.waitForSelector(waitFor, { timeout: 8_000 }).catch(() => {});
+  await page.evaluate(`window.scrollTo(0, 0)`).catch(() => {});
 }
 
 /** One small screenshot of what's on screen (1280×800, compressed). */

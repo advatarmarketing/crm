@@ -1,6 +1,6 @@
 // npx tsx test/unit.ts
 import { parseCount } from "../src/numbers.js";
-import { postFromLink, postedFromKey, plausible } from "../src/platforms.js";
+import { countsFromSummary, postFromLink, postedFromKey, plausible } from "../src/platforms.js";
 import { londonMarks, cost } from "../src/store.js";
 import { clean } from "../src/read.js";
 
@@ -53,6 +53,10 @@ eq("unknown model costs 0 (shown as such)", cost(s, "other", 100, 100), 0);
 
 const c = clean([{ name: "followers", label: "Followers", text: "12.3K", value: 12000, abbreviated: true, confidence: 0.9 }]);
 eq("AI value disagrees with its own text: text wins, confidence lowered", [c[0].value, c[0].confidence], [12300, 0.5]);
+
+eq("Instagram page summary", countsFromSummary("1,234 Followers, 56 Following, 78 Posts - See Instagram photos and videos from Rapid (@rapid247)"), [{ name: "followers", text: "1,234" }, { name: "following", text: "56" }, { name: "posts", text: "78" }]);
+eq("TikTok page summary", countsFromSummary("Rapid (@rapid247) on TikTok | 3.4K Likes. 361 Followers. Watch the latest video").map((x) => x.name + ":" + x.text), ["followers:361", "likes:3.4K"]);
+eq("no counts in a plain description", countsFromSummary("Welcome to our page"), []);
 
 console.log(fails ? `\n${fails} FAILED` : "\nALL PASS");
 process.exit(fails ? 1 : 0);

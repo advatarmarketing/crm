@@ -214,12 +214,23 @@ export async function loadDashboard(supabase: Db, clientId: string, range: Range
     const withCount = mine.filter((r) => r.posts_count != null);
     const lastCount = withCount[withCount.length - 1] ?? null;
     const startCount = [...withCount].reverse().find((r) => dayOf(r.taken_at) <= from) ?? withCount.find((r) => dayOf(r.taken_at) >= from) ?? null;
-    const postsPublished = lastCount && startCount && lastCount !== startCount ? Math.max(0, (lastCount.posts_count ?? 0) - (startCount.posts_count ?? 0)) : null;
-
-    // No posts in the period: nothing to add up, so 0. Posts, but none
-    // showing the number (hidden likes, login walls): not available.
     const p = posts.filter((x) => x.platform === platform);
-    const sum = (k: "likes" | "comments") => (p.length === 0 ? 0 : p.some((x) => x[k] != null) ? p.reduce((n, x) => n + (x[k] ?? 0), 0) : null);
+    const everRead = recentAll.some((x) => x.platform === platform);
+    // Where the profile doesn't show a post count (TikTok, for one): the
+    // posts we've seen published in the period, but only when we were
+    // already reading the account when the period began.
+    const trackedFromStart = mine.length > 0 && dayOf(mine[0].taken_at) <= from;
+    const postsPublished =
+      lastCount && startCount && lastCount !== startCount
+        ? Math.max(0, (lastCount.posts_count ?? 0) - (startCount.posts_count ?? 0))
+        : withCount.length === 0 && trackedFromStart && everRead
+          ? p.length
+          : null;
+
+    // No posts read at all yet: not available (rather than a false 0).
+    // Posts read, none in the period: 0. Posts in the period, none
+    // showing the number (hidden likes, login walls): not available.
+    const sum = (k: "likes" | "comments") => (p.length === 0 ? (everRead ? 0 : null) : p.some((x) => x[k] != null) ? p.reduce((n, x) => n + (x[k] ?? 0), 0) : null);
 
     return {
       platform,

@@ -2,8 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
 import type { BrowserContext, Page } from "playwright";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { links, load, meta, newContext, openBrowser, shot } from "./browser.js";
-import { LABEL, PLATFORMS, plausible, postFromLink, postedFromKey, postsPage, xHandle, type Platform } from "./platforms.js";
+import { links, load, meta, newContext, nudge, openBrowser, pageState, shot } from "./browser.js";
+import { LABEL, PLATFORMS, POSTS_READY, PROFILE_READY, countsFromSummary, plausible, postFromLink, postedFromKey, postsPage, xHandle, type Platform } from "./platforms.js";
+import { parseCount } from "./numbers.js";
 import { clean, pick, readScreenshot, type Clean } from "./read.js";
 import { cost, db, londonMarks, monthSpend, settings, type Settings } from "./store.js";
 
@@ -200,11 +201,23 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
   let problem: string | null = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const status = await load(page, url);
+      const status = await load(page, url, PROFILE_READY[platform]);
       img = await shot(page);
       if (status >= 400 && status !== 429) {
         problem = `The page answered with an error (${status}).`;
         if (status === 404) break;
+        continue;
+      }
+      // Don't pay for a read of an empty page or a login screen.
+      const seen = await pageState(page);
+      if (seen.loginWall) {
+        problem = `${LABEL[platform]} sent us to a login page instead of the profile.`;
+        log(`  ${LABEL[platform]}: login page (${seen.url})`);
+        continue;
+      }
+      if (seen.text < 20) {
+        problem = `The page came back empty (${LABEL[platform]} may be blocking logged-out visits).`;
+        log(`  ${LABEL[platform]}: empty page (${seen.url}, ${seen.text} characters)`);
         continue;
       }
       const r = await readAndLog(ctx, img, c.id, platform, "profile");
@@ -222,6 +235,21 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
       break;
     } catch (e) {
       problem = e instanceof Error ? e.message.split("\n")[0].slice(0, 200) : "The page didn't load.";
+    }
+  }
+
+  // The screenshot couldn't be read: use the numbers the page states in
+  // its own summary for search engines, if it has them.
+  if (problem && !/\(404\)|API key/.test(problem)) {
+    const summary = countsFromSummary((await meta(page)).description);
+    const fromSummary: Clean[] = summary.map((x) => {
+      const n = parseCount(x.text);
+      return { name: x.name, label: `${x.name[0].toUpperCase()}${x.name.slice(1)} (from the page summary)`, text: x.text, value: n.value, abbreviated: n.abbreviated, confidence: 0.9 };
+    });
+    if (pick(fromSummary, "followers", "subscribers")) {
+      log(`  ${LABEL[platform]}: screenshot unreadable (${problem}); used the page's own summary instead.`);
+      stats = fromSummary;
+      problem = null;
     }
   }
 
@@ -287,7 +315,8 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
   if (n > 0 && status !== "failed") {
     try {
       const listUrl = postsPage(platform, url);
-      if (listUrl !== url) await load(page, listUrl);
+      if (listUrl !== url || page.url() !== url) await load(page, listUrl, POSTS_READY[platform]);
+      await nudge(page, POSTS_READY[platform]);
       const seen = new Set<string>();
       const handleX = platform === "x" ? xHandle(url) : null;
       for (const href of await links(page)) {
@@ -302,6 +331,7 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
         .map((p, i) => ({ ...p, i, t: plausible(postedFromKey(p.key))?.getTime() ?? null }))
         .sort((a, b) => (a.t != null && b.t != null ? b.t - a.t : a.i - b.i))
         .slice(0, n);
+      log(`  ${LABEL[platform]}: ${found.length} latest post(s) found on the page`);
     } catch (e) {
       log(`  ${LABEL[platform]}: couldn't list posts (${e instanceof Error ? e.message.split("\n")[0] : e})`);
     }
@@ -373,6 +403,11 @@ async function doPost(ctx: Ctx, context: BrowserContext, page: Page, c: ClientRo
       if (status >= 400 && status !== 429) {
         problem = `The post page answered with an error (${status}).`;
         if (status === 404) break;
+        continue;
+      }
+      const seen = await pageState(page);
+      if (seen.loginWall || seen.text < 20) {
+        problem = seen.loginWall ? `${LABEL[platform]} asked to log in to see this post.` : "The post page came back empty.";
         continue;
       }
       const r = await readAndLog(ctx, img, c.id, platform, "post");
