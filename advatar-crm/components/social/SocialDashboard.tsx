@@ -44,15 +44,8 @@ function Num({ n }: { n: number | null }) {
 function AccountCard({ p, team }: { p: PlatformResult; team: boolean }) {
   const meta = SOCIAL_PLATFORMS.find((x) => x.id === p.platform)!;
   const c = p.connection;
-  const waiting = !p.url
-    ? team
-      ? `Add their ${meta.label} profile link above.`
-      : `Not linked yet.`
-    : team
-      ? c?.last_error
-        ? `Not read yet: ${c.last_error}`
-        : "Linked. The first numbers come in at the next 5pm update, or press Refresh now."
-      : `Linked. Your ${meta.label} numbers will appear here after the next daily update.`;
+  // Short on each card; what happens next is said once, above the cards.
+  const waiting = !p.url ? "No profile link yet." : team && c?.last_error ? `Not read yet: ${c.last_error}` : "Waiting for the first reading.";
 
   return (
     <div className="sh-account" style={{ ["--pc" as string]: meta.rgb }} data-state={p.read ? "on" : "off"} data-platform={p.platform}>
@@ -293,6 +286,13 @@ export function SocialDashboard({
         />
       ) : (
         <>
+          {data.platforms.some((p) => p.url && !p.read) && (
+            <p className="sh-pending-note">
+              {team
+                ? "Newly linked accounts get their first numbers at the next 5pm update, or press Refresh now."
+                : "Newly linked accounts show their numbers after the next daily update."}
+            </p>
+          )}
           <section className="sh-accounts">
             {data.platforms.map((p) => (
               <AccountCard key={p.platform} p={p} team={team} />
