@@ -112,3 +112,43 @@ export function xHandle(profile: string): string | null {
   const u = url(profile);
   return u ? u.pathname.split("/").filter(Boolean)[0] ?? null : null;
 }
+
+/** Something on the profile page that means its header has drawn. */
+export const PROFILE_READY: Partial<Record<Platform, string>> = {
+  instagram: "header",
+  tiktok: '[data-e2e="followers-count"], [data-e2e="user-title"], h1',
+  youtube: "#page-header, yt-page-header-renderer, #channel-header",
+  x: '[data-testid="UserName"]',
+};
+
+/** A post link on the page listing the latest posts. */
+export const POSTS_READY: Partial<Record<Platform, string>> = {
+  instagram: 'a[href*="/p/"], a[href*="/reel/"]',
+  tiktok: 'a[href*="/video/"]',
+  youtube: 'a[href*="/watch?v="], a[href*="/shorts/"]',
+  x: 'a[href*="/status/"]',
+  linkedin: 'a[href*="activity"]',
+  facebook: 'a[href*="/posts/"], a[href*="/reel/"], a[href*="/videos/"]',
+};
+
+/**
+ * The account's numbers as the page describes itself to search engines
+ * and link previews ("1,234 Followers, 56 Following, 78 Posts"). Used
+ * only when the screenshot couldn't be read: it is the platform's own
+ * text, not a guess.
+ */
+export function countsFromSummary(text: string | null | undefined): { name: "followers" | "following" | "posts" | "likes" | "subscribers" | "videos"; text: string }[] {
+  if (!text) return [];
+  const out: { name: "followers" | "following" | "posts" | "likes" | "subscribers" | "videos"; text: string }[] = [];
+  const grab = (name: (typeof out)[number]["name"], word: string) => {
+    const m = text.match(new RegExp(`(\\d[\\d.,]*\\s?[KMB]?)\\s+${word}\\b`, "i"));
+    if (m) out.push({ name, text: m[1].trim() });
+  };
+  grab("followers", "Followers");
+  grab("following", "Following");
+  grab("posts", "Posts");
+  grab("likes", "Likes");
+  grab("subscribers", "subscribers");
+  grab("videos", "videos");
+  return out;
+}
