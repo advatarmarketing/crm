@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { logAiCall } from "@/lib/ai-usage";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { DEFAULT_PLANNER_CONTENT, makeId, type PlannerContent } from "@/lib/planner/content";
@@ -131,6 +132,7 @@ export async function readMeeting(input: { text?: string; pdf?: string; packageS
       system: SYSTEM,
       messages: [{ role: "user", content }],
     });
+    await logAiCall({ feature: "meeting", model: response.model, usage: response.usage, ok: response.stop_reason !== "refusal" && !!response.parsed_output, error: response.parsed_output ? null : String(response.stop_reason) });
 
     if (response.stop_reason === "refusal") {
       return { ok: false, error: "That document couldn't be read. Try pasting the meeting summary as text instead." };
@@ -140,6 +142,7 @@ export async function readMeeting(input: { text?: string; pdf?: string; packageS
     }
     return { ok: true, read: response.parsed_output };
   } catch (error) {
+    await logAiCall({ feature: "meeting", model: MEETING_MODEL, usage: null, ok: false, error: error instanceof Error ? error.message : "failed" });
     if (error instanceof Anthropic.AuthenticationError) {
       return { ok: false, error: "The ANTHROPIC_API_KEY in Vercel was refused. Check it is copied in full and still active." };
     }

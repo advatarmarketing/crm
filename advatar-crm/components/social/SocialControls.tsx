@@ -1,73 +1,115 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveSocialSetupAction, syncSocialNowAction } from "@/lib/social/actions";
-import { SOCIAL_PLATFORMS, compactNumber, type SocialPlatform, type SocialPost } from "@/lib/social";
+import { refreshNowAction, reviewReadingAction, saveSocialSetupAction } from "@/lib/social/actions";
+import { SOCIAL_PLATFORMS, compactNumber, platformLabel, type SocialPlatform, type SocialPost } from "@/lib/social";
+import type { ReviewItem, RunInfo } from "@/lib/social/team";
+import type { Baseline } from "@/lib/social/dashboard";
 
-export function SyncNowButton({ clientId }: { clientId: string }) {
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+
+/**
+ * Refresh now: runs the scraper on GitHub for this client. While it's
+ * queued or running, the page checks back every 15 seconds so the new
+ * numbers appear by themselves.
+ */
+export function RefreshNow({ clientId, run, ready }: { clientId: string; run: RunInfo | null; ready: boolean }) {
   const [pending, start] = useTransition();
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const router = useRouter();
+  const active = !!run && (run.status === "queued" || run.status === "running") && Date.now() - new Date(run.createdAt).getTime() < 30 * 60_000;
+
+  // A message from pressing the button is about that moment; once the
+  // run moves on, its own status says what happened.
+  const runKey = run ? `${run.id}:${run.status}` : "";
+  useEffect(() => {
+    setNote(null);
+  }, [runKey]);
+
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => router.refresh(), 15_000);
+    return () => clearInterval(t);
+  }, [active, router]);
+
+  const status = !run
+    ? null
+    : active
+      ? run.status === "queued"
+        ? `Starting… (asked at ${when(run.createdAt)}). Usually 3–5 minutes.`
+        : "Reading the profiles now…"
+      : run.status === "done"
+        ? `Last ${run.trigger === "manual" ? "refresh" : "daily update"} ${when(run.finishedAt ?? run.createdAt)}: ${run.reads} read${run.reads === 1 ? "" : "s"}${run.failures ? `, ${run.failures} failed` : ""}.`
+        : run.status === "skipped"
+          ? run.note ?? "The last update was skipped."
+          : run.status === "failed"
+            ? `The last refresh didn't run: ${run.note ?? "unknown problem"}`
+            : null;
+
   return (
-    <span className="sh-inline">
+    <div className="sh-refresh">
       <button
         type="button"
         className="btn"
-        disabled={pending}
+        disabled={pending || active || !ready}
+        title={ready ? undefined : "Needs GITHUB_ACTIONS_TOKEN in Vercel"}
         onClick={() =>
           start(async () => {
-            const r = await syncSocialNowAction(clientId);
-            setNote(r.ok ? r.message ?? "Up to date." : r.error);
+            const r = await refreshNowAction(clientId);
+            setNote(r.ok ? { ok: true, text: r.message ?? "Started." } : { ok: false, text: r.error });
             router.refresh();
           })
         }
       >
-        {pending ? "Refreshing…" : "Refresh now"}
+        {pending ? "Starting…" : active ? "Refreshing…" : "Refresh now"}
       </button>
-      {note && <span className="sh-note">{note}</span>}
-    </span>
+      {note && !active ? <span className={note.ok ? "sh-note" : "sh-error"}>{note.text}</span> : status ? <span className="sh-note">{status}</span> : null}
+    </div>
   );
 }
 
 /**
  * "Accounts we manage", at the top of the client's Performance tab:
- * each platform's profile link and whether we post there, and the day
- * we started posting for them, so their dashboard only counts our work.
+ * each platform's public profile link, and its starting point (the
+ * follower count on the day we started, typed in by hand).
  */
 export function AccountsSetup({
   clientId,
   chosen,
   urls,
-  startedOn,
-  scanning,
+  baselines,
 }: {
   clientId: string;
   chosen: SocialPlatform[];
   urls: Partial<Record<SocialPlatform, string>>;
-  startedOn: string | null;
-  /** SCRAPECREATORS_API_KEY is set, so links get read. */
-  scanning: boolean;
+  baselines: Partial<Record<SocialPlatform, Baseline>>;
 }) {
+  const initial = () =>
+    Object.fromEntries(
+      SOCIAL_PLATFORMS.map((p) => [p.id, { followers: baselines[p.id]?.followers != null ? String(baselines[p.id]!.followers) : "", startedOn: baselines[p.id]?.started_on ?? "" }])
+    ) as Record<string, { followers: string; startedOn: string }>;
   const [on, setOn] = useState<SocialPlatform[]>(chosen);
   const [links, setLinks] = useState<Record<string, string>>({ ...urls });
-  const [date, setDate] = useState(startedOn ?? "");
+  const [base, setBase] = useState(initial);
   const [pending, start] = useTransition();
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const router = useRouter();
+  const startKey = JSON.stringify(initial());
   const dirty =
     JSON.stringify([...on].sort()) !== JSON.stringify([...chosen].sort()) ||
     SOCIAL_PLATFORMS.some((p) => (links[p.id] ?? "") !== (urls[p.id] ?? "")) ||
-    date !== (startedOn ?? "");
+    JSON.stringify(base) !== startKey;
 
   function save() {
     setNote(null);
     start(async () => {
-      const r = await saveSocialSetupAction(clientId, { platforms: on, urls: links, startedOn: date || null });
+      const r = await saveSocialSetupAction(clientId, { platforms: on, urls: links, baselines: base });
       if (!r.ok) return setNote({ ok: false, text: r.error });
       if (r.urls) setLinks({ ...r.urls });
       setOn((prev) => Array.from(new Set([...prev, ...(Object.keys(r.urls ?? {}) as SocialPlatform[])])));
-      setNote(r.message ? { ok: false, text: `Saved, but: ${r.message}` } : { ok: true, text: "Saved." });
+      setNote({ ok: true, text: r.message ?? "Saved." });
       router.refresh();
     });
   }
@@ -76,14 +118,23 @@ export function AccountsSetup({
     <section className="sh-setup" aria-labelledby="sh-setup-h">
       <div className="sh-setup-head">
         <h3 id="sh-setup-h">Accounts we manage</h3>
-        <p>Paste their profile on each platform we post on, and when we started. Their public numbers are read from these links every day; only posts from the start date on count.</p>
+        <p>
+          Paste each public profile we post on, and its starting point: the follower count on the day we started. The numbers are read every day
+          at 5pm. &ldquo;Since we started&rdquo; growth is measured from the starting point.
+        </p>
       </div>
-      <div className="sh-setup-rows">
+      <div className="sh-setup-grid" role="table" aria-label="Profiles and starting points">
+        <div className="sh-setup-colhead" role="row">
+          <span role="columnheader">Platform</span>
+          <span role="columnheader">Public profile link</span>
+          <span role="columnheader">Followers when we started</span>
+          <span role="columnheader">Date we started</span>
+        </div>
         {SOCIAL_PLATFORMS.map((p) => {
           const ticked = on.includes(p.id);
           return (
-            <div key={p.id} className="sh-setup-row" style={{ ["--pc" as string]: p.rgb }} data-on={ticked ? "true" : undefined}>
-              <label className="sh-setup-tick">
+            <div key={p.id} className="sh-setup-row" role="row" style={{ ["--pc" as string]: p.rgb }} data-on={ticked ? "true" : undefined} data-platform={p.id}>
+              <label className="sh-setup-tick" role="cell">
                 <input
                   type="checkbox"
                   checked={ticked}
@@ -93,6 +144,7 @@ export function AccountsSetup({
                 {p.label}
               </label>
               <input
+                role="cell"
                 className="sh-setup-url"
                 value={links[p.id] ?? ""}
                 onChange={(e) => {
@@ -100,32 +152,106 @@ export function AccountsSetup({
                   setLinks((prev) => ({ ...prev, [p.id]: v }));
                   if (v.trim() && !on.includes(p.id)) setOn((prev) => [...prev, p.id]);
                 }}
-                placeholder={p.id === "tiktok" ? "tiktok.com/@theirname" : p.id === "instagram" ? "instagram.com/theirname" : "facebook.com/theirpage"}
+                placeholder={p.placeholder}
                 aria-label={`${p.label} profile link`}
+              />
+              <input
+                role="cell"
+                className="sh-setup-url sh-setup-num"
+                inputMode="numeric"
+                value={base[p.id].followers}
+                onChange={(e) => setBase((prev) => ({ ...prev, [p.id]: { ...prev[p.id], followers: e.target.value } }))}
+                placeholder="e.g. 1204"
+                aria-label={`${p.label} followers when we started`}
+              />
+              <input
+                role="cell"
+                type="date"
+                className="sh-setup-url"
+                value={base[p.id].startedOn}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setBase((prev) => ({ ...prev, [p.id]: { ...prev[p.id], startedOn: e.target.value } }))}
+                aria-label={`${p.label} date we started`}
               />
             </div>
           );
         })}
       </div>
-      {!scanning && (
-        <p className="sh-agency">
-          <span className="sh-agency-text">
-            <strong>Profile scanning isn&rsquo;t switched on yet.</strong> Add SCRAPECREATORS_API_KEY in Vercel and redeploy. The links are
-            saved in the meantime.
-          </span>
-        </p>
-      )}
-
       <div className="sh-setup-foot">
-        <label className="sh-setup-date">
-          <span>First posting date</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
         <button type="button" className="btn btn-primary" onClick={save} disabled={pending || !dirty}>
-          {pending ? "Saving and reading profiles…" : "Save"}
+          {pending ? "Saving…" : "Save"}
         </button>
         {note && <span className={note.ok ? "sh-note" : "sh-error"}>{note.text}</span>}
       </div>
+    </section>
+  );
+}
+
+/** Readings the safety checks held back, with the screenshot the AI read. */
+export function ReviewList({ items, failedPosts }: { items: ReviewItem[]; failedPosts: number }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  if (!items.length && !failedPosts) return null;
+  const decide = (id: string, d: "accept" | "reject") =>
+    start(async () => {
+      setError(null);
+      const r = await reviewReadingAction(id, d);
+      if (!r.ok) setError(r.error);
+      router.refresh();
+    });
+
+  return (
+    <section className="sh-review" aria-labelledby="sh-review-h">
+      <h3 id="sh-review-h">Needs checking</h3>
+      <p className="sh-review-sub">
+        These weren&rsquo;t shown to the client. The dashboard keeps the last good numbers until a reading is accepted or a good one comes in.
+      </p>
+      <ul>
+        {items.map((it) => {
+          const followers = it.stats.find((s) => s.name === "followers" || s.name === "subscribers");
+          return (
+            <li key={it.id} className="sh-review-item" data-status={it.status}>
+              {it.screenshot ? (
+                <a href={it.screenshot} target="_blank" rel="noopener noreferrer" className="sh-review-shot" aria-label="Open the screenshot the AI read">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={it.screenshot} alt={`Screenshot of the ${platformLabel(it.platform)} ${it.kind}`} loading="lazy" />
+                </a>
+              ) : (
+                <span className="sh-review-shot sh-review-noshot">No screenshot</span>
+              )}
+              <div className="sh-review-body">
+                <strong>
+                  {platformLabel(it.platform)} {it.kind === "profile" ? "profile" : "post"} · {it.status === "flagged" ? "held back" : "couldn’t be read"}
+                </strong>
+                <span className="sh-muted">{when(it.takenAt)}</span>
+                {it.problem && <p>{it.problem}</p>}
+                {followers && (
+                  <p className="sh-muted">
+                    The AI read &ldquo;{followers.text}&rdquo; ({followers.value?.toLocaleString("en-GB") ?? "?"}), {Math.round(followers.confidence * 100)}% sure.
+                  </p>
+                )}
+                {it.status === "flagged" && (
+                  <div className="sh-review-actions">
+                    <button type="button" className="btn btn-primary" disabled={pending} onClick={() => decide(it.id, "accept")}>
+                      Accept
+                    </button>
+                    <button type="button" className="btn" disabled={pending} onClick={() => decide(it.id, "reject")}>
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {failedPosts > 0 && (
+        <p className="sh-muted">
+          {failedPosts} post{failedPosts === 1 ? "" : "s"} couldn&rsquo;t be read in the latest update (often a login wall). Their last good numbers are kept.
+        </p>
+      )}
+      {error && <p className="sh-error">{error}</p>}
     </section>
   );
 }

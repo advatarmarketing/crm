@@ -119,6 +119,10 @@ from (
     (
       '0051', 'Instagram numbers from a profile link (via Advatar''s own Instagram)',
       case when to_regclass('public.agency_instagram') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0052', 'Social stats scraper: readings, starting points, AI spend',
+      case when to_regclass('public.social_readings') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

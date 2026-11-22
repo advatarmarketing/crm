@@ -1,0 +1,58 @@
+# The Content Hub's social stats scraper (scraper/).
+#
+# Runs every day at 16:00 and 17:00 UTC; the scraper itself only goes
+# ahead when it's 5pm in London (whichever of the two that is, summer or
+# winter) and only once a day. "Refresh now" on a client in the CRM
+# starts it straight away for that client.
+#
+# Needs three repository secrets (Settings → Secrets and variables →
+# Actions): ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+name: Social stats scraper
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+    - cron: "0 17 * * *"
+  workflow_dispatch:
+    inputs:
+      client_id:
+        description: "Only this client (leave empty for everyone)"
+        required: false
+        default: ""
+      run_id:
+        description: "Set by the CRM's Refresh now button"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: social-scraper-${{ github.event.inputs.client_id || 'all' }}
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: scraper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scraper/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Read the profiles
+        run: npm run scrape
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TRIGGER: ${{ github.event_name == 'schedule' && 'schedule' || 'manual' }}
+          CLIENT_ID: ${{ github.event.inputs.client_id }}
+          RUN_ID: ${{ github.event.inputs.run_id }}

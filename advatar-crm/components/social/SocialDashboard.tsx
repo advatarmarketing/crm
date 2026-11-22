@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Sparkline } from "@/components/Sparkline";
 import type { Dashboard, PlatformResult } from "@/lib/social/dashboard";
 import { RANGES, SOCIAL_PLATFORMS, compactNumber, platformLabel, type Range, type SocialPost } from "@/lib/social";
-import { AccountsSetup, RecentPosts, SyncNowButton } from "./SocialControls";
+import { AccountsSetup, RecentPosts, RefreshNow, ReviewList } from "./SocialControls";
+import type { TeamSide } from "@/lib/social/team";
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
@@ -33,35 +34,35 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: React
   );
 }
 
-function AccountCard({ p, team, scanning }: { p: PlatformResult; team: boolean; scanning: boolean }) {
+const NA = "Not available from this platform";
+
+/** A number, or a calm note when the platform doesn't show it. */
+function Num({ n }: { n: number | null }) {
+  return n == null ? <span className="sh-na">{NA}</span> : <>{compactNumber(n)}</>;
+}
+
+function AccountCard({ p, team }: { p: PlatformResult; team: boolean }) {
   const meta = SOCIAL_PLATFORMS.find((x) => x.id === p.platform)!;
   const c = p.connection;
-  const read = !!c?.last_synced_at;
-
-  // Before anything has been read: say plainly why, to the team; to the
-  // client, only that it's on its way.
   const waiting = !p.url
     ? team
-      ? `Add their ${meta.label} profile link above and its numbers come in by themselves.`
-      : `We're linking your ${meta.label}. Its numbers will appear here soon.`
-    : !scanning
-      ? team
-        ? "Profile scanning isn't switched on yet (SCRAPECREATORS_API_KEY in Vercel)."
-        : `We're linking your ${meta.label}. Its numbers will appear here soon.`
-      : team && c?.last_error
-        ? c.last_error
-        : team
-          ? "Reading this profile. Press Refresh now if nothing appears in a minute."
-          : `We're linking your ${meta.label}. Its numbers will appear here soon.`;
+      ? `Add their ${meta.label} profile link above.`
+      : `Not linked yet.`
+    : team
+      ? c?.last_error
+        ? `Not read yet: ${c.last_error}`
+        : "Linked. The first numbers come in at the next 5pm update, or press Refresh now."
+      : `Linked. Your ${meta.label} numbers will appear here after the next daily update.`;
 
   return (
-    <div className="sh-account" style={{ ["--pc" as string]: meta.rgb }} data-state={read ? "on" : "off"}>
+    <div className="sh-account" style={{ ["--pc" as string]: meta.rgb }} data-state={p.read ? "on" : "off"} data-platform={p.platform}>
       <div className="sh-account-head">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {c?.avatar_url ? <img className="sh-avatar" src={c.avatar_url} alt="" referrerPolicy="no-referrer" /> : <span className="sh-avatar sh-avatar-blank"><span className="sh-dot" /></span>}
+        <span className="sh-avatar sh-avatar-blank">
+          <span className="sh-dot" />
+        </span>
         <span className="sh-account-name">
           <strong>{meta.label}</strong>
-          <small>{read ? c?.account_handle || c?.account_name || meta.label : "Not linked yet"}</small>
+          <small>{p.url ? p.handle || "Linked" : "Not linked yet"}</small>
         </span>
         {p.url && (
           <a className="sh-profile" href={p.url} target="_blank" rel="noopener noreferrer" aria-label={`Open the ${meta.label} profile`}>
@@ -70,27 +71,24 @@ function AccountCard({ p, team, scanning }: { p: PlatformResult; team: boolean; 
         )}
       </div>
 
-      {read ? (
+      {p.read ? (
         <>
           <div className="sh-account-stat">
             <span className="sh-big">{compactNumber(p.followers)}</span>
-            <span className="sh-muted">followers</span>
+            <span className="sh-muted">{p.platform === "youtube" ? "subscribers" : "followers"}</span>
           </div>
           <div className="sh-account-trend">
             <Growth value={p.growth} since={p.growthSince} />
             {p.series.length > 1 && <Sparkline values={p.series.map((s) => s.followers)} color={`rgb(${meta.rgb})`} width={140} height={34} />}
           </div>
           <dl className="sh-account-dl">
-            <div><dt>Likes</dt><dd>{compactNumber(p.likes)}</dd></div>
-            <div><dt>Comments</dt><dd>{compactNumber(p.comments)}</dd></div>
-            <div><dt>Posts</dt><dd>{p.posts}</dd></div>
+            <div><dt>Likes</dt><dd><Num n={p.likes} /></dd></div>
+            <div><dt>Comments</dt><dd><Num n={p.comments} /></dd></div>
+            <div><dt>Posts</dt><dd>{p.posts == null && p.postsPending ? <span className="sh-na">After a second daily reading</span> : <Num n={p.posts} />}</dd></div>
           </dl>
           <div className="sh-account-foot">
-            <span className="sh-muted">Updated {when(c!.last_synced_at!)}</span>
+            <span className="sh-muted">{p.lastReadAt ? `Updated ${when(p.lastReadAt)}` : ""}</span>
           </div>
-          {team && c?.last_error && (
-            <p className="sh-banner sh-banner-bad sh-mismatch">The latest refresh didn&rsquo;t work, so these are from before. {c.last_error}</p>
-          )}
         </>
       ) : (
         <div className="sh-account-empty">
@@ -216,9 +214,10 @@ function PostLine({ post, rank }: { post: SocialPost; rank: number }) {
 }
 
 /**
- * The client results dashboard: Facebook, Instagram and TikTok, read
- * from the public profiles the team linked (lib/social/scan.ts). Used on the client's Content Hub and on the team's
- * view of a client (Performance tab), so both see the same numbers.
+ * The client results dashboard: Instagram, TikTok, YouTube, Facebook,
+ * LinkedIn and X, from the scraper's daily readings of their public
+ * profiles. Used on the client's Content Hub and on the team's view of a
+ * client (Performance tab), so both see the same numbers.
  */
 export function SocialDashboard({
   data,
@@ -226,7 +225,7 @@ export function SocialDashboard({
   audience,
   basePath,
   range,
-  canConnect = false,
+  team: side = null,
 }: {
   data: Dashboard;
   clientId: string;
@@ -234,43 +233,49 @@ export function SocialDashboard({
   /** The page this sits on, with any query it needs (e.g. ?tab=performance). */
   basePath: string;
   range: Range;
-  /** The CEO or this client's manager: may change the profile links. */
-  canConnect?: boolean;
+  /** The team's extras: setup, Refresh now, review. Never for clients. */
+  team?: TeamSide | null;
 }) {
   const join = basePath.includes("?") ? "&" : "?";
   const team = audience === "team";
-  const manage = team && canConnect;
-  const live = data.platforms.filter((p) => p.connection?.last_synced_at);
+  const manage = team && !!side;
+  const live = data.platforms.filter((p) => p.read);
 
   return (
     <div className="sh" data-tour="hub-dashboard">
       <div className="sh-head">
         <div>
-          <p className="sh-updated">
-            {data.lastUpdated ? `Last updated ${when(data.lastUpdated)}` : live.length ? "Waiting for the first update" : " "}
-          </p>
-          {data.startedOn && (
-            <p className="sh-updated">Counting our work from {dayLabel(data.startedOn)} {data.startedOn.slice(0, 4)}</p>
-          )}
+          {data.startedOn && <p className="sh-updated">Counting our work from {dayLabel(data.startedOn)} {data.startedOn.slice(0, 4)}</p>}
         </div>
         <div className="sh-head-right">
-          {manage && data.scanning && Object.values(data.urls).some(Boolean) && <SyncNowButton clientId={clientId} />}
           <nav className="sh-range" aria-label="Period">
             {RANGES.map((r) => (
               <Link key={r} href={`${basePath}${join}range=${r}`} aria-current={r === range ? "page" : undefined} scroll={false}>
                 {r} days
               </Link>
             ))}
-            {data.startedOn && (
-              <Link href={`${basePath}${join}range=since`} aria-current={range === "since" ? "page" : undefined} scroll={false}>
-                Since we started
-              </Link>
-            )}
+            <Link href={`${basePath}${join}range=since`} aria-current={range === "since" ? "page" : undefined} scroll={false}>
+              Since we started
+            </Link>
           </nav>
         </div>
       </div>
 
-      {manage && <AccountsSetup clientId={clientId} chosen={data.chosen} urls={data.urls} startedOn={data.startedOn} scanning={data.scanning} />}
+      {manage && side!.budget != null && side!.budget >= 0.8 && (
+        <p className="sh-banner sh-banner-bad">
+          {side!.budget >= 1
+            ? "This month's AI budget is used up, so the daily update is paused. The CEO can raise it on the Finance tab."
+            : `${Math.round(side!.budget * 100)}% of this month's AI budget is used. At 100% the daily update pauses until the budget is raised or the month ends.`}
+        </p>
+      )}
+
+      {manage && (
+        <>
+          <AccountsSetup clientId={clientId} chosen={data.chosen} urls={data.urls} baselines={data.baselines} />
+          <RefreshNow clientId={clientId} run={side!.lastRun} ready={side!.refreshReady} />
+          <ReviewList items={side!.review} failedPosts={side!.failedPosts} />
+        </>
+      )}
 
       {data.problem && <p className="sh-banner sh-banner-bad">The results couldn&rsquo;t be loaded. {data.problem}</p>}
 
@@ -281,8 +286,8 @@ export function SocialDashboard({
           body={
             team
               ? manage
-                ? "Paste this client's profile links above. Their numbers come in by themselves, and only those platforms show on their dashboard."
-                : "The CEO or this client's manager adds the profile links that show here."
+                ? "Paste this client's profile links above. Their numbers are read every day at 5pm."
+                : "The team adds the profile links that show here."
               : "Followers, likes, comments and your most popular videos will appear here as soon as we’ve linked the platforms we post on for you."
           }
         />
@@ -290,7 +295,7 @@ export function SocialDashboard({
         <>
           <section className="sh-accounts">
             {data.platforms.map((p) => (
-              <AccountCard key={p.platform} p={p} team={team} scanning={data.scanning} />
+              <AccountCard key={p.platform} p={p} team={team} />
             ))}
           </section>
 
@@ -300,20 +305,25 @@ export function SocialDashboard({
               title="Numbers on their way"
               body={`Once ${data.chosen.map(platformLabel).join(data.chosen.length > 2 ? ", " : " and ")} ${
                 data.chosen.length > 1 ? "have" : "has"
-              } been read, followers, likes, comments and the best videos will show here.`}
+              } been read, followers, likes, comments and the best videos will show here. That happens every day at 5pm.`}
             />
           ) : (
             <>
               <section className="sh-tiles" aria-label={data.rangeLabel}>
                 <Tile label="Total followers" value={compactNumber(data.totals.followers)} sub={<Growth value={data.totals.growth} />} />
-                <Tile label="Likes" value={compactNumber(data.totals.likes)} sub={data.rangeLabel} />
+                <Tile label="Likes" value={data.totals.likes == null ? "—" : compactNumber(data.totals.likes)} sub={data.totals.likes == null ? NA : data.rangeLabel} />
                 <Tile
                   label="Comments"
-                  value={compactNumber(data.totals.comments)}
-                  sub={data.totals.avgComments != null ? `${data.totals.avgComments.toFixed(1)} per post on average` : undefined}
+                  value={data.totals.comments == null ? "—" : compactNumber(data.totals.comments)}
+                  sub={data.totals.comments == null ? NA : data.totals.avgComments != null ? `${data.totals.avgComments.toFixed(1)} per post on average` : data.rangeLabel}
                 />
-                <Tile label="Posts published" value={String(data.totals.posts)} sub={data.rangeLabel} />
+                <Tile
+                  label="Posts published"
+                  value={data.totals.posts == null ? "—" : String(data.totals.posts)}
+                  sub={data.totals.posts == null ? (data.totals.postsPending ? "Shows after a second daily reading" : NA) : data.rangeLabel}
+                />
               </section>
+              <p className="sh-updated sh-updated-under">{data.lastUpdated ? `Last updated: ${when(data.lastUpdated)}` : " "}</p>
 
               {data.mostCommented && (
                 <section className="sh-section">
