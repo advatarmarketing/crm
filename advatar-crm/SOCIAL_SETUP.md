@@ -31,6 +31,29 @@ same Supabase database.
 
 You no longer need `SCRAPECREATORS_API_KEY` or any Meta/TikTok codes.
 
+### Optional: an Instagram login
+
+Instagram often sends logged-out visitors from servers to its login page.
+The scraper can browse Instagram logged in instead. **Use a spare
+Instagram account, not the business one**: Instagram doesn't allow
+automated use, and if it objects it may log that account out or ask for a
+security check.
+
+1. On a computer, open Chrome, go to instagram.com and log in to the
+   account you want the scraper to use.
+2. Press **F12** (Mac: **⌥⌘I**) → **Application** tab → **Cookies** →
+   `https://www.instagram.com` → click the row named **sessionid** and
+   copy its **Value**. Don't paste it into any chat.
+3. GitHub → the `crm` repository → **Settings → Secrets and variables →
+   Actions → New repository secret**: name `INSTAGRAM_SESSIONID`, value
+   the text you copied.
+4. Don't press "Log out" in that browser (that cancels the pass). To
+   cancel it later on purpose: Instagram → Settings → Accounts Centre →
+   Password and security → Where you're logged in → log that session out.
+
+If the login stops working, the card says "Instagram's saved login has
+expired"; repeat steps 1–3.
+
 ## Adding a client
 
 Open the client → **Performance** → **Accounts we manage**. For each
