@@ -23,7 +23,7 @@ import {
 export interface MetricsSetup {
   screenshots: boolean;
   youtube: boolean;
-  /** Platforms whose post links fill in by themselves (profile scanning on), e.g. ["instagram"]. */
+  /** Platforms the scraper reads for this client, so their post links fill in by themselves, e.g. ["instagram"]. */
   connected?: string[];
 }
 
@@ -195,7 +195,7 @@ export function PostRow({
             </span>
           ) : couldBeAuto ? (
             <span className="vm-hint">
-              Once profile scanning is switched on (SCRAPECREATORS_API_KEY in Vercel), these fill in by themselves every day.
+              Add this client&rsquo;s {platformLabel(post.platform)} profile link above (Accounts we manage) and these fill in by themselves after the next daily read.
             </span>
           ) : manual && !hasNumbers(post) ? (
             <span className="vm-hint">or click here and paste one (Ctrl/⌘ + V)</span>

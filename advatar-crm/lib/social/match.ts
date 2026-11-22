@@ -7,10 +7,15 @@
  * The key is the platform's own id for the post where a link carries one:
  *   Instagram  the shortcode in /p/…, /reel/…, /reels/… or /tv/…
  *   TikTok     the number in /video/…
+ *   YouTube    the video id (?v=…, /shorts/…, youtu.be/…)
+ *   X          the number in /status/…
+ *   LinkedIn   the activity number
+ *
+ * The scraper (scraper/src/platforms.ts) makes the same keys.
  *   Facebook   the id in /videos/…, /reel/…, story_fbid=… or the
  *              pfbid… token in /posts/…; otherwise the tidied link.
  */
-export type MatchPlatform = "instagram" | "tiktok" | "facebook";
+export type MatchPlatform = "instagram" | "tiktok" | "facebook" | "youtube" | "linkedin" | "x";
 
 function tidy(url: string): URL | null {
   try {
@@ -38,6 +43,21 @@ export function postKey(platform: MatchPlatform, url: string | null | undefined)
     return m ? `tt:${m[1]}` : null;
   }
 
+  if (platform === "youtube") {
+    const id = u.searchParams.get("v") ?? path.match(/\/shorts\/([A-Za-z0-9_-]{6,})/)?.[1] ?? (u.hostname === "youtu.be" ? path.slice(1) : null);
+    return id && /^[A-Za-z0-9_-]{6,}$/.test(id) ? `yt:${id}` : null;
+  }
+
+  if (platform === "x") {
+    const m = path.match(/^\/[^/]+\/status\/(\d{6,})/);
+    return m ? `x:${m[1]}` : null;
+  }
+
+  if (platform === "linkedin") {
+    const m = (path + u.search).match(/activity[:-](\d{10,})/);
+    return m ? `li:${m[1]}` : null;
+  }
+
   // Facebook
   const video = path.match(/\/(?:videos|reel|watch)\/(?:[^/]+\/)?(\d{6,})/) ?? (u.searchParams.get("v") ?? "").match(/^(\d{6,})$/);
   if (video) return `fb:${video[1]}`;
@@ -58,6 +78,10 @@ export function socialKeys(platform: MatchPlatform, externalId: string, permalin
   const fromLink = postKey(platform, permalink);
   if (fromLink) keys.add(fromLink);
   if (platform === "tiktok") keys.add(`tt:${externalId}`);
+  if (platform === "youtube") keys.add(`yt:${externalId}`);
+  if (platform === "linkedin") keys.add(`li:${externalId}`);
+  if (platform === "x") keys.add(`x:${externalId}`);
+  if (platform === "instagram") keys.add(`ig:${externalId}`);
   if (platform === "facebook") {
     const tail = externalId.split("_").pop();
     if (tail) keys.add(`fb:${tail}`);

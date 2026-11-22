@@ -11,12 +11,9 @@ import type { AssignedTeamMember, AssignableProfile } from "@/components/Assigne
 import type { BrandKit } from "@/components/BrandKitPanel";
 import type { TeamMessage } from "@/components/ClientTeamThread";
 import { loadDashboard } from "@/lib/social/dashboard";
+import { loadTeamSide } from "@/lib/social/team";
 import { parseRange } from "@/lib/social";
 import { SocialDashboard } from "@/components/social/SocialDashboard";
-
-// Saving a client's profile links on the Performance tab reads those
-// profiles there and then (lib/social/scan.ts), which can take a while.
-export const maxDuration = 300;
 
 export default async function ClientDetailPage({
   params,
@@ -317,7 +314,7 @@ export default async function ClientDetailPage({
         audience="team"
         basePath={`/app/clients/${client.id}?tab=performance`}
         range={socialRange}
-        canConnect={canAssign}
+        team={await loadTeamSide(supabase, client.id)}
       />
     ) : null;
 

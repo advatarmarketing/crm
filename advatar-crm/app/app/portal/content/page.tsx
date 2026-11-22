@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic";
  * Content Hub: how the client's social media is doing.
  *
  * Followers, likes, comments, posts and their best videos on Facebook,
- * Instagram and TikTok, read from the public profiles the team linked
- * (lib/social/scan.ts) once a day, and only for the platforms the team
- * has said we post on for this client.
+ * Instagram, TikTok, YouTube, LinkedIn and X, read from the public
+ * profiles the team linked, every day at 5pm (scraper/ in the
+ * repository), and only for the platforms we post on for this client.
  */
 export default async function PortalContentHubPage({
   searchParams,

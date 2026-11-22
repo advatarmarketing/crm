@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { logAiCall } from "@/lib/ai-usage";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { MEETING_KEY_ENV, MEETING_MODEL } from "@/lib/onboarding/meeting";
@@ -65,7 +66,7 @@ function explain(error: unknown, what: string): string {
 }
 
 /** `data` is base64 without a data: prefix. */
-export async function readScreenshot(data: string, mediaType: string, platform: string): Promise<ScreenshotResult> {
+export async function readScreenshot(data: string, mediaType: string, platform: string, clientId?: string | null): Promise<ScreenshotResult> {
   if (!readerOn()) return { ok: false, error: "Reading screenshots needs an ANTHROPIC_API_KEY in Vercel’s settings. You can type the numbers in instead." };
   if (!MEDIA.includes(mediaType as Media)) return { ok: false, error: "Use a PNG or JPEG screenshot." };
 
@@ -91,7 +92,9 @@ export async function readScreenshot(data: string, mediaType: string, platform: 
       ],
     });
     const out = response.parsed_output;
-    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens" || !out) {
+    const readOk = !(response.stop_reason === "refusal" || response.stop_reason === "max_tokens" || !out);
+    await logAiCall({ feature: "screenshot", model: response.model, usage: response.usage, ok: readOk, clientId, platform, error: readOk ? null : String(response.stop_reason) });
+    if (!readOk || !out) {
       return { ok: false, error: "That screenshot couldn’t be read. Type the numbers in instead." };
     }
     const numbers = {} as Numbers;
@@ -104,6 +107,7 @@ export async function readScreenshot(data: string, mediaType: string, platform: 
     }
     return { ok: true, numbers, note: out.note?.trim() || null };
   } catch (error) {
+    await logAiCall({ feature: "screenshot", model: SCREENSHOT_MODEL, usage: null, ok: false, clientId, platform, error: error instanceof Error ? error.message : "failed" });
     return { ok: false, error: explain(error, "screenshot") };
   }
 }
@@ -171,6 +175,8 @@ export async function writeAnalysis(input: {
   clientName: string;
   range: string;
   summary: Summary;
+  /** For the AI spend log. */
+  clientId?: string | null;
 }): Promise<{ analysis: Analysis; written: boolean; problem: string | null }> {
   const fallback = basicAnalysis(input.summary, input.range);
   if (!readerOn() || input.summary.totals.videos === 0) return { analysis: fallback, written: false, problem: null };
@@ -204,6 +210,7 @@ export async function writeAnalysis(input: {
       messages: [{ role: "user", content: `<results>\n${JSON.stringify(data)}\n</results>\n\nWrite the analysis for this period.` }],
     });
     const out = response.parsed_output;
+    await logAiCall({ feature: "report", model: response.model, usage: response.usage, ok: !!out && response.stop_reason !== "refusal", clientId: input.clientId ?? null, error: out ? null : String(response.stop_reason) });
     if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens" || !out) {
       return { analysis: fallback, written: false, problem: "The written analysis couldn’t be produced, so the report shows the figures with a basic summary." };
     }
@@ -214,6 +221,7 @@ export async function writeAnalysis(input: {
       problem: null,
     };
   } catch (error) {
+    await logAiCall({ feature: "report", model: MEETING_MODEL, usage: null, ok: false, clientId: input.clientId ?? null, error: error instanceof Error ? error.message : "failed" });
     return { analysis: fallback, written: false, problem: `${explain(error, "report")} The report shows the figures with a basic summary.` };
   }
 }

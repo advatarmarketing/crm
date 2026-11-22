@@ -6,8 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { METRICS, POST_COLUMNS, detectPlatform, loadPerformance, summarise, PLATFORMS, type Numbers, type PlatformId, type VideoPost } from "@/lib/performance";
 import { youtubeId, youtubeNumbers, youtubeOn } from "@/lib/performance/youtube";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { applyToVideoPosts, linkedPosts, savePosts, scanClient } from "@/lib/social/sync";
-import { scanConfigured, scanPosts } from "@/lib/social/scan";
+import { applyToVideoPosts } from "@/lib/social/sync";
 import { readScreenshot, readerOn, writeAnalysis, type ReportContent } from "@/lib/performance/read";
 import { linkFromPaste } from "@/lib/video-links";
 
@@ -42,10 +41,15 @@ const wrote = (data: unknown) => (Array.isArray(data) ? data.length > 0 : Boolea
 
 /** What is switched on, so the screen only offers what will work. */
 export async function metricsSetupAction(clientId?: string): Promise<{ screenshots: boolean; youtube: boolean; connected: string[] }> {
-  // With profile scanning on (lib/social/scan.ts), any Instagram, TikTok
-  // or Facebook post link gets its numbers by itself.
-  void clientId;
-  return { screenshots: readerOn(), youtube: youtubeOn(), connected: scanConfigured() ? ["instagram", "tiktok", "facebook"] : [] };
+  // Platforms the scraper has read for this client: a post link there
+  // gets its numbers by itself (scraper/ reads linked posts too).
+  let connected: string[] = [];
+  if (clientId) {
+    const { supabase } = await signedIn();
+    const { data, error } = await supabase.from("social_connections").select("platform, last_synced_at").eq("client_id", clientId);
+    if (!error) connected = ((data ?? []) as { platform: string; last_synced_at: string | null }[]).filter((c) => c.last_synced_at).map((c) => c.platform);
+  }
+  return { screenshots: readerOn(), youtube: youtubeOn(), connected };
 }
 
 export async function addPostAction(videoId: string, pasted: string, platform: PlatformId | null): Promise<PerfResult> {
@@ -68,29 +72,15 @@ export async function addPostAction(videoId: string, pasted: string, platform: P
   if (!wrote(data)) return { error: friendly("row-level security") };
   const postId = (data as { id: string }[])[0].id;
 
-  // Numbers straight away, without anyone typing them: for Instagram,
-  // TikTok and Facebook, from what was already read off the profile, or
-  // by reading this one post (lib/social/scan.ts); and
-  // from YouTube's public numbers for a YouTube link. Any failure here
-  // just leaves the link waiting for the daily refresh.
+  // Numbers straight away where we already have them: a post the
+  // scraper has read (it reads the latest posts on each linked profile,
+  // and any post linked on a video, every day); and YouTube's public
+  // numbers for a YouTube link. Otherwise the next daily run fills it.
   try {
-    if ((where === "instagram" || where === "tiktok" || where === "facebook") && scanConfigured()) {
-      const admin = createAdminClient();
-      // Already read with their profile? Otherwise read this one post.
-      await applyToVideoPosts(admin, clientId, where);
-      const { data: after } = await admin.from("video_posts").select("metrics_at").eq("id", postId).maybeSingle();
-      if (!(after as { metrics_at: string | null } | null)?.metrics_at) {
-        const link = (await linkedPosts(admin, clientId, where)).find((l) => l.id === postId);
-        if (link) {
-          const posts = await scanPosts(where, [link]);
-          if (posts.length) {
-            await savePosts(admin, clientId, where, posts);
-            await applyToVideoPosts(admin, clientId, where, [link]);
-          }
-        }
-      }
-    } else if (where === "youtube" && youtubeOn()) {
+    if (where === "youtube" && youtubeOn()) {
       await refreshYoutube(supabase, user.id, [{ id: postId, url }]);
+    } else if (where !== "other") {
+      await applyToVideoPosts(createAdminClient(), clientId, where);
     }
   } catch {
     // Left for the daily refresh.
@@ -164,10 +154,10 @@ export async function readPostScreenshotAction(
 
   // Read as the caller first: nobody gets a screenshot read against a
   // post they cannot see.
-  const { data: post } = await supabase.from("video_posts").select("id, platform").eq("id", postId).maybeSingle();
+  const { data: post } = await supabase.from("video_posts").select("id, platform, client_id").eq("id", postId).maybeSingle();
   if (!post) return { error: "That post isn’t there any more." };
 
-  const result = await readScreenshot(image, mediaType, (post as { platform: string }).platform);
+  const result = await readScreenshot(image, mediaType, (post as { platform: string }).platform, (post as { client_id?: string }).client_id ?? null);
   if (!result.ok) return { error: result.error };
 
   const found: Partial<Numbers> = {};
@@ -234,22 +224,20 @@ export async function gatherMetricsAction(clientId: string): Promise<GatherResul
   const none = { youtubeUpdated: 0, youtubeWaiting: 0, youtubeProblem: null };
   if (!user) return { error: "Not signed in.", ...none };
 
-  // The connected Instagram, TikTok and Facebook accounts first: the
-  // same refresh the daily job runs, for this client, right now. Only
-  // for someone who can see this client (checked with their own
-  // session, so the database decides).
+  // Numbers the scraper has already read, copied onto any video links
+  // that point at those posts. (A fresh read is Refresh now on the
+  // Content Hub section above, which runs the scraper.) Only for someone
+  // who can see this client, checked with their own session.
   let platform: { platformUpdated: number; platformProblem: string | null } = { platformUpdated: 0, platformProblem: null };
   const { data: visible } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
   if (visible) {
     try {
-      const results = await scanClient(createAdminClient(), clientId, { deep: true });
-      const failed = results.find((r) => !r.ok);
-      platform = {
-        platformUpdated: results.reduce((n, r) => n + r.linked, 0),
-        platformProblem: failed?.error ? `${failed.platform[0].toUpperCase()}${failed.platform.slice(1)} didn’t update: ${failed.error}` : null,
-      };
+      const admin = createAdminClient();
+      let n = 0;
+      for (const p of ["instagram", "tiktok", "facebook", "linkedin", "x"] as const) n += await applyToVideoPosts(admin, clientId, p);
+      platform = { platformUpdated: n, platformProblem: null };
     } catch {
-      // Social tables not there yet (before 0048): nothing connected.
+      // Before 0048: nothing read yet.
     }
   }
 
@@ -284,7 +272,7 @@ export async function createReportAction(
   const summary = summarise(perf.videos, from, to);
   if (summary.totals.videos === 0) return { error: "No videos in that time have numbers yet, so there is nothing to report on." };
 
-  const { analysis, written, problem } = await writeAnalysis({ clientName, range: label, summary });
+  const { analysis, written, problem } = await writeAnalysis({ clientName, range: label, summary, clientId });
   const content: ReportContent = { clientName, range: label, from, to, madeAt: new Date().toISOString(), summary, analysis, written };
 
   const { data, error } = await supabase
