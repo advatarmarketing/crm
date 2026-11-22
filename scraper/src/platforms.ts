@@ -152,3 +152,28 @@ export function countsFromSummary(text: string | null | undefined): { name: "fol
   grab("videos", "videos");
   return out;
 }
+
+/**
+ * The public "embed" versions of a profile or post: what the platforms
+ * give websites to show their content. They are far less often behind a
+ * login wall than the normal pages, so they're the second try.
+ */
+export function embedProfile(platform: Platform, profile: string): string | null {
+  try {
+    const u = new URL(profile);
+    const first = u.pathname.split("/").filter(Boolean)[0];
+    if (!first) return null;
+    if (platform === "instagram") return `https://www.instagram.com/${first}/embed/`;
+    if (platform === "tiktok") return `https://www.tiktok.com/embed/@${first.replace(/^@/, "")}`;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function embedPost(platform: Platform, key: string): string | null {
+  const id = key.slice(key.indexOf(":") + 1);
+  if (platform === "instagram") return `https://www.instagram.com/p/${id}/embed/captioned/`;
+  if (platform === "tiktok") return `https://www.tiktok.com/embed/v2/${id}`;
+  return null;
+}

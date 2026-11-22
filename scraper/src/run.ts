@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { BrowserContext, Page } from "playwright";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { links, load, meta, newContext, nudge, openBrowser, pageState, shot } from "./browser.js";
-import { LABEL, PLATFORMS, POSTS_READY, PROFILE_READY, countsFromSummary, plausible, postFromLink, postedFromKey, postsPage, xHandle, type Platform } from "./platforms.js";
+import { LABEL, PLATFORMS, POSTS_READY, PROFILE_READY, countsFromSummary, embedPost, embedProfile, plausible, postFromLink, postedFromKey, postsPage, xHandle, type Platform } from "./platforms.js";
 import { parseCount } from "./numbers.js";
 import { clean, pick, readScreenshot, type Clean } from "./read.js";
 import { cost, db, londonMarks, monthSpend, settings, type Settings } from "./store.js";
@@ -201,7 +201,10 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
   let problem: string | null = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const status = await load(page, url, PROFILE_READY[platform]);
+      // The second try uses the platform's embed page where it has one.
+      const fallback = attempt > 1 ? embedProfile(platform, url) : null;
+      if (fallback) log(`  ${LABEL[platform]}: trying the embed page`);
+      const status = await load(page, fallback ?? url, fallback ? undefined : PROFILE_READY[platform]);
       img = await shot(page);
       if (status >= 400 && status !== 429) {
         problem = `The page answered with an error (${status}).`;
@@ -331,7 +334,24 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
         .map((p, i) => ({ ...p, i, t: plausible(postedFromKey(p.key))?.getTime() ?? null }))
         .sort((a, b) => (a.t != null && b.t != null ? b.t - a.t : a.i - b.i))
         .slice(0, n);
-      log(`  ${LABEL[platform]}: ${found.length} latest post(s) found on the page`);
+      // Nothing on the normal page (login wall, or a grid that never
+      // drew): the embed page lists the latest posts too.
+      const embed = found.length === 0 ? embedProfile(platform, url) : null;
+      if (embed) {
+        await load(page, embed);
+        for (const href of await links(page)) {
+          const p = postFromLink(platform, href, page.url(), handleX);
+          if (p && !seen.has(p.key)) {
+            seen.add(p.key);
+            found.push(p);
+          }
+        }
+        found = found
+          .map((p, i) => ({ ...p, i, t: plausible(postedFromKey(p.key))?.getTime() ?? null }))
+          .sort((a, b) => (a.t != null && b.t != null ? b.t - a.t : a.i - b.i))
+          .slice(0, n);
+      }
+      log(`  ${LABEL[platform]}: ${found.length} latest post(s) found${embed ? " (from the embed page)" : ""}`);
     } catch (e) {
       log(`  ${LABEL[platform]}: couldn't list posts (${e instanceof Error ? e.message.split("\n")[0] : e})`);
     }
@@ -397,7 +417,8 @@ async function doPost(ctx: Ctx, context: BrowserContext, page: Page, c: ClientRo
   let info: Awaited<ReturnType<typeof meta>> = { image: null, description: null, published: null };
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const status = await load(page, p.url);
+      const fallback = attempt > 1 ? embedPost(platform, p.key) : null;
+      const status = await load(page, fallback ?? p.url);
       img = await shot(page);
       info = await meta(page);
       if (status >= 400 && status !== 429) {
