@@ -1,6 +1,6 @@
 // npx tsx test/unit.ts
 import { parseCount } from "../src/numbers.js";
-import { countsFromSummary, postFromLink, postedFromKey, plausible } from "../src/platforms.js";
+import { countsFromSummary, tiktokStats, postFromLink, postedFromKey, plausible } from "../src/platforms.js";
 import { londonMarks, cost, money } from "../src/store.js";
 import { clean } from "../src/read.js";
 
@@ -61,6 +61,16 @@ eq("Instagram post summary", countsFromSummary('1,234 likes, 56 comments - advat
 eq("one like, one comment", countsFromSummary("1 like, 1 comment - someone").map((x) => x.name + ":" + x.text), ["likes:1", "comments:1"]);
 eq("embed page text", countsFromSummary("advatar.marketing\nView profile\n2.1K likes\nView all 48 comments\n12.5K plays").map((x) => x.name + ":" + x.text), ["likes:2.1K", "comments:48", "views:12.5K"]);
 eq("no counts in a plain description", countsFromSummary("Welcome to our page"), []);
+
+{
+  const data = { __DEFAULT_SCOPE__: { "webapp.video-detail": { itemInfo: { itemStruct: { id: "7450000000000000001", stats: { diggCount: 949, shareCount: 12, commentCount: 23, playCount: 26012, collectCount: 40 } } } }, "webapp.related": { itemList: [{ id: "7450000000000000002", stats: { playCount: 999999, diggCount: 1 } }] } } };
+  const html = `<html><script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">${JSON.stringify(data)}</script></html>`;
+  eq("TikTok page data: this video's numbers", tiktokStats(html, "7450000000000000001"), { views: 26012, likes: 949, comments: 23, shares: 12, saves: 40 });
+  eq("TikTok page data: another video isn't ours", tiktokStats(html, "7450000000000000003"), {});
+  const v2 = { ItemModule: { "7450000000000000004": { id: "7450000000000000004", statsV2: { playCount: "3542", diggCount: "210", shareCount: "3", commentCount: "9", collectCount: "1" } } } };
+  eq("TikTok page data: text counts (statsV2)", tiktokStats(`<script id="SIGI_STATE" type="application/json">${JSON.stringify(v2)}</script>`, "7450000000000000004").views, 3542);
+  eq("TikTok page data: no data", tiktokStats("<html></html>", "1"), {});
+}
 
 console.log(fails ? `\n${fails} FAILED` : "\nALL PASS");
 process.exit(fails ? 1 : 0);

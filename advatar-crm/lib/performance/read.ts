@@ -236,4 +236,8 @@ export interface ReportContent {
   summary: Summary;
   analysis: Analysis;
   written: boolean;
+  /** Made for one platform only (reports made before this have none). */
+  platform?: string;
+  /** Followers at the start and end of the time (null: no counts then). */
+  followers?: { start: number; end: number; rows: { platform: string; start: number; startDay: string; end: number; endDay: string; lateStart: boolean }[] } | null;
 }

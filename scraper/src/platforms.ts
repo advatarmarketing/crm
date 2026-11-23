@@ -137,7 +137,7 @@ export const POSTS_READY: Partial<Record<Platform, string>> = {
  * only when the screenshot couldn't be read: it is the platform's own
  * text, not a guess.
  */
-export type SummaryName = "followers" | "following" | "posts" | "likes" | "subscribers" | "videos" | "comments" | "views";
+export type SummaryName = "followers" | "following" | "posts" | "likes" | "subscribers" | "videos" | "comments" | "views" | "shares";
 
 export function countsFromSummary(text: string | null | undefined): { name: SummaryName; text: string }[] {
   if (!text) return [];
@@ -158,6 +158,7 @@ export function countsFromSummary(text: string | null | undefined): { name: Summ
   grab("comments", "comment");
   grab("views", "views");
   grab("views", "plays");
+  grab("shares", "shares");
   return out;
 }
 
@@ -184,4 +185,46 @@ export function embedPost(platform: Platform, key: string): string | null {
   if (platform === "instagram") return `https://www.instagram.com/p/${id}/embed/captioned/`;
   if (platform === "tiktok") return `https://www.tiktok.com/embed/v2/${id}`;
   return null;
+}
+
+/**
+ * A TikTok video's own numbers, from the data TikTok puts in the page
+ * for its app to draw (the same data its counters are drawn from): plays,
+ * likes, comments, shares and saves, exact rather than "26K". Only the
+ * entry for this video counts, so a "you may like" video next to it is
+ * never taken as ours.
+ */
+export type DataName = "views" | "likes" | "comments" | "shares" | "saves";
+const TT_FIELDS: Record<string, DataName> = { playCount: "views", diggCount: "likes", commentCount: "comments", shareCount: "shares", collectCount: "saves" };
+
+export function tiktokStats(html: string | null | undefined, videoId: string): Partial<Record<DataName, number>> {
+  if (!html || !videoId) return {};
+  const out: Partial<Record<DataName, number>> = {};
+  const take = (stats: unknown) => {
+    if (!stats || typeof stats !== "object") return;
+    for (const [field, name] of Object.entries(TT_FIELDS)) {
+      const raw = (stats as Record<string, unknown>)[field];
+      const n = typeof raw === "number" ? raw : typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : null;
+      if (n != null && Number.isFinite(n) && n >= 0 && out[name] == null) out[name] = n;
+    }
+  };
+  // Walk the page's JSON for the object whose id is this video.
+  const walk = (node: unknown, depth: number) => {
+    if (!node || typeof node !== "object" || depth > 12) return;
+    if (Array.isArray(node)) return node.forEach((x) => walk(x, depth + 1));
+    const o = node as Record<string, unknown>;
+    if (String(o.id ?? "") === videoId && (o.stats || o.statsV2)) {
+      take(o.stats);
+      take(o.statsV2);
+    }
+    for (const v of Object.values(o)) walk(v, depth + 1);
+  };
+  for (const m of html.matchAll(/<script[^>]*id="(?:__UNIVERSAL_DATA_FOR_REHYDRATION__|SIGI_STATE|__NEXT_DATA__)"[^>]*>([\s\S]*?)<\/script>/g)) {
+    try {
+      walk(JSON.parse(m[1]), 0);
+    } catch {
+      // Not JSON: skip it.
+    }
+  }
+  return out;
 }

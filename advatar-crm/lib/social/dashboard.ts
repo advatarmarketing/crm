@@ -38,6 +38,8 @@ export interface PlatformResult {
   /** Null: the platform didn't show it for any post in the period. */
   likes: number | null;
   comments: number | null;
+  /** Views of the videos posted in the period. Null: the platform didn't show any. */
+  views: number | null;
   /** Posts published in the period: total now minus total at the start. Null if unknown. */
   posts: number | null;
   /** Posts can't be counted yet: only one reading so far. */
@@ -52,7 +54,7 @@ export interface Dashboard {
   chosen: SocialPlatform[];
   platforms: PlatformResult[];
   connectedCount: number;
-  totals: { followers: number | null; growth: number | null; likes: number | null; comments: number | null; posts: number | null; postsPending: boolean; avgComments: number | null };
+  totals: { followers: number | null; growth: number | null; likes: number | null; comments: number | null; views: number | null; posts: number | null; postsPending: boolean; avgComments: number | null };
   mostCommented: SocialPost | null;
   recent: SocialPost[];
   topVideos: SocialPost[];
@@ -125,7 +127,7 @@ export async function loadDashboard(supabase: Db, clientId: string, range: Range
     chosen: ordered,
     platforms: [],
     connectedCount: 0,
-    totals: { followers: null, growth: null, likes: null, comments: null, posts: null, postsPending: false, avgComments: null },
+    totals: { followers: null, growth: null, likes: null, comments: null, views: null, posts: null, postsPending: false, avgComments: null },
     mostCommented: null,
     recent: [],
     topVideos: [],
@@ -230,7 +232,7 @@ export async function loadDashboard(supabase: Db, clientId: string, range: Range
     // No posts read at all yet: not available (rather than a false 0).
     // Posts read, none in the period: 0. Posts in the period, none
     // showing the number (hidden likes, login walls): not available.
-    const sum = (k: "likes" | "comments") => (p.length === 0 ? (everRead ? 0 : null) : p.some((x) => x[k] != null) ? p.reduce((n, x) => n + (x[k] ?? 0), 0) : null);
+    const sum = (k: "likes" | "comments" | "views") => (p.length === 0 ? (everRead ? 0 : null) : p.some((x) => x[k] != null) ? p.reduce((n, x) => n + (x[k] ?? 0), 0) : null);
 
     return {
       platform,
@@ -244,6 +246,7 @@ export async function loadDashboard(supabase: Db, clientId: string, range: Range
       series,
       likes: sum("likes"),
       comments: sum("comments"),
+      views: p.some((x) => x.views != null) ? p.reduce((n, x) => n + (x.views ?? 0), 0) : null,
       posts: postsPublished,
       postsPending: postsPublished == null && withCount.length > 0,
       baseline,
@@ -271,6 +274,7 @@ export async function loadDashboard(supabase: Db, clientId: string, range: Range
       growth: sumOrNull(live.map((p) => p.growth)),
       likes,
       comments,
+      views: sumOrNull(live.map((p) => p.views)),
       posts: postCount,
       postsPending: postCount == null && live.some((p) => p.postsPending),
       avgComments: comments != null && readPosts ? comments / readPosts : null,

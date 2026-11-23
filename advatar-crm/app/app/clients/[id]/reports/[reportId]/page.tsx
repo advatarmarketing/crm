@@ -15,6 +15,9 @@ export const dynamic = "force-dynamic";
  * Row level security (0046) decides who can open it: management and
  * the staff assigned to the client.
  */
+const shortDay = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${compact(Math.abs(n))}`;
+
 export default async function ReportPage({ params }: { params: { id: string; reportId: string } }) {
   const supabase = createClient();
   const {
@@ -146,6 +149,51 @@ export default async function ReportPage({ params }: { params: { id: string; rep
           </table>
           <p className="report-note">Engagement rate is likes, comments, shares and saves for every view.</p>
         </section>
+
+        {c.followers && (
+          <section>
+            <h2>Followers</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>At the start</th>
+                  <th>At the end</th>
+                  <th>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {c.followers.rows.map((r) => (
+                  <tr key={r.platform}>
+                    <td>{platformLabel(r.platform)}</td>
+                    <td>
+                      {compact(r.start)} <small>({shortDay(r.startDay)})</small>
+                    </td>
+                    <td>
+                      {compact(r.end)} <small>({shortDay(r.endDay)})</small>
+                    </td>
+                    <td>
+                      <strong>{signed(r.end - r.start)}</strong>
+                    </td>
+                  </tr>
+                ))}
+                {c.followers.rows.length > 1 && (
+                  <tr>
+                    <td>
+                      <strong>All together</strong>
+                    </td>
+                    <td>{compact(c.followers.start)}</td>
+                    <td>{compact(c.followers.end)}</td>
+                    <td>
+                      <strong>{signed(c.followers.end - c.followers.start)}</strong>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {c.followers.rows.some((r) => r.lateStart) && <p className="report-note">Where counting began after the start of this time, the change is from the first count.</p>}
+          </section>
+        )}
 
         {list("What worked", c.analysis.worked)}
         {list("What needs improving", c.analysis.improve)}

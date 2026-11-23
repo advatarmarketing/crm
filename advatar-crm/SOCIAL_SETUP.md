@@ -43,6 +43,14 @@ extra AI cost), or shown as "Not available from this platform". If the
 profile is sent to the login page, it tries once more in a fresh browser,
 then the embed page.
 
+### How TikTok views are read
+
+TikTok's video page doesn't show the play count on screen, so the
+scraper takes each video's plays, likes, comments and shares from the
+data TikTok puts in the page for its own app (exact numbers, no extra
+AI cost). If that's missing, it uses the number under the video on the
+profile grid ("26K"), as TikTok rounds it.
+
 ### Optional: an Instagram login
 
 Only needed if Instagram keeps sending the scraper to its login page.

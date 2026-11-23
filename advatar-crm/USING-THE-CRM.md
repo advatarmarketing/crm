@@ -185,3 +185,21 @@ The CRM is only as good as what goes into it. Three things matter most:
    creates a task automatically, so it can't quietly disappear.
 3. **Mark invoices sent and paid as it happens.** Otherwise the money
    figures — and the overdue list — are fiction.
+
+## Performance: followers, platforms and growth
+
+On a client's **Performance** tab:
+
+- **Platform** buttons sit next to the time picker. *All platforms* is the
+  default; pick one (say TikTok) to see only its numbers. **Create report**
+  makes the report for whatever is showing.
+- **Followers** shows the count at the start of the time chosen and at the
+  end, with the change. For a month (e.g. Month 1, 10 Jul to 9 Aug) it's the
+  count on 10 Jul to the count on 9 Aug. "All time" starts from the count
+  entered for the day we started.
+- **Growth over time** is one graph: pick Views, Followers, Likes, Comments
+  or Shares above it, Days or Months, and *Running total* (adds up from the
+  start) or *Each day/month*. Hover for the numbers; *Show as a table* lists
+  them all.
+- Posts read from the profile that aren't one of the planned videos are
+  counted too, marked "TikTok post" (or Instagram etc.) with a link to them.
