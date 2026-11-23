@@ -4,6 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveAiSettingsAction } from "./ai-actions";
 
+/** Pounds typed in, dollars stored; anything that isn't a number is passed on for the server to reject. */
+function toUsd(gbp: string, rate: string): string {
+  const g = Number(gbp.replace(/[£,\s]/g, ""));
+  const r = Number(rate);
+  return Number.isFinite(g) && r > 0 ? String(g / r) : gbp;
+}
+
 export function AiSettingsForm({
   initial,
 }: {
@@ -12,7 +19,8 @@ export function AiSettingsForm({
   const [model, setModel] = useState(initial.scraperModel);
   const [posts, setPosts] = useState(String(initial.postsPerProfile));
   const [rate, setRate] = useState(String(initial.gbpPerUsd));
-  const [budget, setBudget] = useState(String(initial.monthlyBudgetUsd));
+  // The budget is typed in pounds and stored in dollars (what Anthropic bills).
+  const [budget, setBudget] = useState(String(Math.round(initial.monthlyBudgetUsd * initial.gbpPerUsd * 100) / 100));
   const [prices, setPrices] = useState(
     Object.entries(initial.prices).map(([m, p]) => ({ model: m, input: String(p.input), output: String(p.output) }))
   );
@@ -23,7 +31,7 @@ export function AiSettingsForm({
   const save = () =>
     start(async () => {
       setNote(null);
-      const r = await saveAiSettingsAction({ scraperModel: model, postsPerProfile: posts, gbpPerUsd: rate, monthlyBudgetUsd: budget, prices });
+      const r = await saveAiSettingsAction({ scraperModel: model, postsPerProfile: posts, gbpPerUsd: rate, monthlyBudgetUsd: toUsd(budget, rate), prices });
       setNote(r.ok ? { ok: true, text: "Saved." } : { ok: false, text: r.error });
       if (r.ok) router.refresh();
     });
@@ -33,7 +41,7 @@ export function AiSettingsForm({
       <h3>Settings</h3>
       <div className="ai-settings-grid">
         <label>
-          <span>Monthly budget (USD)</span>
+          <span>Monthly budget (£)</span>
           <input inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} aria-describedby="ai-budget-hint" />
           <small id="ai-budget-hint">Warn at 80%, pause the scraper at 100%. 0 = no limit.</small>
         </label>

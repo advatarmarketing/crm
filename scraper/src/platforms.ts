@@ -137,10 +137,13 @@ export const POSTS_READY: Partial<Record<Platform, string>> = {
  * only when the screenshot couldn't be read: it is the platform's own
  * text, not a guess.
  */
-export function countsFromSummary(text: string | null | undefined): { name: "followers" | "following" | "posts" | "likes" | "subscribers" | "videos"; text: string }[] {
+export type SummaryName = "followers" | "following" | "posts" | "likes" | "subscribers" | "videos" | "comments" | "views";
+
+export function countsFromSummary(text: string | null | undefined): { name: SummaryName; text: string }[] {
   if (!text) return [];
-  const out: { name: "followers" | "following" | "posts" | "likes" | "subscribers" | "videos"; text: string }[] = [];
-  const grab = (name: (typeof out)[number]["name"], word: string) => {
+  const out: { name: SummaryName; text: string }[] = [];
+  const grab = (name: SummaryName, word: string) => {
+    if (out.some((o) => o.name === name)) return;
     const m = text.match(new RegExp(`(\\d[\\d.,]*\\s?[KMB]?)\\s+${word}\\b`, "i"));
     if (m) out.push({ name, text: m[1].trim() });
   };
@@ -148,8 +151,13 @@ export function countsFromSummary(text: string | null | undefined): { name: "fol
   grab("following", "Following");
   grab("posts", "Posts");
   grab("likes", "Likes");
+  grab("likes", "like");
   grab("subscribers", "subscribers");
   grab("videos", "videos");
+  grab("comments", "comments");
+  grab("comments", "comment");
+  grab("views", "views");
+  grab("views", "plays");
   return out;
 }
 

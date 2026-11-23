@@ -13,6 +13,7 @@ export interface Settings {
   posts_per_profile: number;
   prices: Record<string, { input: number; output: number }>;
   monthly_budget_usd: number;
+  gbp_per_usd: number;
 }
 
 const DEFAULTS: Settings = {
@@ -20,10 +21,11 @@ const DEFAULTS: Settings = {
   posts_per_profile: 3,
   prices: { "claude-haiku-5-5": { input: 0.1, output: 0.5 } },
   monthly_budget_usd: 10,
+  gbp_per_usd: 0.79,
 };
 
 export async function settings(sb: SupabaseClient): Promise<Settings> {
-  const { data, error } = await sb.from("ai_settings").select("scraper_model, posts_per_profile, prices, monthly_budget_usd").eq("id", true).maybeSingle();
+  const { data, error } = await sb.from("ai_settings").select("scraper_model, posts_per_profile, prices, monthly_budget_usd, gbp_per_usd").eq("id", true).maybeSingle();
   if (error) throw new Error(`Couldn't read ai_settings (has database update 0052 been run?): ${error.message}`);
   if (!data) return DEFAULTS;
   return {
@@ -31,6 +33,7 @@ export async function settings(sb: SupabaseClient): Promise<Settings> {
     posts_per_profile: Number(data.posts_per_profile ?? 3),
     prices: (data.prices as Settings["prices"]) ?? DEFAULTS.prices,
     monthly_budget_usd: Number(data.monthly_budget_usd ?? 0),
+    gbp_per_usd: Number(data.gbp_per_usd ?? DEFAULTS.gbp_per_usd) || DEFAULTS.gbp_per_usd,
   };
 }
 
@@ -78,4 +81,9 @@ export async function monthSpend(sb: SupabaseClient): Promise<number> {
   });
   if (error) throw new Error(`Couldn't work out this month's AI spend: ${error.message}`);
   return Number((data as { month?: number } | null)?.month ?? 0);
+}
+
+/** Pounds first (as the Finance tab shows it), with the dollars Anthropic bills in. */
+export function money(s: Settings, usd: number, places = 4): string {
+  return `£${(usd * s.gbp_per_usd).toFixed(places)} ($${usd.toFixed(places)})`;
 }
