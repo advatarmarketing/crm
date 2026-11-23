@@ -32,6 +32,9 @@ type Document = Database["public"]["Tables"]["documents"]["Row"];
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 const TABS = [
+  // 0053: what needs doing for this client, and when. First, because
+  // it's what you open a client to find out.
+  { id: "dashboard", label: "Dashboard" },
   { id: "info", label: "Info" },
   // 0041: what this client gets and when we post. Everything the
   // client later sees — review buttons, extras, the video schedule —
@@ -42,6 +45,8 @@ const TABS = [
   // 0046: how the posted videos did, and the reports made from that.
   { id: "performance", label: "Performance" },
   { id: "plan", label: "Content Plan" },
+  // 0053: the script library; a script can be put on a planned video.
+  { id: "scripts", label: "Scripts" },
   // Only rendered for the people 0039 lets near a login — management
   // and assigned staff. A videographer who typed ?tab=passwords
   // would land on Info, and would see an empty list even if they
@@ -61,6 +66,8 @@ type TabId = (typeof TABS)[number]["id"];
 export function ClientDetailTabs({
   client,
   socialPanel,
+  dashboardPanel,
+  scriptsPanel,
   documents,
   tasks,
   monthlyValue,
@@ -155,6 +162,10 @@ export function ClientDetailTabs({
   notSaved?: string[];
   /** The client's social results dashboard (Content Hub), server-rendered. */
   socialPanel?: ReactNode;
+  /** 0053: the client's work dashboard, server-rendered. */
+  dashboardPanel?: ReactNode;
+  /** 0053: the script library. */
+  scriptsPanel?: ReactNode;
   /** 0043: the client-facing account details; null for non-management. */
   account?: { available: boolean; paymentDay: number | null; note: string | null } | null;
   /** Phase 18: the client's payment agreement. CEO-only, so undefined for everyone else. */
@@ -171,7 +182,13 @@ export function ClientDetailTabs({
   // Set when the Performance tab sends someone to a video.
   const [openVideo, setOpenVideo] = useState<string | null>(null);
 
-  const tabs = TABS.filter((t) => (t.id !== "passwords" || canSeeCredentials) && (t.id !== "performance" || canEditVideos));
+  const tabs = TABS.filter(
+    (t) =>
+      (t.id !== "passwords" || canSeeCredentials) &&
+      (t.id !== "performance" || canEditVideos) &&
+      (t.id !== "dashboard" || Boolean(dashboardPanel)) &&
+      (t.id !== "scripts" || Boolean(scriptsPanel))
+  );
 
   return (
     <div>
@@ -228,6 +245,8 @@ export function ClientDetailTabs({
 
       {/* Keyed by tab, so each one eases in as it is opened. */}
       <div key={tab} className="fade-in">
+      {tab === "dashboard" && dashboardPanel}
+      {tab === "scripts" && scriptsPanel}
       {tab === "info" && (
         <div style={{ maxWidth: 720 }} className="client-info-col">
           {justAdded && (

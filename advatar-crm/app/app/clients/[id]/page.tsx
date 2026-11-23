@@ -14,6 +14,10 @@ import { loadDashboard } from "@/lib/social/dashboard";
 import { loadTeamSide } from "@/lib/social/team";
 import { parseRange } from "@/lib/social";
 import { SocialDashboard } from "@/components/social/SocialDashboard";
+import { ClientWorkDashboard } from "@/components/clientwork/ClientWorkDashboard";
+import { ScriptsPanel } from "@/components/clientwork/ScriptsPanel";
+import { loadClientWork } from "@/lib/client-work";
+import { loadScripts } from "@/lib/scripts";
 
 export default async function ClientDetailPage({
   params,
@@ -318,10 +322,29 @@ export default async function ClientDetailPage({
       />
     ) : null;
 
+  // 0053: the work dashboard and the scripts, for everyone on the team.
+  const [work, scripts] = await Promise.all([loadClientWork(supabase, client.id), loadScripts(supabase, client.id)]);
+  const dashboardPanel = (
+    <ClientWorkDashboard
+      work={work}
+      client={{ id: client.id, name: client.name }}
+      canTick
+      canAdd={callerRole !== "videographer"}
+      me={user?.id ?? null}
+      videosHref={`/app/clients/${client.id}?tab=videos`}
+    />
+  );
+  const scriptsPanel = (
+    <ScriptsPanel clientId={client.id} initialScripts={scripts.scripts} videos={scripts.videos} pillars={scripts.pillars} available={scripts.available} />
+  );
+
   return (
     <main className="page">
+      {(client as { internal_kind?: string | null }).internal_kind && <YouBanner kind={(client as { internal_kind: string }).internal_kind} />}
       <ClientDetailTabs
         socialPanel={socialPanel}
+        dashboardPanel={dashboardPanel}
+        scriptsPanel={scriptsPanel}
         client={client}
         documents={documents ?? []}
         tasks={tasks ?? []}
@@ -333,6 +356,8 @@ export default async function ClientDetailPage({
         // than trusting the query string.
         initialTab={
           searchParams?.tab === "plan" ||
+          searchParams?.tab === "info" ||
+          searchParams?.tab === "scripts" ||
           searchParams?.tab === "calendar" ||
           searchParams?.tab === "activity" ||
           searchParams?.tab === "package" ||
@@ -340,7 +365,7 @@ export default async function ClientDetailPage({
           (searchParams?.tab === "performance" && callerRole !== "videographer") ||
           (searchParams?.tab === "passwords" && canSeeCredentials)
             ? searchParams.tab
-            : "info"
+            : "dashboard"
         }
         teamMembers={teamMembers}
         assignableProfiles={assignableHere}
@@ -385,5 +410,16 @@ export default async function ClientDetailPage({
         }
       />
     </main>
+  );
+}
+
+/** On your own content: which brand this is, and the way back to choose the other. */
+function YouBanner({ kind }: { kind: string }) {
+  return (
+    <p className="you-banner">
+      <span className="you-badge">YOU</span>
+      {kind === "personal" ? "Your personal brand" : "The business"} · your own content, never shown to clients or in Finance.{" "}
+      <a href="/app/clients/you">Switch</a>
+    </p>
   );
 }

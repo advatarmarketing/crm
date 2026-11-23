@@ -43,6 +43,7 @@ export function TodoPanel({
   canTick = true,
   canEdit,
   priorityAvailable = false,
+  fixedClient,
 }: {
   initialTasks: TodoEntry[];
   editable?: boolean;
@@ -74,11 +75,13 @@ export function TodoPanel({
    * assumed to be there.
    */
   priorityAvailable?: boolean;
+  /** On one client's page: everything added here is for that client, so there's no picker. */
+  fixedClient?: ClientChoice;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [text, setText] = useState("");
   const [due, setDue] = useState("");
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(fixedClient?.id ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
@@ -138,14 +141,14 @@ export function TodoPanel({
       return;
     }
 
-    const clientName = clients.find((c) => c.id === clientId)?.name ?? null;
+    const clientName = (fixedClient && fixedClient.id === clientId ? fixedClient : clients.find((c) => c.id === clientId))?.name ?? null;
     // `priority` is deliberately not read back: it is left out of the
     // select for the same reason it is left out of every page's, and a
     // new row always starts at the column's default anyway.
     setTasks((prev) => [...prev, { ...(data as TodoEntry), clientName, priority: "normal" }]);
     setText("");
     setDue("");
-    setClientId("");
+    setClientId(fixedClient?.id ?? "");
     router.refresh();
   }
 
@@ -324,7 +327,7 @@ export function TodoPanel({
             title="Due date (optional)"
             style={{ ...field, flex: "1 1 140px" }}
           />
-          {clients.length > 0 && (
+          {!fixedClient && clients.length > 0 && (
             <select value={clientId} onChange={(e) => setClientId(e.target.value)} style={{ ...field, flex: "1 1 150px" }}>
               <option value="">No client</option>
               {clients.map((c) => (

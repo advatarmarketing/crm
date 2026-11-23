@@ -1,3 +1,6 @@
+import { ClientDeadlines } from "@/components/clientwork/ClientDeadlines";
+import { loadClientMeters } from "@/lib/client-work";
+import { internalClientIds } from "@/lib/internal-clients";
 import { DueFromYou } from "@/components/videos/DueFromYou";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -89,7 +92,9 @@ export default async function DashboardPage() {
     supabase.from("event_categories").select("id, name, colour").order("position"),
   ]);
 
-  const allClients = clients ?? [];
+  // 0053: your own brands are not clients for these figures.
+  const internal = await internalClientIds(supabase);
+  const allClients = (clients ?? []).filter((c) => !internal.has(c.id));
 
   type InvoiceRow = {
     id: string;
@@ -393,6 +398,9 @@ export default async function DashboardPage() {
           actually opened for. New entries default to the signed-in
           person, which is the one value every role's RLS will accept
           on a write. */}
+      {/* 0053: how far ahead each client's videos are. */}
+      <ClientDeadlines meters={await loadClientMeters(supabase).catch(() => [])} base="/app/clients" />
+
       <section className="section">
         <div className="dashboard-widgets">
           <div style={{ minWidth: 0 }}>

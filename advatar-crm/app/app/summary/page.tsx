@@ -1,3 +1,4 @@
+import { internalClientIds } from "@/lib/internal-clients";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -54,7 +55,8 @@ export default async function SummaryPage() {
   };
   const events = (activity ?? []) as unknown as ActivityRow[];
   const allInvoices = invoices ?? [];
-  const allClients = clients ?? [];
+  const internal = await internalClientIds(supabase);
+  const allClients = (clients ?? []).filter((c) => !internal.has(c.id));
 
   const newClients = allClients.filter((c) => new Date(c.created_at) >= weekAgo);
   const wonThisWeek = events.filter((e) => e.kind === "stage_changed" && e.summary.includes("to active"));

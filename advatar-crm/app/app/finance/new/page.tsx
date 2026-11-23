@@ -1,3 +1,4 @@
+import { internalClientIds } from "@/lib/internal-clients";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InvoiceForm } from "../InvoiceForm";
@@ -25,6 +26,9 @@ export default async function NewInvoicePage({
 
   const { data: clients } = await supabase.from("clients").select("id, name").order("name");
 
+  // 0053: no invoices for your own brands.
+  const internal = await internalClientIds(supabase);
+
   return (
     <main className="page-narrow">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 32, letterSpacing: "0.02em", margin: "0 0 4px" }}>
@@ -35,7 +39,7 @@ export default async function NewInvoicePage({
       </p>
 
       <InvoiceForm
-        clients={clients ?? []}
+        clients={(clients ?? []).filter((c) => !internal.has(c.id))}
         invoice={searchParams?.client ? { client_id: searchParams.client } : undefined}
       />
     </main>
