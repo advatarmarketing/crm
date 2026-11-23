@@ -37,12 +37,22 @@ export type NavIconName =
   | "work"
   | "uploads"
   | "portfolio"
+  | "journey"
   | "portal"
   | "profile"
   | "password"
   | "signout";
 
 const PATHS: Record<NavIconName, JSX.Element> = {
+  // A winding road up to a flag: where you are and where it goes.
+  journey: (
+    <>
+      <path d="M5 20.5c0-3 3-3.5 6-3.5s5-1 5-3.5-2.5-3-5-3-4-1-4-3 1.5-3 4-3" />
+      <path d="M16 3.5v6" />
+      <path d="M16 3.5h4.5l-1.5 1.75 1.5 1.75H16" />
+      <circle cx="5" cy="20.5" r="1" />
+    </>
+  ),
   // A frame with an arrow rising out of it — handing a cut over,
   // rather than the generic cloud that means "files" everywhere else.
   uploads: (
