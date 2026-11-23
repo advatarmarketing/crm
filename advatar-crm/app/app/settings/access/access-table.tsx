@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ACCESS_AREAS, type AccessArea, type TeamAccess } from "@/lib/team-access";
-import { setOwnContentAction, setStaffAccessAction, setVideographerShareAction } from "./actions";
+import { setOwnContentAction, setReplierAccessAction, setStaffAccessAction, setVideographerShareAction } from "./actions";
 
 export interface StaffAccessRow {
   id: string;
@@ -200,6 +200,59 @@ export function OwnContentTable({ rows: initial, available }: { rows: OwnContent
               <label className="access-switch" title="Sees YOU on their Clients page and works on your own content like any client">
                 <input type="checkbox" checked={r.on} disabled={!available} onChange={() => flip(r)} aria-label={`${r.name}: your content`} />
                 <span>Your content (YOU)</span>
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 0056: who may use the Professional Replier (the CEO always can). */
+export function ReplierAccessTable({ rows: initial, available }: { rows: OwnContentRow[]; available: boolean }) {
+  const [rows, setRows] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function flip(row: OwnContentRow) {
+    const value = !row.on;
+    setError(null);
+    setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, on: value } : r)));
+    start(async () => {
+      const res = await setReplierAccessAction(row.id, value);
+      if (res.error) {
+        setError(res.error);
+        setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, on: row.on } : r)));
+      }
+    });
+  }
+
+  if (rows.length === 0) return <p className="access-muted">Nobody else on the team yet.</p>;
+
+  return (
+    <div>
+      {!available && (
+        <p className="access-note" role="status" style={{ marginBottom: 16 }}>
+          This switch starts working once database update 0056 is run.
+        </p>
+      )}
+      {error && (
+        <p role="alert" style={{ color: "var(--status-closed)", fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </p>
+      )}
+      <div className="access-table" aria-busy={pending}>
+        {rows.map((r) => (
+          <div key={r.id} className="access-row" data-person={r.name}>
+            <div className="access-person">
+              <strong>{r.name}</strong>
+              <span className="access-muted">{ROLE_WORD[r.role] ?? r.role}</span>
+            </div>
+            <div className="access-switches">
+              <label className="access-switch" title="Sees the Professional Replier tab on Messages">
+                <input type="checkbox" checked={r.on} disabled={!available} onChange={() => flip(r)} aria-label={`${r.name}: Professional Replier`} />
+                <span>Professional Replier</span>
               </label>
             </div>
           </div>

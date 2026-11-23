@@ -18,6 +18,7 @@ const FEATURE: Record<string, string> = {
   meeting: "Meeting reader",
   report: "Report writer",
   screenshot: "Screenshot reader",
+  replier: "Professional Replier",
 };
 
 export async function AiSpendPanel() {

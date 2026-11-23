@@ -135,6 +135,10 @@ from (
     (
       '0055', 'Your Journey: paths, levels, progress and sign-off',
       case when to_regclass('public.journey_paths') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0056', 'Professional Replier on the Messages page',
+      case when to_regclass('public.replier_runs') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

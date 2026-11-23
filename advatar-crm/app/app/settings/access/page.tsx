@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ACCESS_AREAS, accessForRole, type TeamAccess } from "@/lib/team-access";
-import { AccessTable, OwnContentTable, VideographerTable, type OwnContentRow, type StaffAccessRow, type VideographerRow } from "./access-table";
+import { AccessTable, OwnContentTable, ReplierAccessTable, VideographerTable, type OwnContentRow, type StaffAccessRow, type VideographerRow } from "./access-table";
 
 export const dynamic = "force-dynamic";
 
@@ -63,10 +63,12 @@ export default async function TeamAccessPage() {
   }));
 
   // 0053: who is on your own brands (they're simply on both, in client_staff).
-  const [{ data: team }, internalRes] = await Promise.all([
+  const [{ data: team }, internalRes, replierRes] = await Promise.all([
     supabase.from("profiles").select("id, full_name, role").in("role", ["operations_manager", "staff", "videographer"]).order("full_name"),
     supabase.from("clients").select("id").not("internal_kind", "is", null),
+    supabase.from("replier_access").select("profile_id"),
   ]);
+  const onReplier = new Set(((replierRes.error ? [] : replierRes.data) ?? []).map((r: { profile_id: string }) => r.profile_id));
   const internalIds = new Set(((internalRes.error ? [] : internalRes.data) ?? []).map((c: { id: string }) => c.id));
   const onYou = new Set(
     ((assignments ?? []) as unknown as { staff_id: string; client_id: string }[]).filter((a) => internalIds.has(a.client_id)).map((a) => a.staff_id)
@@ -111,6 +113,13 @@ export default async function TeamAccessPage() {
         videos, scripts and to-dos. Off for everyone until you switch them on.
       </p>
       <OwnContentTable rows={ownRows} available={!internalRes.error && internalIds.size > 0} />
+
+      <h2 className="section-title" style={{ margin: "36px 0 8px" }}>Professional Replier</h2>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 16px", lineHeight: 1.6 }}>
+        Who sees the Professional Replier on the Messages page: paste a client&rsquo;s message, get the best reply and two
+        others. Messages that need you first come to you as a to-do. You always have it.
+      </p>
+      <ReplierAccessTable rows={ownRows.map((r) => ({ ...r, on: onReplier.has(r.id) }))} available={!replierRes.error} />
       <p style={{ marginTop: 28 }}>
         <Link href="/app/settings/logins">← Logins</Link>
       </p>
