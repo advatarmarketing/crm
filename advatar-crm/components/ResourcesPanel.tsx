@@ -63,6 +63,7 @@ export function ResourcesPanel({
   defaultKind = "sop",
   withChecklists = true,
   addLabel = "+ Add SOP or tutorial",
+  insertDefaults,
 }: {
   initialResources: ResourceEntry[];
   editable?: boolean;
@@ -78,6 +79,8 @@ export function ResourcesPanel({
    * that.
    */
   audienceChoices?: AudienceChoice[];
+  /** Extra columns for anything added here (0054: the Filming / Editing section it's added under). */
+  insertDefaults?: Record<string, string | null>;
   defaultKind?: ResourceKind;
   /** The Resources half is reference material, so it has no steps. */
   withChecklists?: boolean;
@@ -141,6 +144,7 @@ export function ResourcesPanel({
         audience_role: audienceChoices ? audience : audienceRole,
         assigned_to: justThisPerson ? personId : null,
         position: resources.length,
+        ...(insertDefaults ?? {}),
       })
       .select("id, title, kind, url, body, audience_role, assigned_to, position")
       .single();

@@ -4,6 +4,7 @@ import { StepChips } from "./StepChips";
 import { HEALTH_LABEL, aheadText, type Meter } from "@/lib/deadlines";
 import { prettyDay, todayKey } from "@/lib/videos";
 import type { ClientWork, WorkVideo } from "@/lib/client-work";
+import { GUIDE_STAGES, guideHref } from "@/lib/guides";
 
 /**
  * The first thing anyone on the team sees when they open a client: what
@@ -17,7 +18,6 @@ export function ClientWorkDashboard({
   canAdd,
   me,
   videosHref,
-  guideHref,
 }: {
   work: ClientWork;
   client: { id: string; name: string };
@@ -27,8 +27,6 @@ export function ClientWorkDashboard({
   me: string | null;
   /** Where "see every video" goes. */
   videosHref?: string;
-  /** "How to make this" for a pillar (Part 3); null until guides exist. */
-  guideHref?: (pillar: string) => string | null;
 }) {
   const today = todayKey();
   const late = work.videos.filter((v) => v.health === "late");
@@ -94,7 +92,7 @@ export function ClientWorkDashboard({
         ) : (
           <ol className="cw-video-list">
             {work.videos.map((v) => (
-              <VideoRow key={v.id} v={v} canTick={canTick} today={today} guide={v.pillar && guideHref ? guideHref(v.pillar) : null} />
+              <VideoRow key={v.id} v={v} canTick={canTick} today={today} clientId={client.id} />
             ))}
           </ol>
         )}
@@ -103,7 +101,7 @@ export function ClientWorkDashboard({
   );
 }
 
-function VideoRow({ v, canTick, today, guide }: { v: WorkVideo; canTick: boolean; today: string; guide: string | null }) {
+function VideoRow({ v, canTick, today, clientId }: { v: WorkVideo; canTick: boolean; today: string; clientId: string }) {
   const tone = v.health === "late" ? "danger" : v.health === "behind" ? "warn" : v.health === "done" ? "ok" : "neutral";
   return (
     <li className="cw-video" data-health={v.health}>
@@ -116,10 +114,17 @@ function VideoRow({ v, canTick, today, guide }: { v: WorkVideo; canTick: boolean
           <span>{v.label}</span>
           {v.pillar && <span className="pill">{v.pillar}</span>}
           {!v.hasScript && !v.finished && <span className="pill pill-info">No script yet</span>}
-          {guide && (
-            <Link href={guide} className="cw-guide">
-              How to make this →
-            </Link>
+          {v.pillar && (
+            <span className="cw-guide">
+              {GUIDE_STAGES.map((g) => {
+                const p = v.guide[g.id];
+                return (
+                  <Link key={g.id} href={guideHref(clientId, v.pillar!, g.id, v.id)}>
+                    How to {g.verb} this{p ? ` (${p.done}/${p.total})` : ""}
+                  </Link>
+                );
+              })}
+            </span>
           )}
         </div>
         <StepChips steps={v.steps} canTick={canTick} today={today} />

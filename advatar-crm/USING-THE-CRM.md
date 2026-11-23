@@ -73,6 +73,26 @@ any client. These never appear in the client list, Finance or the
 pipeline. Switch someone on under **Settings → Team access → Your
 content** to let them work on it.
 
+### Guidelines: Filming and Editing
+**Tools → Guidelines** has two sections, **Filming** and **Editing** (and
+**General** for any checklist not put in either yet: use its **Section**
+menu to move it).
+
+Down the side are **your clients and their content pillars** (from each
+client's content plan). Click a pillar to see **how to film** or **how to
+edit** that kind of video: the **elements needed** and the **step-by-step
+process**. A filled dot means that guide is written.
+
+- **Create guide** starts from the Filming or Editing template (the CEO
+  can change the templates at the bottom of each section). Write it with
+  the videographer when you make the first video for that pillar.
+- **Start a new video** gives a fresh checklist to tick through, linked to
+  a planned video if you like. Its progress shows on the client's
+  Dashboard ("How to film this 2/5").
+- Every video on the Dashboard and in Videos has **How to film this** and
+  **How to edit this** links. The CEO, ops manager and the team on that
+  client can edit guides; clients never see them.
+
 ### Pipeline
 Your leads, in three columns: **Leads** (not pitched yet), **Proposal**
 (pitched, waiting), and **Recently won**.

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatTimecode, type UploadChecklistItem } from "@/lib/uploads";
 import { REVISION_LABELS, type PackageSettings } from "@/lib/packages";
 import { playerFor } from "@/lib/video-links";
+import { GUIDE_STAGES, guideHref } from "@/lib/guides";
 import { ASPECTS, BOX_LABEL, aspectCss, prettyDay, type BoxState, type ContentVideo, type VideoCycle } from "@/lib/videos";
 import { compact, type VideoPost } from "@/lib/performance";
 import { AddPost, PostRow, type MetricsSetup } from "@/components/performance/PostRow";
@@ -269,6 +270,18 @@ export function VideoDetail({
               </>
             ) : (
               <span>{video.pillar || "None yet"}</span>
+            )}
+            {/* 0054: the team's guide for this kind of video. Only the
+                team ever opens this view (a client's grid links to
+                their own Videos page instead). */}
+            {video.pillar?.trim() && (
+              <span className="vd-guides">
+                {GUIDE_STAGES.map((g) => (
+                  <a key={g.id} href={guideHref(video.client_id, video.pillar!.trim(), g.id, video.id)}>
+                    How to {g.verb} this →
+                  </a>
+                ))}
+              </span>
             )}
           </label>
           <label>

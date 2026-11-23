@@ -3,6 +3,7 @@ import { meter, mondayOf, stepDue, targetDate, latestDate, videoHealth, type Hea
 import { loadNamesById } from "@/lib/people";
 import { withTaskPriorities } from "@/lib/tasks";
 import type { TodoEntry } from "@/components/TodoPanel";
+import { guideProgress, type GuideStage } from "@/lib/guides";
 
 /**
  * Everything the client's Dashboard tab shows (0053): the video steps
@@ -34,6 +35,8 @@ export interface WorkVideo {
   target: string;
   latest: string;
   hasScript: boolean;
+  /** 0054: how far through its Filming / Editing guide the latest checklist is. */
+  guide: Partial<Record<GuideStage, { done: number; total: number }>>;
 }
 
 export interface ClientWork {
@@ -99,10 +102,13 @@ export async function loadClientWork(supabase: QueryableClient, clientId: string
         target: targetDate(publish),
         latest: latestDate(publish),
         hasScript: Boolean(v.hook?.trim() || v.body?.trim()),
+        guide: {},
       };
     });
 
   const shown = work.filter((v) => (v.publish >= today && v.publish <= addDays(today, AHEAD_DAYS)) || (v.publish < today && !v.steps.post.done));
+  const progress = await guideProgress(supabase, shown.map((v) => v.id)).catch(() => new Map());
+  for (const v of shown) v.guide = progress.get(v.id) ?? {};
 
   // Sunday of this week: "this week" ends there.
   const weekEnd = addDays(mondayOf(today), 6);
