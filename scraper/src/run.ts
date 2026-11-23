@@ -376,8 +376,16 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, firstPage: Page, c:
       // drew): the embed page lists the latest posts too.
       const embed = found.length === 0 ? embedProfile(platform, url) : null;
       if (embed) {
-        await load(page, embed);
-        for (const href of await links(page)) {
+        if (page.url() !== embed) await load(page, embed);
+        const hrefs = await links(page);
+        // Instagram's embed page can keep the latest posts in the page's
+        // data rather than as links: look for their codes there too.
+        const html = platform === "instagram" ? await page.content().catch(() => "") : "";
+        const fromData = Array.from(html.matchAll(/(?:\\?\/(?:p|reel)\\?\/|"shortcode"\s*:\s*"|shortcode\\":\\")([A-Za-z0-9_-]{8,14})/g)).map(
+          (m) => `https://www.instagram.com/p/${m[1]}/`
+        );
+        log(`  ${LABEL[platform]}: embed page has ${hrefs.length} link(s)${platform === "instagram" ? ` and ${new Set(fromData).size} post code(s) in its data` : ""}`);
+        for (const href of [...hrefs, ...fromData]) {
           const p = postFromLink(platform, href, page.url(), handleX);
           if (p && !seen.has(p.key)) {
             seen.add(p.key);
