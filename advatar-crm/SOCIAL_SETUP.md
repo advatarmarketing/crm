@@ -31,9 +31,21 @@ same Supabase database.
 
 You no longer need `SCRAPECREATORS_API_KEY` or any Meta/TikTok codes.
 
+### How Instagram is read without logging in
+
+Like a visitor would: on the profile it closes the "See photos and videos
+from …" box with its ✕ and reads the numbers. It never clicks a post
+(that asks you to log in); it opens each post's link directly in a new
+tab, closes the "Never miss a post from …" box, and reads the comments,
+plus likes and views when shown. When Instagram hides likes or views,
+they're taken from Instagram's own post summary or embed page (free, no
+extra AI cost), or shown as "Not available from this platform". If the
+profile is sent to the login page, it tries once more in a fresh browser,
+then the embed page.
+
 ### Optional: an Instagram login
 
-Instagram often sends logged-out visitors from servers to its login page.
+Only needed if Instagram keeps sending the scraper to its login page.
 The scraper can browse Instagram logged in instead. **Use a spare
 Instagram account, not the business one**: Instagram doesn't allow
 automated use, and if it objects it may log that account out or ask for a

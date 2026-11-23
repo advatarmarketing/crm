@@ -2,11 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
 import type { BrowserContext, Page } from "playwright";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { instagramLoggedIn, links, load, meta, newContext, nudge, openBrowser, pageState, shot } from "./browser.js";
+import { bodyText, clearPopups, instagramLoggedIn, links, load, meta, newContext, nudge, openBrowser, pageState, shot } from "./browser.js";
 import { LABEL, PLATFORMS, POSTS_READY, PROFILE_READY, countsFromSummary, embedPost, embedProfile, plausible, postFromLink, postedFromKey, postsPage, xHandle, type Platform } from "./platforms.js";
 import { parseCount } from "./numbers.js";
 import { clean, pick, readScreenshot, type Clean } from "./read.js";
-import { cost, db, londonMarks, monthSpend, settings, type Settings } from "./store.js";
+import { cost, db, londonMarks, money, monthSpend, settings, type Settings } from "./store.js";
 
 /**
  * The social stats scraper. Run by GitHub Actions (.github/workflows/
@@ -91,7 +91,7 @@ async function main() {
     const { data: calls } = await sb.from("ai_usage").select("input_tokens, output_tokens, cost_usd").eq("run_id", ctx.runId);
     const rows = (calls ?? []) as { input_tokens: number; output_tokens: number; cost_usd: number }[];
     const sum = (k: "input_tokens" | "output_tokens" | "cost_usd") => rows.reduce((n, r) => n + Number(r[k] ?? 0), 0);
-    log(`AI cost this run: $${sum("cost_usd").toFixed(6)} for ${rows.length} call(s), ${sum("input_tokens")} input + ${sum("output_tokens")} output tokens.`);
+    log(`AI cost this run: ${money(ctx.s, sum("cost_usd"), 6)} for ${rows.length} call(s), ${sum("input_tokens")} input + ${sum("output_tokens")} output tokens.`);
   };
 
   if (await overBudget(ctx)) return finish("skipped", ctx.stopped);
@@ -134,7 +134,7 @@ async function overBudget(ctx: Ctx): Promise<boolean> {
   if (!budget || budget <= 0) return false;
   const spent = await monthSpend(ctx.sb);
   if (spent >= budget) {
-    ctx.stopped = `Paused: this month's AI budget ($${budget.toFixed(2)}) is used up ($${spent.toFixed(4)} spent).`;
+    ctx.stopped = `Paused: this month's AI budget (${money(ctx.s, budget, 2)}) is used up (${money(ctx.s, spent)} spent).`;
     log(ctx.stopped);
     return true;
   }
@@ -195,17 +195,48 @@ async function readAndLog(ctx: Ctx, img: Buffer, clientId: string, platform: Pla
   return r;
 }
 
-async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: ClientRow, platform: Platform, url: string) {
+async function doPlatform(ctx: Ctx, context: BrowserContext, firstPage: Page, c: ClientRow, platform: Platform, url: string) {
+  // A fresh browser is opened (and used for the rest of this platform)
+  // when the first visit is sent to a login page.
+  let page = firstPage;
+  let cx = context;
+  const extra: BrowserContext[] = [];
+  try {
+    await profileAndPosts();
+  } finally {
+    for (const x of extra) await x.close().catch(() => {});
+  }
+
+  async function profileAndPosts() {
   // ------------------------------------------------------------ profile
   let img: Buffer | null = null;
   let stats: Clean[] = [];
   let problem: string | null = null;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  let wall = false;
+  let usedEmbed = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      // The second try uses the platform's embed page where it has one.
-      const fallback = attempt > 1 ? embedProfile(platform, url) : null;
-      if (fallback) log(`  ${LABEL[platform]}: trying the embed page`);
-      const status = await load(page, fallback ?? url, fallback ? undefined : PROFILE_READY[platform]);
+      // 1: the profile, with its pop-up closed. 2: after a login page,
+      // the same in a fresh browser (no cookies); otherwise the embed
+      // page. 3: the embed page, if 2 was the fresh browser.
+      let target = url;
+      if (attempt > 1) {
+        if (attempt === 2 && wall && cx === context) {
+          log(`  ${LABEL[platform]}: login page; trying again in a fresh browser`);
+          cx = await newContext(context.browser()!);
+          extra.push(cx);
+          page = await cx.newPage();
+        } else {
+          const e = usedEmbed ? null : embedProfile(platform, url);
+          if (e) {
+            target = e;
+            usedEmbed = true;
+            log(`  ${LABEL[platform]}: trying the embed page`);
+          } else if (attempt === 3) break;
+        }
+      }
+      wall = false;
+      const status = await load(page, target, target === url ? PROFILE_READY[platform] : undefined);
       img = await shot(page);
       if (status >= 400 && status !== 429) {
         problem = `The page answered with an error (${status}).`;
@@ -215,6 +246,7 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
       // Don't pay for a read of an empty page or a login screen.
       const seen = await pageState(page);
       if (seen.loginWall) {
+        wall = true;
         problem =
           platform === "instagram" && instagramLoggedIn()
             ? "Instagram's saved login has expired or was logged out. Update INSTAGRAM_SESSIONID in GitHub."
@@ -324,6 +356,8 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
       const listUrl = postsPage(platform, url);
       if (listUrl !== url || page.url() !== url) await load(page, listUrl, POSTS_READY[platform]);
       await nudge(page, POSTS_READY[platform]);
+      // Scrolling can bring the "log in to see more" box back.
+      await clearPopups(page);
       const seen = new Set<string>();
       const handleX = platform === "x" ? xHandle(url) : null;
       for (const href of await links(page)) {
@@ -363,7 +397,8 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, page: Page, c: Clie
   const linked = platform === "youtube" ? [] : await linkedDue(ctx, c.id, platform, new Set(found.map((f) => f.key)));
   for (const p of [...found, ...linked]) {
     if (ctx.stopped) break;
-    await doPost(ctx, context, page, c, platform, p);
+    await doPost(ctx, cx, c, platform, p);
+  }
   }
 }
 
@@ -413,18 +448,48 @@ async function resolveShort(link: string): Promise<string> {
   }
 }
 
-async function doPost(ctx: Ctx, context: BrowserContext, page: Page, c: ClientRow, platform: Platform, p: { key: string; url: string }) {
+/**
+ * One post, opened directly in its own new tab (never by clicking it on
+ * the profile, which brings up "log in to see this post"). Its "Never
+ * miss a post" box is closed with the ✕ like any visitor would.
+ */
+async function doPost(ctx: Ctx, cx: BrowserContext, c: ClientRow, platform: Platform, p: { key: string; url: string }) {
+  const page = await cx.newPage();
+  try {
+    await readPost(ctx, page, c, platform, p);
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+const POST_NUMBERS = ["likes", "comments", "views"] as const;
+
+/** Likes, comments and views the page states in words ("1,234 likes, 56 comments"), as readings. */
+function statedNumbers(text: string | null | undefined, where: string): Clean[] {
+  return countsFromSummary(text)
+    .filter((x): x is { name: (typeof POST_NUMBERS)[number]; text: string } => (POST_NUMBERS as readonly string[]).includes(x.name))
+    .map((x) => {
+      const n = parseCount(x.text);
+      return { name: x.name, label: `${x.name[0].toUpperCase()}${x.name.slice(1)} (${where})`, text: x.text, value: n.value, abbreviated: n.abbreviated, confidence: 0.9 };
+    })
+    .filter((x) => x.value != null);
+}
+
+async function readPost(ctx: Ctx, page: Page, c: ClientRow, platform: Platform, p: { key: string; url: string }) {
   let img: Buffer | null = null;
   let stats: Clean[] = [];
   let caption: string | null = null;
   let problem: string | null = null;
+  let usedEmbed = false;
   let info: Awaited<ReturnType<typeof meta>> = { image: null, description: null, published: null };
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const fallback = attempt > 1 ? embedPost(platform, p.key) : null;
+      if (fallback) usedEmbed = true;
       const status = await load(page, fallback ?? p.url);
       img = await shot(page);
-      info = await meta(page);
+      const got = await meta(page);
+      info = { image: got.image ?? info.image, description: got.description ?? info.description, published: got.published ?? info.published };
       if (status >= 400 && status !== 429) {
         problem = `The post page answered with an error (${status}).`;
         if (status === 404) break;
@@ -444,6 +509,7 @@ async function doPost(ctx: Ctx, context: BrowserContext, page: Page, c: ClientRo
       caption = r.reading.caption;
       if (r.reading.page_shows !== "post") {
         problem = r.reading.problem || `The page showed ${r.reading.page_shows.replace("_", " ")}, not the post.`;
+        stats = [];
         continue;
       }
       problem = stats.length ? null : r.reading.problem || "No numbers visible on this post.";
@@ -452,6 +518,26 @@ async function doPost(ctx: Ctx, context: BrowserContext, page: Page, c: ClientRo
       problem = e instanceof Error ? e.message.split("\n")[0].slice(0, 200) : "The post didn't load.";
     }
   }
+
+  // Numbers the screenshot didn't show (Instagram often hides likes and
+  // views from visitors who aren't logged in): take them from what the
+  // platform itself states, free of charge. First the post's link-preview
+  // summary ("1,234 likes, 56 comments - …"), then the post's embed page.
+  const missing = () => POST_NUMBERS.filter((k) => !pick(stats, k));
+  const add = (more: Clean[]) => {
+    for (const x of more) if (!pick(stats, x.name)) stats.push(x);
+  };
+  if (missing().length) add(statedNumbers(info.description, "from the post's summary"));
+  const embed = embedPost(platform, p.key);
+  if (missing().some((k) => k !== "comments") && embed && !usedEmbed) {
+    try {
+      await load(page, embed);
+      if (!(await pageState(page)).loginWall) add(statedNumbers(await bodyText(page), "from the embed page"));
+    } catch {
+      // Best effort: what we have stands.
+    }
+  }
+  if (stats.length && problem) problem = null;
 
   const ok = !problem || stats.length > 0;
   const likes = pick(stats, "likes");

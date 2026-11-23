@@ -34,7 +34,8 @@ export async function AiSpendPanel() {
   const k = londonMarks();
   const usd = (n: number) => `$${n < 1 ? n.toFixed(4) : n.toFixed(2)}`;
   const gbp = (n: number) => `£${n * s.gbp_per_usd < 1 ? (n * s.gbp_per_usd).toFixed(4) : (n * s.gbp_per_usd).toFixed(2)}`;
-  const both = (n: number) => `${usd(n)} · ${gbp(n)}`;
+  // Pounds first; dollars as small print (Anthropic bills in dollars).
+  const both = (n: number) => `${gbp(n)} · ${usd(n)}`;
   const projected = k.dayOfMonth > 0 ? (r.month / k.dayOfMonth) * k.daysInMonth : r.month;
   const perRead = r.month_reads ? r.month_read_cost / r.month_reads : null;
   const used = s.monthly_budget_usd > 0 ? r.month / s.monthly_budget_usd : null;
@@ -50,7 +51,7 @@ export async function AiSpendPanel() {
         <div className="ai-budget" data-level={used >= 1 ? "over" : used >= 0.8 ? "warn" : "ok"}>
           <div className="ai-budget-text">
             <strong>
-              {usd(r.month)} of {usd(s.monthly_budget_usd)} this month ({Math.round(used * 100)}%)
+              {gbp(r.month)} of {gbp(s.monthly_budget_usd)} this month ({Math.round(used * 100)}%)
             </strong>
             <span>
               {used >= 1
@@ -67,12 +68,12 @@ export async function AiSpendPanel() {
       )}
 
       <div className="stat-row">
-        <StatTile label="Today" value={usd(r.today)} hint={gbp(r.today)} />
-        <StatTile label="This month" value={usd(r.month)} hint={gbp(r.month)} tone={used != null && used >= 0.8 ? "warn" : "neutral"} />
-        <StatTile label="Projected this month" value={usd(projected)} hint={gbp(projected)} />
-        <StatTile label="Last month" value={usd(r.last_month)} hint={gbp(r.last_month)} />
-        <StatTile label="All time" value={usd(r.all_time)} hint={gbp(r.all_time)} />
-        <StatTile label="Average per read" value={perRead == null ? "—" : usd(perRead)} hint={perRead == null ? "no scraper reads yet" : `${r.month_reads} read${r.month_reads === 1 ? "" : "s"} this month`} />
+        <StatTile label="Today" value={gbp(r.today)} hint={usd(r.today)} />
+        <StatTile label="This month" value={gbp(r.month)} hint={usd(r.month)} tone={used != null && used >= 0.8 ? "warn" : "neutral"} />
+        <StatTile label="Projected this month" value={gbp(projected)} hint={usd(projected)} />
+        <StatTile label="Last month" value={gbp(r.last_month)} hint={usd(r.last_month)} />
+        <StatTile label="All time" value={gbp(r.all_time)} hint={usd(r.all_time)} />
+        <StatTile label="Average per read" value={perRead == null ? "—" : gbp(perRead)} hint={perRead == null ? "no scraper reads yet" : `${r.month_reads} read${r.month_reads === 1 ? "" : "s"} this month`} />
         <StatTile label="Failed calls" value={String(r.month_failed)} hint={`of ${r.month_calls} this month`} tone={r.month_failed ? "warn" : "ok"} />
       </div>
 

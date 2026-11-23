@@ -94,9 +94,34 @@ const HIDE_NAGS = `(() => {
   window.scrollTo(0, 0);
 })()`;
 
+/**
+ * The ✕ in the corner of a "See photos and videos from …" or "Never
+ * miss a post from …" box (Instagram, TikTok): an icon labelled Close
+ * inside the box. Clicking it is what a visitor does, and the page
+ * underneath then shows normally.
+ */
+const CLOSE_ICON = '[role="dialog"] [aria-label="Close" i], [aria-modal="true"] [aria-label="Close" i], [role="dialog"] [aria-label="Dismiss" i]';
+
+export async function closeBoxes(page: Page) {
+  for (let round = 0; round < 2; round++) {
+    const icons = page.locator(CLOSE_ICON);
+    const n = Math.min(await icons.count().catch(() => 0), 4);
+    let clicked = false;
+    for (let i = 0; i < n; i++) {
+      const icon = icons.nth(i);
+      if (!(await icon.isVisible().catch(() => false))) continue;
+      await icon.click({ timeout: 2_000 }).then(() => (clicked = true)).catch(() => {});
+    }
+    if (!clicked) return;
+    await page.waitForTimeout(600);
+  }
+}
+
 /** Close what can be closed and take the rest out of the way. Never throws. */
 export async function clearPopups(page: Page) {
-  // Big overlays first, so they don't sit on top of the buttons below.
+  // The box's own ✕ first, as a person would; then hide any big overlay
+  // still there, so it doesn't sit on top of the buttons below.
+  await closeBoxes(page).catch(() => {});
   await page.evaluate(HIDE_NAGS).catch(() => {});
   for (let round = 0; round < 2; round++) {
     for (const frame of page.frames()) {
@@ -151,6 +176,11 @@ export async function nudge(page: Page, waitFor?: string) {
 /** One small screenshot of what's on screen (1280×800, compressed). */
 export async function shot(page: Page): Promise<Buffer> {
   return page.screenshot({ type: "jpeg", quality: 60, fullPage: false });
+}
+
+/** All the text the page shows. */
+export async function bodyText(page: Page): Promise<string> {
+  return ((await page.evaluate(`(document.body && document.body.innerText) || ""`).catch(() => "")) as string) ?? "";
 }
 
 /** Every link on the page, in order. */

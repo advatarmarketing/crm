@@ -1,7 +1,7 @@
 // npx tsx test/unit.ts
 import { parseCount } from "../src/numbers.js";
 import { countsFromSummary, postFromLink, postedFromKey, plausible } from "../src/platforms.js";
-import { londonMarks, cost } from "../src/store.js";
+import { londonMarks, cost, money } from "../src/store.js";
 import { clean } from "../src/read.js";
 
 let fails = 0;
@@ -47,7 +47,8 @@ eq("winter: 17:05 UTC is 17:00", londonMarks(new Date("2026-01-10T17:05:00Z")).h
 eq("month start (winter)", winter.monthStart.toISOString(), "2026-01-01T00:00:00.000Z");
 eq("last month start across new year", winter.lastMonthStart.toISOString(), "2025-12-01T00:00:00.000Z");
 
-const s = { scraper_model: "claude-haiku-5-5", posts_per_profile: 3, monthly_budget_usd: 10, prices: { "claude-haiku-5-5": { input: 0.1, output: 0.5 } } };
+const s = { scraper_model: "claude-haiku-5-5", posts_per_profile: 3, monthly_budget_usd: 10, gbp_per_usd: 0.79, prices: { "claude-haiku-5-5": { input: 0.1, output: 0.5 } } };
+eq("money shows pounds first", money(s, 1, 2), "£0.79 ($1.00)");
 eq("cost from usage", cost(s, "claude-haiku-5-5", 1_000_000, 1_000_000), 0.6);
 eq("unknown model costs 0 (shown as such)", cost(s, "other", 100, 100), 0);
 
@@ -56,6 +57,9 @@ eq("AI value disagrees with its own text: text wins, confidence lowered", [c[0].
 
 eq("Instagram page summary", countsFromSummary("1,234 Followers, 56 Following, 78 Posts - See Instagram photos and videos from Rapid (@rapid247)"), [{ name: "followers", text: "1,234" }, { name: "following", text: "56" }, { name: "posts", text: "78" }]);
 eq("TikTok page summary", countsFromSummary("Rapid (@rapid247) on TikTok | 3.4K Likes. 361 Followers. Watch the latest video").map((x) => x.name + ":" + x.text), ["followers:361", "likes:3.4K"]);
+eq("Instagram post summary", countsFromSummary('1,234 likes, 56 comments - advatar.marketing on November 3, 2025: "Behind the scenes"').map((x) => x.name + ":" + x.text), ["likes:1,234", "comments:56"]);
+eq("one like, one comment", countsFromSummary("1 like, 1 comment - someone").map((x) => x.name + ":" + x.text), ["likes:1", "comments:1"]);
+eq("embed page text", countsFromSummary("advatar.marketing\nView profile\n2.1K likes\nView all 48 comments\n12.5K plays").map((x) => x.name + ":" + x.text), ["likes:2.1K", "comments:48", "views:12.5K"]);
 eq("no counts in a plain description", countsFromSummary("Welcome to our page"), []);
 
 console.log(fails ? `\n${fails} FAILED` : "\nALL PASS");
