@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -7,6 +7,9 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 import { loadMyAccess } from "@/lib/team-access";
 import { PreviewNavigation } from "@/components/PreviewNavigation";
 import { NotificationToasts } from "@/components/NotificationToasts";
+import { TeamTour } from "@/components/TeamTour";
+import { internalClientIds } from "@/lib/internal-clients";
+import type { TeamTourKind } from "@/lib/team-tour";
 import { VIEW_AS_HEADER } from "@/lib/view-as";
 import type { AppNotification } from "@/components/NotificationBell";
 import type { ProfileRole } from "@/lib/supabase/types";
@@ -54,6 +57,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const access = await loadMyAccess(supabase, user.id, (profile as { role?: string }).role);
   const hiddenLinks = access.logins ? [] : ["/app/passwords"];
 
+  // The team walkthrough (welcome + tour). Sales and videographers get
+  // their own once; the CEO and operations can preview either. Not
+  // inside a "view their CRM" preview: that window can't save anything,
+  // and the walkthrough isn't the viewer's to use up.
+  const role = profile.role as ProfileRole;
+  const tourKind: TeamTourKind | null = role === "videographer" ? "videography" : role === "staff" ? "sales" : null;
+  const showsTour = !isPreview && (tourKind !== null || role === "ceo" || role === "operations_manager");
+  const tour = showsTour ? await loadTourBits(supabase, user.id, tourKind !== null) : null;
+
   return (
     <div style={{ minHeight: "100vh" }}>
       <ScrollReveal />
@@ -63,6 +75,31 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           not yours to dismiss. */}
       {!isPreview && <NotificationToasts userId={user.id} />}
       {children}
+      {tour && (
+        <Suspense fallback={null}>
+          <TeamTour kind={tourKind} autoStart={tour.firstVisit} clientId={tour.clientId} hidden={hiddenLinks} replier={tour.replier} />
+        </Suspense>
+      )}
     </div>
   );
+}
+
+/**
+ * What the team walkthrough needs: whether this is their first visit
+ * (0048's tour_seen_at, shared with the client tour), one of their
+ * clients so it can open a real client page, and whether they have the
+ * Professional Replier (0056). Each part fails quietly to "no": before
+ * 0048, nobody is shown it rather than everyone on every visit.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadTourBits(supabase: any, userId: string, ownTour: boolean) {
+  const [seen, clients, replier, internal] = await Promise.all([
+    ownTour ? supabase.from("profiles").select("tour_seen_at").eq("id", userId).maybeSingle() : Promise.resolve({ data: null, error: true }),
+    supabase.from("clients").select("id").order("created_at", { ascending: false }).limit(20),
+    ownTour ? supabase.rpc("can_use_replier") : Promise.resolve({ data: true, error: null }),
+    internalClientIds(supabase).catch(() => new Set<string>()),
+  ]);
+  const firstVisit = ownTour && !seen.error && !(seen.data as { tour_seen_at?: string | null } | null)?.tour_seen_at;
+  const clientId = ((clients.data ?? []) as { id: string }[]).find((c) => !internal.has(c.id))?.id ?? null;
+  return { firstVisit, clientId, replier: !replier.error && Boolean(replier.data) };
 }

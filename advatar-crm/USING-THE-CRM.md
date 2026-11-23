@@ -226,3 +226,17 @@ It knows the client's package, this month, the next videos and when they're plan
 - Edit the **Playbook**: what needs the CEO, the house style, things never to promise, and facts about Advatar.
 
 The replies follow both from then on. The cost of each use is on **Finance**, under *Professional Replier*.
+
+## Team walkthroughs (sales and videography)
+
+The first time someone on the sales team (a "staff" login) or the videography team signs in, they see:
+
+1. **A welcome**: four short screens with an inspiring message for their team.
+2. **A guided tour** of the pages they actually have. It skips anything they can't open, like Passwords if that switch is off, or the Professional Replier if you haven't given it to them.
+3. **"You're all set"**, with their first three things to do.
+
+It shows once per person. They can replay the tour, or just the welcome, from the ⓘ button in the bottom corner. Operations managers and the CEO don't get one.
+
+**See it yourself:** on **Team access**, press **Preview sales** or **Preview videography**. Watching a preview doesn't use up anyone's walkthrough.
+
+The wording lives in `lib/team-tour.tsx`. Ask for changes there.

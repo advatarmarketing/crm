@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 export interface SectionTab {
   key: string;
@@ -25,6 +25,11 @@ export interface SectionTab {
  */
 export function SectionTabs({ tabs, start }: { tabs: SectionTab[]; /** Open on this tab (e.g. from ?tab=). */ start?: string | null }) {
   const [active, setActive] = useState(start && tabs.some((t) => t.key === start) ? start : tabs[0]?.key ?? "");
+  // ?tab= changing on the same page (the team walkthrough) opens that tab.
+  useEffect(() => {
+    if (start && tabs.some((t) => t.key === start)) setActive(start);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start]);
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
 
   return (

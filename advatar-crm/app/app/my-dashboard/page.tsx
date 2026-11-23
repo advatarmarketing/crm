@@ -291,7 +291,9 @@ export default async function MyDashboardPage() {
       )}
 
       {/* 0053: how far ahead each client's videos are. */}
-      <ClientDeadlines meters={await loadClientMeters(supabase).catch(() => [])} base="/app/my-clients" />
+      <div data-tour="deadlines">
+        <ClientDeadlines meters={await loadClientMeters(supabase).catch(() => [])} base="/app/my-clients" />
+      </div>
 
       {/* Prompt 8: the compact "coming up" view. Deliberately not the
           month grid — that lives on the Calendar tab, and a whole

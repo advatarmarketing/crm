@@ -50,12 +50,17 @@ const FALLBACK_COLOUR = "#8a8a8a";
  * discussed — JavaScript's getDay() puts Sunday first, so the index
  * is shifted rather than used raw.
  */
+// One shared empty list. A fresh `[]` default on every render made the
+// effect that copies `markers` into state run again after each render,
+// forever, on every calendar with no video dates.
+const NO_MARKERS: CalendarMarker[] = [];
+
 export function MonthCalendar({
   events,
   categories,
   initialMonth,
   showPerson = false,
-  markers = [],
+  markers = NO_MARKERS,
   videoToggle = false,
   onMoveMarker,
 }: {

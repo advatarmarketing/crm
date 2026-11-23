@@ -6,19 +6,30 @@ import { usePathname, useRouter } from "next/navigation";
 import { markTourSeenAction } from "@/app/app/portal/tour-actions";
 
 /**
- * The client's first-login welcome, the guided tour of their pages, and
- * the ⓘ button that replays the tour.
+ * A first-login welcome, the guided tour of someone's pages, and the ⓘ
+ * button that replays it. Clients get ClientTour (below); the sales and
+ * videography teams get TeamTour, which feeds this the same way.
  *
  * Shown once per account: the layout reads profiles.tour_seen_at (0048)
  * and only then mounts this with `autoStart`. It's marked seen the
  * moment the welcome opens, so it never comes back on another device —
  * even if they close the tab halfway through.
  *
- * Mounted in the portal layout, which stays put while the client moves
- * between pages, so the tour carries on across page changes.
+ * Mounted in a layout, which stays put while the person moves between
+ * pages, so the tour carries on across page changes.
  */
 
-type Step = { path: string; selector: string; title: string; body: string };
+/**
+ * One stop on the tour. `path` may carry a query (e.g. ?tab=replier) to
+ * open a particular tab. `selector` is a comma list: the first is waited
+ * for, the rest are fallbacks.
+ */
+export type TourStep = { path: string; selector: string; title: string; body: string };
+type Step = TourStep;
+
+export type WelcomeScreen = { lines: React.ReactNode[] };
+
+export type TourDone = { title: string; body: React.ReactNode; firsts?: string[] };
 
 const ALL_STEPS: Step[] = [
   {
@@ -89,7 +100,7 @@ const ALL_STEPS: Step[] = [
   },
 ];
 
-const WELCOME: { lines: React.ReactNode[] }[] = [
+const WELCOME: WelcomeScreen[] = [
   { lines: [<h1 key="a">Welcome to your marketing dashboard</h1>] },
   {
     lines: [
@@ -128,18 +139,65 @@ function Arrow({ back = false }: { back?: boolean }) {
 
 export function ClientTour({ autoStart, hidden = [] }: { autoStart: boolean; hidden?: string[] }) {
   const steps = useMemo(() => ALL_STEPS.filter((s) => !hidden.includes(s.path)), [hidden]);
-  const [mode, setMode] = useState<Mode>(autoStart ? { kind: "welcome", screen: 0 } : { kind: "idle" });
+  return (
+    <GuidedTour
+      autoStart={autoStart}
+      steps={steps}
+      welcome={WELCOME}
+      home="/app/portal"
+      done={{ title: "You’re all set", body: "That’s everything. You can replay this tour any time from the ⓘ button in the corner." }}
+    />
+  );
+}
+
+export function GuidedTour({
+  autoStart,
+  steps,
+  welcome,
+  home,
+  done,
+  markSeen = true,
+  replayWelcome = false,
+  showInfo = true,
+  onClosed,
+}: {
+  autoStart: boolean;
+  steps: Step[];
+  welcome: WelcomeScreen[];
+  home: string;
+  done: TourDone;
+  /** False for a preview: the person watching isn't the one it's for. */
+  markSeen?: boolean;
+  /** The ⓘ button also offers the welcome message again. */
+  replayWelcome?: boolean;
+  /** False hides the ⓘ button (a preview has nothing to replay). */
+  showInfo?: boolean;
+  /** Called whenever it closes, finished or not. */
+  onClosed?: () => void;
+}) {
+  const [mode, setModeRaw] = useState<Mode>(autoStart ? { kind: "welcome", screen: 0 } : { kind: "idle" });
   const router = useRouter();
   const pathname = usePathname();
   const marked = useRef(false);
+  const closedRef = useRef(onClosed);
+  closedRef.current = onClosed;
+  const setMode = useCallback((m: Mode) => {
+    setModeRaw(m);
+    if (m.kind === "idle") closedRef.current?.();
+  }, []);
+
+  // A preview restarted from outside (autoStart flips back on).
+  useEffect(() => {
+    if (autoStart) setModeRaw((m) => (m.kind === "idle" || m.kind === "ask" ? { kind: "welcome", screen: 0 } : m));
+  }, [autoStart]);
 
   // Seen as soon as it opens — once per account, on any device.
   useEffect(() => {
-    if (autoStart && !marked.current) {
+    if (autoStart && markSeen && !marked.current) {
       marked.current = true;
       markTourSeenAction().catch(() => undefined);
     }
-  }, [autoStart]);
+  }, [autoStart, markSeen]);
 
   // Esc closes whatever is open.
   useEffect(() => {
@@ -149,7 +207,7 @@ export function ClientTour({ autoStart, hidden = [] }: { autoStart: boolean; hid
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [mode.kind]);
+  }, [mode.kind, setMode]);
 
   // No scrolling the page behind the welcome.
   useEffect(() => {
@@ -161,7 +219,7 @@ export function ClientTour({ autoStart, hidden = [] }: { autoStart: boolean; hid
     };
   }, [mode.kind]);
 
-  const startTour = useCallback(() => setMode({ kind: "tour", step: 0 }), []);
+  const startTour = useCallback(() => setMode(steps.length ? { kind: "tour", step: 0 } : { kind: "done" }), [steps.length, setMode]);
 
   // Drawn straight into <body>. The app shell animates page changes
   // with a transform, and anything position:fixed inside a transformed
@@ -175,8 +233,9 @@ export function ClientTour({ autoStart, hidden = [] }: { autoStart: boolean; hid
     <>
       {mode.kind === "welcome" && (
         <Welcome
+          screens={welcome}
           screen={mode.screen}
-          onNext={() => (mode.screen < WELCOME.length - 1 ? setMode({ kind: "welcome", screen: mode.screen + 1 }) : startTour())}
+          onNext={() => (mode.screen < welcome.length - 1 ? setMode({ kind: "welcome", screen: mode.screen + 1 }) : startTour())}
           onSkip={() => setMode({ kind: "idle" })}
         />
       )}
@@ -199,15 +258,27 @@ export function ClientTour({ autoStart, hidden = [] }: { autoStart: boolean; hid
         <div className="ct-scrim ct-scrim-soft" role="dialog" aria-modal="true" aria-labelledby="ct-done-title">
           <div className="ct-done">
             <span className="ct-done-mark" aria-hidden="true">✓</span>
-            <h2 id="ct-done-title">You&rsquo;re all set</h2>
-            <p>That&rsquo;s everything. You can replay this tour any time from the ⓘ button in the corner.</p>
+            <h2 id="ct-done-title">{done.title}</h2>
+            <p>{done.body}</p>
+            {done.firsts && done.firsts.length > 0 && (
+              <ol className="ct-firsts">
+                {done.firsts.map((f, i) => (
+                  <li key={i}>
+                    <span className="ct-firsts-n" aria-hidden="true">
+                      {i + 1}
+                    </span>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
             <button
               type="button"
               className="ct-primary"
               autoFocus
               onClick={() => {
                 setMode({ kind: "idle" });
-                router.push("/app/portal");
+                router.push(home);
               }}
             >
               Let&rsquo;s go
@@ -217,7 +288,7 @@ export function ClientTour({ autoStart, hidden = [] }: { autoStart: boolean; hid
       )}
 
       {/* The replay button. Hidden while the welcome or tour is open. */}
-      {(mode.kind === "idle" || mode.kind === "ask") && (
+      {showInfo && (mode.kind === "idle" || mode.kind === "ask") && (
         <div className="ct-info-wrap">
           {mode.kind === "ask" && (
             <div className="ct-ask" role="dialog" aria-labelledby="ct-ask-q">
@@ -226,6 +297,11 @@ export function ClientTour({ autoStart, hidden = [] }: { autoStart: boolean; hid
                 <button type="button" className="ct-primary ct-sm" autoFocus onClick={startTour}>
                   Yes, show me
                 </button>
+                {replayWelcome && (
+                  <button type="button" className="ct-ghost ct-sm" onClick={() => setMode({ kind: "welcome", screen: 0 })}>
+                    Welcome message
+                  </button>
+                )}
                 <button type="button" className="ct-ghost ct-sm" onClick={() => setMode({ kind: "idle" })}>
                   No thanks
                 </button>
@@ -252,8 +328,8 @@ export function ClientTour({ autoStart, hidden = [] }: { autoStart: boolean; hid
   );
 }
 
-function Welcome({ screen, onNext, onSkip }: { screen: number; onNext: () => void; onSkip: () => void }) {
-  const last = screen === WELCOME.length - 1;
+function Welcome({ screens, screen, onNext, onSkip }: { screens: WelcomeScreen[]; screen: number; onNext: () => void; onSkip: () => void }) {
+  const last = screen === screens.length - 1;
   return (
     <div className="ct-welcome" role="dialog" aria-modal="true" aria-label="Welcome">
       <div className="ct-orb ct-orb-a" aria-hidden="true" />
@@ -264,7 +340,7 @@ function Welcome({ screen, onNext, onSkip }: { screen: number; onNext: () => voi
 
       {/* Keyed by screen, so each one plays its entrance afresh. */}
       <div className="ct-screen" key={screen}>
-        {WELCOME[screen].lines.map((line, i) => (
+        {screens[screen].lines.map((line, i) => (
           <div key={i} className="ct-line" style={{ animationDelay: `${180 + i * 420}ms` }}>
             {line}
           </div>
@@ -273,7 +349,7 @@ function Welcome({ screen, onNext, onSkip }: { screen: number; onNext: () => voi
 
       <div className="ct-foot">
         <div className="ct-progress" aria-hidden="true">
-          {WELCOME.map((_, i) => (
+          {screens.map((_, i) => (
             <span key={i} data-on={i <= screen ? "true" : undefined} />
           ))}
         </div>
@@ -283,7 +359,7 @@ function Welcome({ screen, onNext, onSkip }: { screen: number; onNext: () => voi
           onClick={onNext}
           aria-label={last ? "Start the tour" : "Next"}
           autoFocus
-          style={{ animationDelay: `${500 + WELCOME[screen].lines.length * 300}ms` }}
+          style={{ animationDelay: `${500 + screens[screen].lines.length * 300}ms` }}
         >
           <Arrow />
         </button>
@@ -330,15 +406,31 @@ function Spotlight({
   const pop = useRef<HTMLDivElement>(null);
   const [popH, setPopH] = useState(180);
 
-  // Take them to the page first.
+  // Take them to the page first. A path may carry a query that opens a
+  // particular tab. Asked once per step: if the page sends them
+  // somewhere else instead, the card still shows after a moment rather
+  // than the tour pushing back and forth forever.
+  const [base, query] = step.path.split("?");
+  const [arrived, setArrived] = useState(false);
+  const asked = useRef(false);
   useEffect(() => {
-    const here = pathname === step.path && !window.location.search.includes("section=");
-    if (!here) navigate(step.path);
-  }, [pathname, step.path, navigate]);
+    const search = window.location.search;
+    const here = pathname === base && (query ? query.split("&").every((q) => search.includes(q)) : !search.includes("section="));
+    if (here) {
+      setArrived(true);
+      return;
+    }
+    if (!asked.current) {
+      asked.current = true;
+      navigate(step.path);
+    }
+    const t = window.setTimeout(() => setArrived(true), 3500);
+    return () => window.clearTimeout(t);
+  }, [pathname, base, query, step.path, navigate]);
 
   // Then find what to point at, once the page has drawn it.
   useEffect(() => {
-    if (pathname !== step.path) return;
+    if (!arrived) return;
     let cancelled = false;
     let tries = 0;
     target.current = null;
@@ -397,7 +489,7 @@ function Spotlight({
       window.removeEventListener("resize", onMove);
       window.removeEventListener("scroll", onMove);
     };
-  }, [pathname, step.path, step.selector]);
+  }, [arrived, step.selector]);
 
   useLayoutEffect(() => {
     if (pop.current) setPopH(pop.current.offsetHeight);

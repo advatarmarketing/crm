@@ -85,6 +85,20 @@ export default async function TeamAccessPage() {
       <div className="page-head">
         <h1 className="page-title page-title-accent">Team access</h1>
       </div>
+      <section className="card card-pad-sm tw-preview" aria-label="Team walkthroughs">
+        <div>
+          <h2>Team walkthroughs</h2>
+          <p>New sales and videography team members see a welcome and a guided tour the first time they sign in. Watch exactly what they see.</p>
+        </div>
+        <div className="tw-preview-row">
+          <Link href="/app/settings/access?tour=sales" className="btn" scroll={false}>
+            Preview sales
+          </Link>
+          <Link href="/app/settings/access?tour=videography" className="btn" scroll={false}>
+            Preview videography
+          </Link>
+        </div>
+      </section>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 12px", lineHeight: 1.6 }}>
         Choose what each staff member can see on the clients they work on. Changes apply straight away.
       </p>
