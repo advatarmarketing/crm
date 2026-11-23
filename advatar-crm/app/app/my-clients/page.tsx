@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { ClientCard } from "@/components/ClientCard";
 import { EmptyState } from "@/components/EmptyState";
+import { YouButton } from "@/components/you/YouButton";
+import { internalClientIds } from "@/lib/internal-clients";
 
 // Every other page in this app declares this. Without it Next can try
 // to render the route ahead of a request, which is not what a page
@@ -57,7 +59,9 @@ export default async function MyClientsPage() {
   // half way before now. A null name reaching ClientCard's
   // `name.trim()` is a server-side crash that takes the whole page
   // down, so the fallback happens here rather than being assumed away.
-  const rows = ((clients ?? []) as unknown as Row[]).map((c) => ({
+  // 0053: your-own-content brands sit behind the YOU button.
+  const internal = await internalClientIds(supabase);
+  const rows = ((clients ?? []) as unknown as Row[]).filter((c) => !internal.has(c.id)).map((c) => ({
     ...c,
     name: c.name?.trim() || "Untitled client",
     stage: c.stage ?? "lead",
@@ -65,7 +69,10 @@ export default async function MyClientsPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title page-title-accent">My Clients</h1>
+      <div className="clients-title">
+        <h1 className="page-title page-title-accent">My Clients</h1>
+        {internal.size > 0 && <YouButton href="/app/my-clients/you" />}
+      </div>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-2)", margin: "0 0 32px" }}>
         Everyone you&rsquo;re assigned to.
       </p>

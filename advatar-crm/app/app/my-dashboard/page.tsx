@@ -1,3 +1,5 @@
+import { ClientDeadlines } from "@/components/clientwork/ClientDeadlines";
+import { loadClientMeters } from "@/lib/client-work";
 import { DueFromYou } from "@/components/videos/DueFromYou";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -287,6 +289,9 @@ export default async function MyDashboardPage() {
           </ul>
         </section>
       )}
+
+      {/* 0053: how far ahead each client's videos are. */}
+      <ClientDeadlines meters={await loadClientMeters(supabase).catch(() => [])} base="/app/my-clients" />
 
       {/* Prompt 8: the compact "coming up" view. Deliberately not the
           month grid — that lives on the Calendar tab, and a whole

@@ -42,6 +42,37 @@ clear: overdue invoices, overdue follow-ups, tasks due today, and
 clients nobody has spoken to in three weeks. Everything on it clicks
 through to the thing itself.
 
+### Client dashboard and deadlines
+Opening a client lands on its **Dashboard**: what needs doing now, what's
+coming up in the next four weeks, and every video with its deadline.
+
+- **The rule:** each video should be **sent for approval by the Friday of
+  the week before it goes out**. The latest it can ever be is **3 days
+  before** it goes out.
+- Every dated video gets four to-dos automatically: **Film** (Monday of
+  that week), **Edit** (Thursday), **Send for approval** (Friday) and
+  **Post** (the day). They go to the videographer on the client, move
+  when the video moves, and tick themselves as the work happens.
+- They're ordinary to-dos: the same ones show on **My dashboard** and
+  **To-do**, and ticking one anywhere ticks it everywhere. Ticking
+  **Post** marks the video as posted.
+- The **weeks-ahead meter** is green at 2+ weeks ahead (the goal), amber
+  when a video has missed its target, red within 3 days of going out.
+  Every client's meter is also on the front dashboard, worst first.
+
+### Scripts
+Each client has a **Scripts** tab. Write a script, then either put it on
+a planned video (its hook, body and call to action are copied onto the
+video, and later edits follow it) or leave it in the library for later.
+Clients never see the library.
+
+### YOU (your own content)
+Next to the **Clients** title, **YOU** opens your own content: pick
+**Personal brand** or **The business**, then it's the same dashboard as
+any client. These never appear in the client list, Finance or the
+pipeline. Switch someone on under **Settings → Team access → Your
+content** to let them work on it.
+
 ### Pipeline
 Your leads, in three columns: **Leads** (not pitched yet), **Proposal**
 (pitched, waiting), and **Recently won**.

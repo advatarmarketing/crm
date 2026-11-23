@@ -72,3 +72,22 @@ export async function setVideographerShareAction(profileId: string, value: boole
   revalidatePath("/app/settings/access");
   return { error: null };
 }
+
+/** 0053: put someone on (or take them off) your own content, both brands. */
+export async function setOwnContentAction(profileId: string, value: boolean): Promise<{ error: string | null }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc("set_own_content_access", { target: profileId, allow: value });
+  if (error) {
+    if (/set_own_content_access|could not find|does not exist/i.test(error.message)) {
+      return { error: "This switch isn't on yet. Database update 0053 still needs running." };
+    }
+    return { error: error.message };
+  }
+  revalidatePath("/app/settings/access");
+  return { error: null };
+}

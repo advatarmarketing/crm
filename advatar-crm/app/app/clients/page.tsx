@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ClientsBrowser, type BrowsableClient } from "@/components/ClientsBrowser";
+import { YouButton } from "@/components/you/YouButton";
+import { internalClientIds } from "@/lib/internal-clients";
 
 export const dynamic = "force-dynamic";
 
@@ -28,13 +30,17 @@ export default async function ClientsPage() {
   // leads (stage='lead') alongside everything else — /app/leads is a
   // filtered, more detailed view of the same rows, not a separate
   // table.
-  const [{ data: clients }, { data: finance }] = await Promise.all([
+  const [{ data: allClients }, { data: finance }, internal] = await Promise.all([
     supabase
       .from("clients")
       .select("id, name, contact_name, contact_email, service, stage, next_action, avatar_url, created_at")
       .order("created_at", { ascending: false }),
     supabase.from("client_finance").select("client_id, monthly_value"),
+    internalClientIds(supabase),
   ]);
+  // 0053: your own brands live behind the YOU button, not in this list.
+  const clients = (allClients ?? []).filter((c) => !internal.has(c.id));
+  const showYou = callerProfile?.role === "ceo" || internal.size > 0;
 
   const financeByClient = new Map((finance ?? []).map((f) => [f.client_id, f.monthly_value]));
 
@@ -55,8 +61,9 @@ export default async function ClientsPage() {
   return (
     <main className="page">
       <div className="page-head">
-        <div>
+        <div className="clients-title">
           <h1 className="page-title page-title-accent">Clients</h1>
+          {showYou && <YouButton href="/app/clients/you" />}
         </div>
         {canAddClient && (
           <Link href="/app/clients/new" className="btn btn-accent">

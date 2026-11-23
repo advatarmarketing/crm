@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ACCESS_AREAS, accessForRole, type TeamAccess } from "@/lib/team-access";
-import { AccessTable, VideographerTable, type StaffAccessRow, type VideographerRow } from "./access-table";
+import { AccessTable, OwnContentTable, VideographerTable, type OwnContentRow, type StaffAccessRow, type VideographerRow } from "./access-table";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +62,22 @@ export default async function TeamAccessPage() {
     canShare: shareRes.error ? true : shareById.get(p.id) ?? false,
   }));
 
+  // 0053: who is on your own brands (they're simply on both, in client_staff).
+  const [{ data: team }, internalRes] = await Promise.all([
+    supabase.from("profiles").select("id, full_name, role").in("role", ["operations_manager", "staff", "videographer"]).order("full_name"),
+    supabase.from("clients").select("id").not("internal_kind", "is", null),
+  ]);
+  const internalIds = new Set(((internalRes.error ? [] : internalRes.data) ?? []).map((c: { id: string }) => c.id));
+  const onYou = new Set(
+    ((assignments ?? []) as unknown as { staff_id: string; client_id: string }[]).filter((a) => internalIds.has(a.client_id)).map((a) => a.staff_id)
+  );
+  const ownRows: OwnContentRow[] = ((team ?? []) as { id: string; full_name: string | null; role: string }[]).map((p) => ({
+    id: p.id,
+    name: p.full_name ?? "Name not set",
+    role: p.role,
+    on: onYou.has(p.id),
+  }));
+
   return (
     <main className="page page-xs">
       <div className="page-head">
@@ -88,6 +104,13 @@ export default async function TeamAccessPage() {
         approves it and sends it to the client. Turn it on for videographers you trust to send work straight to the client.
       </p>
       <VideographerTable rows={videographerRows} available={!shareRes.error} />
+
+      <h2 className="section-title" style={{ margin: "36px 0 8px" }}>Your content (YOU)</h2>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 16px", lineHeight: 1.6 }}>
+        Who can see YOU on the Clients page and work on your personal brand and the business&rsquo;s content: the dashboard,
+        videos, scripts and to-dos. Off for everyone until you switch them on.
+      </p>
+      <OwnContentTable rows={ownRows} available={!internalRes.error && internalIds.size > 0} />
       <p style={{ marginTop: 28 }}>
         <Link href="/app/settings/logins">← Logins</Link>
       </p>

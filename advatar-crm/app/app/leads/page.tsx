@@ -1,3 +1,4 @@
+import { internalClientIds } from "@/lib/internal-clients";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/components/StatTile";
@@ -42,7 +43,8 @@ export default async function LeadsPage() {
     )
     .order("follow_up_date", { ascending: true, nullsFirst: false });
 
-  const all = (data ?? []) as unknown as (PipelineLead & { updated_at: string })[];
+  const internal = await internalClientIds(supabase);
+  const all = ((data ?? []) as unknown as (PipelineLead & { updated_at: string })[]).filter((c) => !internal.has(c.id));
 
   // Headline figures deliberately reflect the WHOLE pipeline, not
   // whatever is currently filtered on screen — "weighted pipeline"

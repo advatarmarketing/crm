@@ -1,3 +1,7 @@
+import { ClientWorkDashboard } from "@/components/clientwork/ClientWorkDashboard";
+import { ScriptsPanel } from "@/components/clientwork/ScriptsPanel";
+import { loadClientWork } from "@/lib/client-work";
+import { loadScripts } from "@/lib/scripts";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { notFound } from "next/navigation";
@@ -128,6 +132,12 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
   // 0047: whether this videographer may send work straight to the client.
   const { canShare: canShareWithClient } = user ? await loadVideographerShare(supabase, user.id) : { canShare: false };
 
+  // 0053: what needs doing for this client and when, and its scripts.
+  const [work, scripts] = await Promise.all([
+    loadClientWork(supabase, clientRow.id).catch(() => null),
+    loadScripts(supabase, clientRow.id).catch(() => null),
+  ]);
+
   const messages = thread.data
     ? (await settle<{ id: string; body: string; sender_role: string | null; created_at: string }[]>(
         supabase
@@ -152,6 +162,24 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-3)", margin: "0 0 32px" }}>
           {clientRow.service}
         </p>
+      )}
+
+      {work && (
+        <section className="section" aria-label="Dashboard">
+          <h2 className="section-title" style={{ marginBottom: 16 }}>
+            Dashboard
+          </h2>
+          <ClientWorkDashboard work={work} client={{ id: clientRow.id, name: clientRow.name }} canTick canAdd={false} me={user?.id ?? null} />
+        </section>
+      )}
+
+      {scripts && (
+        <section className="section" aria-label="Scripts">
+          <h2 className="section-title" style={{ marginBottom: 16 }}>
+            Scripts
+          </h2>
+          <ScriptsPanel clientId={clientRow.id} initialScripts={scripts.scripts} videos={scripts.videos} pillars={scripts.pillars} available={scripts.available} />
+        </section>
       )}
 
       {/* Brand kit first: it is what you check before shooting, not

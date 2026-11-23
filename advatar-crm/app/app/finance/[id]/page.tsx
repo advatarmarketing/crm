@@ -1,3 +1,4 @@
+import { internalClientIds } from "@/lib/internal-clients";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InvoiceForm } from "../InvoiceForm";
@@ -33,13 +34,16 @@ export default async function EditInvoicePage({ params }: { params: { id: string
   // — both should look the same rather than leaking which.
   if (!invoice) notFound();
 
+  // 0053: no invoices for your own brands.
+  const internal = await internalClientIds(supabase);
+
   return (
     <main className="page-narrow">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 32, letterSpacing: "0.02em", margin: "0 0 28px" }}>
         Edit invoice
       </h1>
 
-      <InvoiceForm clients={clients ?? []} invoice={invoice} />
+      <InvoiceForm clients={(clients ?? []).filter((c) => !internal.has(c.id))} invoice={invoice} />
 
       <form action={deleteInvoice} style={{ marginTop: 40, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
         <input type="hidden" name="invoiceId" value={invoice.id} />
