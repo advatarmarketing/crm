@@ -91,3 +91,22 @@ export async function setOwnContentAction(profileId: string, value: boolean): Pr
   revalidatePath("/app/settings/access");
   return { error: null };
 }
+
+/** 0056: who may use the Professional Replier on the Messages page. */
+export async function setReplierAccessAction(profileId: string, value: boolean): Promise<{ error: string | null }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc("set_replier_access", { target: profileId, allow: value });
+  if (error) {
+    if (/set_replier_access|could not find|does not exist/i.test(error.message)) {
+      return { error: "This switch isn't on yet. Database update 0056 still needs running." };
+    }
+    return { error: error.message };
+  }
+  revalidatePath("/app/settings/access");
+  return { error: null };
+}

@@ -23,8 +23,8 @@ export interface SectionTab {
  * mounted, so moving between them doesn't re-fetch a conversation or
  * throw away a half-typed message.
  */
-export function SectionTabs({ tabs }: { tabs: SectionTab[] }) {
-  const [active, setActive] = useState(tabs[0]?.key ?? "");
+export function SectionTabs({ tabs, start }: { tabs: SectionTab[]; /** Open on this tab (e.g. from ?tab=). */ start?: string | null }) {
+  const [active, setActive] = useState(start && tabs.some((t) => t.key === start) ? start : tabs[0]?.key ?? "");
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
 
   return (

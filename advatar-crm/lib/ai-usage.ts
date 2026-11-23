@@ -65,7 +65,7 @@ export function costOf(s: AiSettings, model: string, inputTokens: number, output
  * must not break the feature that made the call.
  */
 export async function logAiCall(entry: {
-  feature: "meeting" | "report" | "screenshot";
+  feature: "meeting" | "report" | "screenshot" | "replier";
   model: string;
   usage: { input_tokens: number; output_tokens: number } | null;
   ok: boolean;

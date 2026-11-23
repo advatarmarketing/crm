@@ -23,19 +23,19 @@ type Step = { path: string; selector: string; title: string; body: string };
 const ALL_STEPS: Step[] = [
   {
     path: "/app/portal",
-    selector: "main",
+    selector: ".stat-row, main",
     title: "Your dashboard",
     body: "Your home page. What’s happening this month, what needs you, and what’s coming up, all at a glance.",
   },
   {
     path: "/app/portal/videos",
-    selector: "main",
+    selector: "main .section, main",
     title: "Your videos",
     body: "Every video we make for you lands here. Watch it, approve it, or tell us exactly what to change.",
   },
   {
     path: "/app/portal/calendar",
-    selector: "main",
+    selector: "main .section, main",
     title: "Calendar",
     body: "Shoot days, posting dates and calls, so you always know what’s next.",
   },
@@ -53,7 +53,7 @@ const ALL_STEPS: Step[] = [
   },
   {
     path: "/app/portal/account",
-    selector: "main",
+    selector: "main .card, main",
     title: "Account",
     body: "Your invoices and account details, in one place.",
   },
@@ -71,13 +71,13 @@ const ALL_STEPS: Step[] = [
   },
   {
     path: "/app/portal/logins",
-    selector: "main",
+    selector: "main .card, main",
     title: "Logins",
     body: "The social media logins we hold for you, kept securely.",
   },
   {
     path: "/app/portal/todo",
-    selector: "main",
+    selector: ".stat-row, main",
     title: "To-do",
     body: "Anything we need from you, so nothing holds your content up.",
   },
@@ -294,6 +294,17 @@ function Welcome({ screen, onNext, onSkip }: { screen: number; onNext: () => voi
 
 type Box = { top: number; left: number; width: number; height: number };
 
+/** Where the sticky menu bars at the top end, so nothing is lit up underneath them. */
+function headBottom(): number {
+  let bottom = 0;
+  document.querySelectorAll<HTMLElement>(".glass-bar, header").forEach((el) => {
+    const pos = getComputedStyle(el).position;
+    const r = el.getBoundingClientRect();
+    if ((pos === "sticky" || pos === "fixed") && r.top <= 1 && r.bottom > bottom && r.bottom < window.innerHeight / 3) bottom = r.bottom;
+  });
+  return bottom;
+}
+
 function Spotlight({
   step,
   index,
@@ -344,7 +355,10 @@ function Spotlight({
       const el = shown(wanted[0]) ?? (tries > 30 ? wanted.slice(1).map(shown).find(Boolean) ?? null : null);
       if (el || tries > 40) {
         target.current = el ?? document.querySelector("main");
-        target.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+        // Clear of the sticky header and menu at the top.
+        const head = headBottom();
+        const y = (target.current?.getBoundingClientRect().top ?? 0) + window.scrollY - Math.max(head, 0) - 28;
+        window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
         window.setTimeout(measure, 420);
         return;
       }
@@ -352,11 +366,19 @@ function Spotlight({
       window.setTimeout(find, 100);
     };
     const measure = () => {
-      if (cancelled || !target.current) return;
+      if (cancelled) return;
+      // Nothing to point at (the page didn't draw): still show the card,
+      // lighting up the whole screen, so the tour never gets stuck.
+      if (!target.current) {
+        setVw(window.innerWidth);
+        setBox({ top: 8, left: 8, width: window.innerWidth - 16, height: window.innerHeight - 16 });
+        return;
+      }
       const r = target.current.getBoundingClientRect();
       const pad = 10;
       // A whole page is taller than the screen: light up what's in view.
-      const top = Math.max(r.top - pad, 4);
+      const head = headBottom();
+      const top = Math.max(r.top - pad, Math.max(head, 0) + 6, 4);
       const bottom = Math.min(r.bottom + pad, window.innerHeight - 12);
       setVw(window.innerWidth);
       setBox({
@@ -381,18 +403,43 @@ function Spotlight({
     if (pop.current) setPopH(pop.current.offsetHeight);
   }, [box]);
 
-  // Next to the spotlight: below it if there's room, else above, else
-  // over its lower edge. On a phone it's a sheet along the bottom.
+  // Arrow keys and Enter move through the tour.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") onNext();
+      else if (e.key === "ArrowLeft" && onBack) onBack();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onNext, onBack]);
+
+  // Next to the spotlight, with a small arrow pointing at it: below it
+  // if there's room, else above. When the lit-up part fills the screen,
+  // the card sits in the bottom-right corner instead. On a phone it's a
+  // sheet along the bottom.
   const phone = vw > 0 && vw < 640;
   let style: React.CSSProperties = {};
+  let side: "below" | "above" | "corner" = "corner";
+  let caretX = 0;
   if (box && !phone) {
-    const width = 340;
+    const width = 360;
     const left = Math.min(Math.max(box.left, 16), vw - width - 16);
-    const below = box.top + box.height + 14;
-    const above = box.top - popH - 14;
-    const top = below + popH < window.innerHeight - 8 ? below : above > 8 ? above : window.innerHeight - popH - 24;
-    style = { top, left, width };
+    const below = box.top + box.height + 16;
+    const above = box.top - popH - 16;
+    if (below + popH < window.innerHeight - 8) {
+      side = "below";
+      style = { top: below, left, width };
+    } else if (above > 8) {
+      side = "above";
+      style = { top: above, left, width };
+    } else {
+      style = { top: window.innerHeight - popH - 24, left: vw - width - 24, width };
+    }
+    caretX = Math.min(Math.max(box.left + Math.min(box.width / 2, 80) - left, 24), width - 24);
   }
+  const pct = Math.round(((index + 1) / total) * 100);
 
   return (
     <div className="ct-tour" role="dialog" aria-modal="true" aria-labelledby="ct-step-title">
@@ -400,32 +447,42 @@ function Spotlight({
           part are swallowed so the page isn't used mid-step. */}
       <div className="ct-block" onClick={(e) => e.stopPropagation()} />
       {box ? (
-        <div className="ct-hole" style={{ top: box.top, left: box.left, width: box.width, height: box.height }} />
+        <>
+          <div className="ct-hole" style={{ top: box.top, left: box.left, width: box.width, height: box.height }} />
+          <div className="ct-ring" aria-hidden="true" style={{ top: box.top, left: box.left, width: box.width, height: box.height }} />
+        </>
       ) : (
         <div className="ct-hole ct-hole-wait" />
       )}
 
-      <div ref={pop} className={phone ? "ct-pop ct-pop-sheet" : "ct-pop"} style={style} data-ready={box ? "true" : undefined}>
+      <div ref={pop} className={phone ? "ct-pop ct-pop-sheet" : "ct-pop"} style={style} data-ready={box ? "true" : undefined} data-side={phone ? undefined : side}>
+        {!phone && side !== "corner" && <span className="ct-caret" aria-hidden="true" style={{ left: caretX }} />}
         <div className="ct-pop-top">
           <span className="ct-count">
-            {index + 1} of {total}
+            Step {index + 1} of {total}
           </span>
           <button type="button" className="ct-x" onClick={onClose} aria-label="End the tour">
             ×
           </button>
+        </div>
+        <div className="ct-bar" role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={index + 1} aria-label="Tour progress">
+          <span style={{ width: `${pct}%` }} />
         </div>
         <h3 id="ct-step-title">{step.title}</h3>
         <p>{step.body}</p>
         <div className="ct-pop-row">
           {onBack ? (
             <button type="button" className="ct-ghost ct-sm" onClick={onBack}>
-              Back
+              <Arrow back /> Back
             </button>
           ) : (
-            <span />
+            <button type="button" className="ct-link" onClick={onClose}>
+              Skip tour
+            </button>
           )}
-          <button type="button" className="ct-primary ct-sm" onClick={onNext} autoFocus>
-            {index === total - 1 ? "Finish" : "Next"}
+          <button type="button" className="ct-go" onClick={onNext} autoFocus>
+            <span>{index === total - 1 ? "Finish" : "Next"}</span>
+            <Arrow />
           </button>
         </div>
       </div>

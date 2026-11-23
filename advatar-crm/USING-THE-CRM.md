@@ -203,3 +203,26 @@ On a client's **Performance** tab:
   them all.
 - Posts read from the profile that aren't one of the planned videos are
   counted too, marked "TikTok post" (or Instagram etc.) with a link to them.
+
+## Professional Replier (Messages)
+
+A tab on **Messages** for the CEO and anyone the CEO switches on (**Team access → Professional Replier**). Clients never see it.
+
+1. Choose the client (or "Not a client yet"), who's replying (Sales, Videographer, Operations, CEO) and where (WhatsApp by default, Instagram DM, email or text).
+2. Paste the client's message. Add a note for the replier if it helps ("we can only film Tuesdays this month").
+3. Press **Write replies**. You get the **best reply** and two other options, each with a **Copy** button. Anything to fill in first (a date in [brackets]) is listed under *Check before sending*.
+
+It knows the client's package, this month, the next videos and when they're planned to be filmed, and the recent portal chat. It never makes up dates, prices or promises.
+
+**Needs the CEO first.** When a message touches something on the CEO's list (going ahead with another month, contracts, prices, refunds, complaints, cancelling, extra work...), it says so. In that case:
+
+- The replies are holding replies that don't agree to anything.
+- The CEO gets a to-do and a notification.
+- The CEO sees it under **Waiting for you**, with a short note on what needs deciding.
+
+**Getting better.** Tap 👍 or 👎 on each set of replies. The CEO can:
+
+- Press **Teach it** under any reply to save it as a good example.
+- Edit the **Playbook**: what needs the CEO, the house style, things never to promise, and facts about Advatar.
+
+The replies follow both from then on. The cost of each use is on **Finance**, under *Professional Replier*.

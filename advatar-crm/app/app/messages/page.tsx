@@ -8,6 +8,9 @@ import { ClientThreadPicker, type PickableClient } from "@/components/ClientThre
 import { TeamChannel, type ChannelMessage } from "@/components/TeamChannel";
 import { displayName } from "@/lib/names";
 import { loadTeamDirectory } from "@/lib/people";
+import { ProfessionalReplier } from "@/components/replier/ProfessionalReplier";
+import { replierOn } from "@/lib/replier-server";
+import { RUN_COLUMNS, type Playbook, type ReplierExample, type ReplierRun, type ReplyingAs } from "@/lib/replier";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +28,7 @@ export const dynamic = "force-dynamic";
 // client, and with the crew — and Admin is the private one-to-one
 // with management. The point of the split is that "is the client in
 // this room" should never be something you have to remember.
-export default async function MessagesPage() {
+export default async function MessagesPage({ searchParams }: { searchParams?: { tab?: string; run?: string } }) {
   const supabase = createClient();
 
   const {
@@ -238,12 +241,53 @@ export default async function MessagesPage() {
         },
       ];
 
+  // 0056: the Professional Replier, for the CEO and whoever the CEO
+  // switches on. Before 0056 the check errors and the tab stays hidden
+  // for everyone but the CEO (who sees what to run).
+  const isCeo = profile.role === "ceo";
+  const { data: canReply, error: replierError } = await supabase.rpc("can_use_replier");
+  if (canReply || isCeo) {
+    const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
+    const [mine, waitingRes, pb, ex] = await Promise.all([
+      supabase.from("replier_runs").select(RUN_COLUMNS).eq("created_by", user.id).order("created_at", { ascending: false }).limit(30),
+      isCeo
+        ? supabase.from("replier_runs").select(RUN_COLUMNS).eq("needs_ceo", true).neq("created_by", user.id).gte("created_at", since).order("created_at", { ascending: false }).limit(20)
+        : Promise.resolve({ data: [] }),
+      supabase.from("replier_playbook").select("needs_ceo, house_style, never_promise, facts, updated_at").maybeSingle(),
+      isCeo ? supabase.from("replier_examples").select("id, client_message, reply, note, created_at").order("created_at", { ascending: false }).limit(50) : Promise.resolve({ data: [] }),
+    ]);
+    const names: Record<string, string> = {};
+    for (const p of directory) names[p.id] = displayName(p.full_name);
+    const defaultRole: ReplyingAs = isCeo ? "ceo" : profile.role === "videographer" ? "videographer" : profile.role === "operations_manager" ? "operations" : "sales";
+    tabs.push({
+      key: "replier",
+      label: "Professional Replier",
+      badge: isCeo ? ((waitingRes.data ?? []) as unknown[]).length : 0,
+      blurb: "Only you and the people the CEO switches on see this. Clients never do.",
+      content: (
+        <ProfessionalReplier
+          isCeo={isCeo}
+          available={!replierError}
+          keyOn={replierOn()}
+          clients={pickableClients}
+          names={names}
+          initialRuns={(mine.data ?? []) as unknown as ReplierRun[]}
+          waiting={(waitingRes.data ?? []) as unknown as ReplierRun[]}
+          playbook={(pb.data ?? null) as Playbook | null}
+          examples={(ex.data ?? []) as unknown as ReplierExample[]}
+          focusRun={searchParams?.run ?? null}
+          defaultRole={defaultRole}
+        />
+      ),
+    });
+  }
+
   return (
     <main className="page">
       <h1 className="page-title page-title-accent" style={{ marginBottom: 20 }}>
         Messages
       </h1>
-      <SectionTabs tabs={tabs} />
+      <SectionTabs tabs={tabs} start={searchParams?.tab ?? null} />
     </main>
   );
 }
