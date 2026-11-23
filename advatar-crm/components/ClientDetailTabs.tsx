@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AvatarUpload } from "./AvatarUpload";
 import { ClientInfoForm } from "./ClientInfoForm";
 import { ClientFinanceField, type BillingFrequency } from "./ClientFinanceField";
@@ -177,6 +177,11 @@ export function ClientDetailTabs({
   };
 }) {
   const [tab, setTab] = useState<TabId>(initialTab);
+  // A link to another tab of the same client (the team walkthrough, or a
+  // notification) changes ?tab= without remounting this.
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
   const [planSection, setPlanSection] = useState<string | undefined>(undefined);
 
   // Set when the Performance tab sends someone to a video.

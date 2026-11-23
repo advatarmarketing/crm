@@ -131,7 +131,9 @@ export default async function LeadsPage() {
         </div>
       )}
 
-      <PipelineBoard leads={all} sources={sources} />
+      <div data-tour="pipeline">
+        <PipelineBoard leads={all} sources={sources} />
+      </div>
 
     </main>
   );
