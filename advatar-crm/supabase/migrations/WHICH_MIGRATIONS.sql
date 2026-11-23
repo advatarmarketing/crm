@@ -131,6 +131,10 @@ from (
     (
       '0054', 'Guidelines: Filming / Editing, and a guide per content pillar',
       case when to_regclass('public.pillar_guides') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0055', 'Your Journey: paths, levels, progress and sign-off',
+      case when to_regclass('public.journey_paths') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

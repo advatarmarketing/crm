@@ -42,6 +42,7 @@ const ALLOWED_PREFIXES: Record<ProfileRole, string[]> = {
     "/app/uploads",
     "/app/my-clients",
     "/app/tools",
+    "/app/journey",
     "/app/guidelines",
     "/app/my-portfolio",
     "/app/messages",

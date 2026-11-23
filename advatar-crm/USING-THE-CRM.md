@@ -93,6 +93,25 @@ process**. A filled dot means that guide is written.
   **How to edit this** links. The CEO, ops manager and the team on that
   client can edit guides; clients never see them.
 
+### Your Journey
+**Your Journey** (in the menu for everyone on the team) shows each person
+their path: where they started, **You are here**, and every level ahead
+out to the long-term vision (your own office). Each level shows what it
+means, what you can do, a **client range** and an **earnings range in £**
+(always a range), and a **To move up** checklist.
+
+- There are two paths to start with: **Videographer** and **Sales**. Put
+  each person on one under **Your Journey → Team journeys**.
+- People tick their own steps; they show as **Waiting for sign-off** until
+  you or an ops manager open them and press **Sign off**. Moving someone
+  up a level (**Move … to this level**) records the date.
+- Anyone can add videos to their **video progress**: where they started,
+  what they make now, and videos they want to make next. The section only
+  shows once something's in it.
+- **Edit the paths** (CEO only) changes every level, range and checklist.
+  It also holds a private **minimum level** marker per path that only the
+  CEO ever sees; the team only sees "First goal: get paid".
+
 ### Pipeline
 Your leads, in three columns: **Leads** (not pitched yet), **Proposal**
 (pitched, waiting), and **Recently won**.
