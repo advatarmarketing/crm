@@ -2,8 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
 import type { BrowserContext, Page } from "playwright";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { bodyText, clearPopups, instagramLoggedIn, links, load, meta, newContext, nudge, openBrowser, pageState, shot } from "./browser.js";
-import { LABEL, PLATFORMS, POSTS_READY, PROFILE_READY, countsFromSummary, embedPost, embedProfile, plausible, postFromLink, postedFromKey, postsPage, xHandle, type Platform } from "./platforms.js";
+import { bodyText, clearPopups, gridViews, instagramLoggedIn, links, load, meta, newContext, nudge, openBrowser, pageState, shot } from "./browser.js";
+import { LABEL, PLATFORMS, POSTS_READY, PROFILE_READY, countsFromSummary, embedPost, embedProfile, plausible, postFromLink, postedFromKey, postsPage, tiktokStats, xHandle, type Platform } from "./platforms.js";
 import { parseCount } from "./numbers.js";
 import { clean, pick, readScreenshot, type Clean } from "./read.js";
 import { cost, db, londonMarks, money, monthSpend, settings, type Settings } from "./store.js";
@@ -351,6 +351,8 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, firstPage: Page, c:
   const n = ctx.s.posts_per_profile;
   if (ctx.stopped) return;
   let found: { key: string; url: string }[] = [];
+  // TikTok's grid shows each video's plays ("26K"): kept as a backup.
+  const grid = new Map<string, string>();
   if (n > 0 && status !== "failed") {
     try {
       const listUrl = postsPage(platform, url);
@@ -360,6 +362,13 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, firstPage: Page, c:
       await clearPopups(page);
       const seen = new Set<string>();
       const handleX = platform === "x" ? xHandle(url) : null;
+      if (platform === "tiktok") {
+        for (const g of await gridViews(page)) {
+          const p = postFromLink(platform, g.href, page.url());
+          if (p && g.text) grid.set(p.key, g.text);
+        }
+        if (grid.size) log(`  ${LABEL[platform]}: ${grid.size} view count(s) on the profile grid`);
+      }
       for (const href of await links(page)) {
         const p = postFromLink(platform, href, page.url(), handleX);
         if (p && !seen.has(p.key)) {
@@ -405,7 +414,7 @@ async function doPlatform(ctx: Ctx, context: BrowserContext, firstPage: Page, c:
   const linked = platform === "youtube" ? [] : await linkedDue(ctx, c.id, platform, new Set(found.map((f) => f.key)));
   for (const p of [...found, ...linked]) {
     if (ctx.stopped) break;
-    await doPost(ctx, cx, c, platform, p);
+    await doPost(ctx, cx, c, platform, p, grid.get(p.key) ?? null);
   }
   }
 }
@@ -461,16 +470,16 @@ async function resolveShort(link: string): Promise<string> {
  * the profile, which brings up "log in to see this post"). Its "Never
  * miss a post" box is closed with the ✕ like any visitor would.
  */
-async function doPost(ctx: Ctx, cx: BrowserContext, c: ClientRow, platform: Platform, p: { key: string; url: string }) {
+async function doPost(ctx: Ctx, cx: BrowserContext, c: ClientRow, platform: Platform, p: { key: string; url: string }, gridText: string | null) {
   const page = await cx.newPage();
   try {
-    await readPost(ctx, page, c, platform, p);
+    await readPost(ctx, page, c, platform, p, gridText);
   } finally {
     await page.close().catch(() => {});
   }
 }
 
-const POST_NUMBERS = ["likes", "comments", "views"] as const;
+const POST_NUMBERS = ["likes", "comments", "views", "shares"] as const;
 
 /** Likes, comments and views the page states in words ("1,234 likes, 56 comments"), as readings. */
 function statedNumbers(text: string | null | undefined, where: string): Clean[] {
@@ -483,8 +492,9 @@ function statedNumbers(text: string | null | undefined, where: string): Clean[] 
     .filter((x) => x.value != null);
 }
 
-async function readPost(ctx: Ctx, page: Page, c: ClientRow, platform: Platform, p: { key: string; url: string }) {
+async function readPost(ctx: Ctx, page: Page, c: ClientRow, platform: Platform, p: { key: string; url: string }, gridText: string | null) {
   let img: Buffer | null = null;
+  let pageData: Clean[] = [];
   let stats: Clean[] = [];
   let caption: string | null = null;
   let problem: string | null = null;
@@ -497,6 +507,19 @@ async function readPost(ctx: Ctx, page: Page, c: ClientRow, platform: Platform, 
       const status = await load(page, fallback ?? p.url);
       img = await shot(page);
       const got = await meta(page);
+      // TikTok keeps the video's exact numbers (plays included, which its
+      // page never shows on screen) in the page's own data.
+      if (platform === "tiktok" && !fallback && !pageData.length) {
+        const data = tiktokStats(await page.content().catch(() => ""), p.key.slice(3));
+        pageData = Object.entries(data).map(([name, value]) => ({
+          name: name === "saves" ? "other" : (name as Clean["name"]),
+          label: `${name[0].toUpperCase()}${name.slice(1)} (from the page's data)`,
+          text: String(value),
+          value: value!,
+          abbreviated: false,
+          confidence: 1,
+        }));
+      }
       info = { image: got.image ?? info.image, description: got.description ?? info.description, published: got.published ?? info.published };
       if (status >= 400 && status !== 429) {
         problem = `The post page answered with an error (${status}).`;
@@ -535,6 +558,13 @@ async function readPost(ctx: Ctx, page: Page, c: ClientRow, platform: Platform, 
   const add = (more: Clean[]) => {
     for (const x of more) if (!pick(stats, x.name)) stats.push(x);
   };
+  // Exact numbers from the page's data win over rounded ones ("1.2K") read off the screen.
+  for (const x of pageData) {
+    const seen = pick(stats, x.name);
+    if (x.name === "other") continue;
+    if (!seen) stats.push(x);
+    else if (seen.abbreviated) stats[stats.indexOf(seen)] = x;
+  }
   if (missing().length) add(statedNumbers(info.description, "from the post's summary"));
   const embed = embedPost(platform, p.key);
   if (missing().some((k) => k !== "comments") && embed && !usedEmbed) {
@@ -545,12 +575,18 @@ async function readPost(ctx: Ctx, page: Page, c: ClientRow, platform: Platform, 
       // Best effort: what we have stands.
     }
   }
+  // Last resort for plays: the number on the profile grid ("26K"), as TikTok rounds it.
+  if (!pick(stats, "views") && gridText) {
+    const g = parseCount(gridText);
+    if (g.value != null) stats.push({ name: "views", label: "Views (from the profile grid)", text: gridText, value: g.value, abbreviated: g.abbreviated, confidence: 0.9 });
+  }
   if (stats.length && problem) problem = null;
 
   const ok = !problem || stats.length > 0;
   const likes = pick(stats, "likes");
   const comments = pick(stats, "comments");
   const views = pick(stats, "views");
+  const shares = pick(stats, "shares");
   const shotPath = img ? await keepShot(ctx, c.id, platform, "post", img) : null;
   await ctx.sb.from("social_readings").insert({
     run_id: ctx.runId,
@@ -574,7 +610,7 @@ async function readPost(ctx: Ctx, page: Page, c: ClientRow, platform: Platform, 
   const externalId = p.key.slice(p.key.indexOf(":") + 1);
   const { data: known } = await ctx.sb
     .from("social_posts")
-    .select("likes, comments, views, posted_at, first_seen_at, thumbnail_path, caption")
+    .select("likes, comments, views, shares, posted_at, first_seen_at, thumbnail_path, caption")
     .eq("client_id", c.id)
     .eq("platform", platform)
     .eq("external_id", externalId)
@@ -601,14 +637,15 @@ async function readPost(ctx: Ctx, page: Page, c: ClientRow, platform: Platform, 
       likes: likes?.value ?? known?.likes ?? null,
       comments: comments?.value ?? known?.comments ?? null,
       views: views?.value ?? known?.views ?? null,
+      shares: shares?.value ?? known?.shares ?? null,
       updated_at: now,
     },
     { onConflict: "client_id,platform,external_id" }
   );
 
   // A video whose "Where it's posted" link is this post gets its numbers.
-  if (ok && (likes || comments || views)) await applyToVideos(ctx, c.id, platform, p.key, { likes, comments, views });
-  log(`    post ${p.key}: ${ok ? "ok" : "failed"}${likes ? ` · likes ${likes.text}` : ""}${comments ? ` · comments ${comments.text}` : ""}${views ? ` · views ${views.text}` : ""}${problem ? ` · ${problem}` : ""}`);
+  if (ok && (likes || comments || views || shares)) await applyToVideos(ctx, c.id, platform, p.key, { likes, comments, views, shares });
+  log(`    post ${p.key}: ${ok ? "ok" : "failed"}${likes ? ` · likes ${likes.text}` : ""}${comments ? ` · comments ${comments.text}` : ""}${views ? ` · views ${views.text}` : ""}${shares ? ` · shares ${shares.text}` : ""}${problem ? ` · ${problem}` : ""}`);
 }
 
 /** The post's own preview picture, kept so Recent posts has an image after the screenshots go. */
@@ -630,7 +667,7 @@ async function keepThumb(ctx: Ctx, page: Page, clientId: string, platform: Platf
   }
 }
 
-async function applyToVideos(ctx: Ctx, clientId: string, platform: Platform, key: string, n: { likes: Clean | null; comments: Clean | null; views: Clean | null }) {
+async function applyToVideos(ctx: Ctx, clientId: string, platform: Platform, key: string, n: { likes: Clean | null; comments: Clean | null; views: Clean | null; shares: Clean | null }) {
   const { data } = await ctx.sb.from("video_posts").select("id, url").eq("client_id", clientId).eq("platform", platform);
   for (const row of (data ?? []) as { id: string; url: string }[]) {
     const p = postFromLink(platform, await resolveShort(row.url), row.url);
@@ -639,6 +676,7 @@ async function applyToVideos(ctx: Ctx, clientId: string, platform: Platform, key
     if (n.likes?.value != null) numbers.likes = n.likes.value;
     if (n.comments?.value != null) numbers.comments = n.comments.value;
     if (n.views?.value != null) numbers.views = n.views.value;
+    if (n.shares?.value != null) numbers.shares = n.shares.value;
     await ctx.sb.from("video_posts").update({ ...numbers, metrics_at: new Date().toISOString(), metrics_source: "platform" }).eq("id", row.id);
   }
 }

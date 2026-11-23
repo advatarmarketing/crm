@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { applyToVideoPosts } from "@/lib/social/sync";
 import { readScreenshot, readerOn, writeAnalysis, type ReportContent } from "@/lib/performance/read";
 import { linkFromPaste } from "@/lib/video-links";
+import { filterPlatform, followerSpan, loadGrowth, platformName, type PlatformFilter } from "@/lib/performance/growth";
 
 /**
  * Post links, their numbers, and reports (0046). Everything is written
@@ -255,13 +256,15 @@ export async function createReportAction(
   clientId: string,
   from: string | null,
   to: string | null,
-  range: string
+  range: string,
+  platform: PlatformFilter = "all"
 ): Promise<PerfResult & { id?: string; problem?: string | null }> {
   const { supabase, user } = await signedIn();
   if (!user) return { error: "Not signed in." };
   const DATE = /^\d{4}-\d{2}-\d{2}$/;
   if ((from && !DATE.test(from)) || (to && !DATE.test(to))) return { error: "Those dates aren’t valid." };
-  const label = range.trim().slice(0, 80) || "All time";
+  const only = platform !== "all" && PLATFORMS.some((p) => p.id === platform) ? platform : "all";
+  const label = `${range.trim().slice(0, 80) || "All time"}${only === "all" ? "" : ` · ${platformName(only)}`}`;
 
   const { data: client } = await supabase.from("clients").select("name").eq("id", clientId).maybeSingle();
   const clientName = (client as { name: string } | null)?.name;
@@ -269,11 +272,24 @@ export async function createReportAction(
 
   const perf = await loadPerformance(supabase, clientId);
   if (!perf.available) return { error: friendly("video_posts does not exist") };
-  const summary = summarise(perf.videos, from, to);
+  const growth = await loadGrowth(supabase, clientId, perf.videos);
+  const summary = summarise(filterPlatform([...perf.videos, ...growth.extra], only), from, to);
+  const span = followerSpan(growth.points, from, to, only);
   if (summary.totals.videos === 0) return { error: "No videos in that time have numbers yet, so there is nothing to report on." };
 
   const { analysis, written, problem } = await writeAnalysis({ clientName, range: label, summary, clientId });
-  const content: ReportContent = { clientName, range: label, from, to, madeAt: new Date().toISOString(), summary, analysis, written };
+  const content: ReportContent = {
+    clientName,
+    range: label,
+    from,
+    to,
+    madeAt: new Date().toISOString(),
+    summary,
+    analysis,
+    written,
+    platform: only,
+    followers: span.total ? { ...span.total, rows: span.rows } : null,
+  };
 
   const { data, error } = await supabase
     .from("performance_reports")

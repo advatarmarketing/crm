@@ -85,6 +85,8 @@ export interface PerfVideo {
   date: string | null;
   posted: boolean;
   posts: VideoPost[];
+  /** A post read from the profile rather than a planned video: where it is. */
+  link?: string | null;
 }
 
 export interface Totals {
@@ -113,6 +115,8 @@ export interface RankedVideo extends Totals {
   type: string | null;
   date: string | null;
   platforms: string[];
+  /** Set for posts read from the profile (not planned videos). */
+  link?: string | null;
 }
 
 export interface Summary {
@@ -184,6 +188,7 @@ export function summarise(all: PerfVideo[], from: string | null = null, to: stri
       type: v.type,
       date: v.date,
       platforms: counted.map((p) => p.platform),
+      link: v.link ?? null,
     };
     for (const p of counted) {
       add(own, p);

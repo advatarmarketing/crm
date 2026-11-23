@@ -75,6 +75,7 @@ function AccountCard({ p, team }: { p: PlatformResult; team: boolean }) {
             {p.series.length > 1 && <Sparkline values={p.series.map((s) => s.followers)} color={`rgb(${meta.rgb})`} width={140} height={34} />}
           </div>
           <dl className="sh-account-dl">
+            <div><dt>Views</dt><dd><Num n={p.views} /></dd></div>
             <div><dt>Likes</dt><dd><Num n={p.likes} /></dd></div>
             <div><dt>Comments</dt><dd><Num n={p.comments} /></dd></div>
             <div><dt>Posts</dt><dd>{p.posts == null && p.postsPending ? <span className="sh-na">After a second daily reading</span> : <Num n={p.posts} />}</dd></div>
@@ -124,7 +125,7 @@ function Preview({ title, body, withAccounts }: { title: string; body: string; w
           </div>
         )}
         <div className="sh-tiles">
-          {["Total followers", "Likes", "Comments", "Posts published"].map((l) => (
+          {["Total followers", "Views", "Likes", "Comments", "Posts published"].map((l) => (
             <div key={l} className="sh-tile">
               <span className="sh-tile-label">{l}</span>
               {bar("60%", 24)}
@@ -311,6 +312,7 @@ export function SocialDashboard({
             <>
               <section className="sh-tiles" aria-label={data.rangeLabel}>
                 <Tile label="Total followers" value={compactNumber(data.totals.followers)} sub={<Growth value={data.totals.growth} />} />
+                <Tile label="Views" value={data.totals.views == null ? "—" : compactNumber(data.totals.views)} sub={data.totals.views == null ? NA : data.rangeLabel} />
                 <Tile label="Likes" value={data.totals.likes == null ? "—" : compactNumber(data.totals.likes)} sub={data.totals.likes == null ? NA : data.rangeLabel} />
                 <Tile
                   label="Comments"

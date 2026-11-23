@@ -6,9 +6,24 @@ import { createClient } from "@/lib/supabase/client";
 import { StatTile } from "@/components/StatTile";
 import { BarChart } from "@/components/BarChart";
 import { todayKey, type VideoCycle } from "@/lib/videos";
-import { compact, loadPerformance, monthName, percent, platformLabel, summarise, PLATFORMS, type Group, type PerfVideo } from "@/lib/performance";
+import { compact, loadPerformance, percent, platformLabel, summarise, PLATFORMS, type Group, type PerfVideo } from "@/lib/performance";
 import { createReportAction, deleteReportAction, gatherMetricsAction, metricsSetupAction, type GatherResult } from "@/app/app/performance/actions";
 import { PostRow, type MetricsSetup } from "./PostRow";
+import { LineChart } from "./LineChart";
+import {
+  GROWTH_METRICS,
+  autoUnit,
+  filterPlatform,
+  followerSpan,
+  growthSeries,
+  growthWindow,
+  loadGrowth,
+  platformName,
+  type GrowthData,
+  type GrowthMetric,
+  type PlatformFilter,
+  type Unit,
+} from "@/lib/performance/growth";
 
 /**
  * How a client's videos are doing: every posted video's numbers added
@@ -32,6 +47,20 @@ function monthsAgo(n: number): string {
 
 const day = (key: string) => new Date(`${key}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
+const followerDay = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+function Change({ from, to }: { from: number; to: number }) {
+  const d = to - from;
+  const pct = from > 0 ? (d / from) * 100 : null;
+  return (
+    <span className="perf-change" data-dir={d > 0 ? "up" : d < 0 ? "down" : "flat"}>
+      {d > 0 ? "+" : d < 0 ? "−" : "±"}
+      {compact(Math.abs(d))}
+      {pct != null && ` (${d >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(Math.abs(pct) < 10 ? 1 : 0)}%)`}
+    </span>
+  );
+}
+
 export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; onOpenVideo: (videoId: string) => void }) {
   const supabase = useMemo(() => createClient(), []);
   const [videos, setVideos] = useState<PerfVideo[]>([]);
@@ -54,13 +83,23 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
   const [error, setError] = useState<string | null>(null);
   const [madeReport, setMadeReport] = useState<{ id: string; problem: string | null } | null>(null);
 
+  const [growth, setGrowth] = useState<GrowthData>({ points: [], extra: [], linked: [], startedOn: null });
+  const [platform, setPlatform] = useState<PlatformFilter>("all");
+  const [metric, setMetric] = useState<GrowthMetric>("views");
+  const [unitPick, setUnitPick] = useState<Unit | null>(null);
+  const [running, setRunning] = useState(true);
+
   const load = useCallback(async () => {
     const [perf, reps] = await Promise.all([
       loadPerformance(supabase, clientId),
       supabase.from("performance_reports").select("id, title, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(20),
     ]);
+    // Followers, and posts read from the profiles that aren't one of the
+    // planned videos' links (so the numbers are the whole account's).
+    const g = await loadGrowth(supabase, clientId, perf.videos);
+    setGrowth(g);
     setAvailable(perf.available);
-    setVideos(perf.videos);
+    setVideos([...perf.videos, ...g.extra]);
     setCycles(perf.cycles);
     setReports((reps.error ? [] : reps.data ?? []) as SavedReport[]);
     setLoading(false);
@@ -89,7 +128,24 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
     return { from: null as string | null, to: null as string | null, label: "All time", detail: "Every video so far" };
   }, [mode, cycles, fromMonth, toMonth, last, customFrom, customTo]);
 
-  const s = useMemo(() => summarise(videos, range.from, range.to), [videos, range.from, range.to]);
+  // Every platform we post on or have numbers from, for the platform buttons.
+  const platforms = useMemo(() => {
+    const seen = new Set<string>([...growth.linked, ...growth.points.map((p) => p.platform)]);
+    for (const v of videos) for (const p of v.posts) seen.add(p.platform);
+    return PLATFORMS.filter((p) => seen.has(p.id));
+  }, [videos, growth]);
+  const shown = useMemo(() => filterPlatform(videos, platform), [videos, platform]);
+  const s = useMemo(() => summarise(shown, range.from, range.to), [shown, range.from, range.to]);
+  const followers = useMemo(() => followerSpan(growth.points, range.from, range.to, platform), [growth.points, range.from, range.to, platform]);
+  const span = useMemo(() => growthWindow(shown, growth.points.filter((p) => platform === "all" || p.platform === platform), range.from, range.to), [shown, growth.points, platform, range.from, range.to]);
+  const unit: Unit = unitPick ?? (span ? autoUnit(span.from, span.to) : "day");
+  const lines = useMemo(
+    () =>
+      span
+        ? growthSeries({ videos: shown, points: growth.points, from: span.from, to: span.to, unit, metric, platform, running, rgbOf: (p) => PLATFORMS.find((x) => x.id === p)?.rgb ?? null })
+        : null,
+    [span, shown, growth.points, unit, metric, platform, running]
+  );
 
   async function gather() {
     setGathering(true);
@@ -105,7 +161,7 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
     setReporting(true);
     setError(null);
     setMadeReport(null);
-    const res = await createReportAction(clientId, range.from, range.to, range.label);
+    const res = await createReportAction(clientId, range.from, range.to, range.label, platform);
     setReporting(false);
     if (res.error || !res.id) return setError(res.error ?? "The report couldn’t be made.");
     setMadeReport({ id: res.id, problem: res.problem ?? null });
@@ -168,7 +224,10 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
         <div>
           <h2 className="vm-title">Performance</h2>
           <p className="vm-dates">
-            <span>{range.label}</span>
+            <span>
+              {range.label}
+              {platform !== "all" ? ` · ${platformName(platform)}` : ""}
+            </span>
             {range.detail && <span className="vm-dates-note">{range.detail}</span>}
           </p>
         </div>
@@ -240,6 +299,23 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
             </label>
           </>
         )}
+        {platforms.length > 0 && (
+          <div className="perf-plat">
+            <span className="vm-label" id="perf-plat-l">
+              Platform
+            </span>
+            <div className="seg" role="group" aria-labelledby="perf-plat-l">
+              <button type="button" className={platform === "all" ? "on" : ""} aria-pressed={platform === "all"} onClick={() => setPlatform("all")}>
+                All platforms
+              </button>
+              {platforms.map((p) => (
+                <button key={p.id} type="button" className={platform === p.id ? "on" : ""} aria-pressed={platform === p.id} onClick={() => setPlatform(p.id)}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -292,6 +368,111 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
         <StatTile label="Saves" value={compact(t.saves)} tone="violet" />
         <StatTile label="Engagement rate" value={percent(t.rate)} hint="Likes, comments, shares and saves per view" />
       </div>
+
+      <section className="card card-pad perf-card perf-followers" aria-labelledby="perf-fol-h">
+        <h3 className="vm-sub" id="perf-fol-h">
+          Followers
+        </h3>
+        {followers.total ? (
+          <>
+            <p className="perf-fol-big">
+              <span>
+                <strong>{compact(followers.total.start)}</strong>
+                <small>{followerDay(followers.rows.map((r) => r.startDay).sort()[0])}</small>
+              </span>
+              <span className="perf-fol-arrow" aria-hidden>
+                →
+              </span>
+              <span>
+                <strong>{compact(followers.total.end)}</strong>
+                <small>{followerDay(followers.rows.map((r) => r.endDay).sort().pop()!)}</small>
+              </span>
+              <Change from={followers.total.start} to={followers.total.end} />
+            </p>
+            {followers.rows.length > 1 && (
+              <ul className="perf-fol-rows">
+                {followers.rows.map((r) => (
+                  <li key={r.platform} style={{ ["--pc" as string]: PLATFORMS.find((p) => p.id === r.platform)?.rgb }}>
+                    <span className="post-platform">{platformName(r.platform)}</span>
+                    <span>
+                      {compact(r.start)} → <strong>{compact(r.end)}</strong>
+                    </span>
+                    <Change from={r.start} to={r.end} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {followers.rows.some((r) => r.lateStart) && (
+              <p className="vm-hint">
+                Counting started after the beginning of this time, so the change is from the first count:{" "}
+                {followers.rows
+                  .filter((r) => r.lateStart)
+                  .map((r) => `${platformName(r.platform)} from ${followerDay(r.startDay)}`)
+                  .join(", ")}
+                .
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="vm-hint">
+            No follower counts {range.from ? "in this time" : ""} yet. They&rsquo;re read every day at 5pm once a profile link is added on the Content Hub tab.
+          </p>
+        )}
+      </section>
+
+      <section className="card card-pad perf-card" aria-labelledby="perf-growth-h">
+        <div className="perf-growth-head">
+          <h3 className="vm-sub" id="perf-growth-h">
+            Growth over time
+          </h3>
+          <div className="perf-growth-controls">
+            <div className="seg" role="group" aria-label="Show by">
+              {(["day", "month"] as Unit[]).map((u) => (
+                <button key={u} type="button" className={unit === u ? "on" : ""} aria-pressed={unit === u} onClick={() => setUnitPick(u)}>
+                  {u === "day" ? "Days" : "Months"}
+                </button>
+              ))}
+            </div>
+            {metric !== "followers" && (
+              <div className="seg" role="group" aria-label="Count">
+                <button type="button" className={running ? "on" : ""} aria-pressed={running} onClick={() => setRunning(true)}>
+                  Running total
+                </button>
+                <button type="button" className={!running ? "on" : ""} aria-pressed={!running} onClick={() => setRunning(false)}>
+                  Each {unit}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="perf-mtabs" role="tablist" aria-label="What to show">
+          {GROWTH_METRICS.map((m) => (
+            <button key={m.id} type="button" role="tab" aria-selected={metric === m.id} className={metric === m.id ? "on" : ""} onClick={() => setMetric(m.id)}>
+              <span>{m.label}</span>
+              <strong>{m.id === "followers" ? (followers.total ? compact(followers.total.end) : "–") : compact(t[m.id])}</strong>
+            </button>
+          ))}
+        </div>
+        {lines && !lines.empty ? (
+          <LineChart
+            keys={lines.keys}
+            unit={lines.unit}
+            series={lines.series}
+            format={compact}
+            label={GROWTH_METRICS.find((m) => m.id === metric)!.label}
+            zeroBased={metric !== "followers"}
+          />
+        ) : (
+          <p className="vm-hint perf-growth-empty">
+            {metric === "followers" ? "No follower counts in this time yet." : `No ${metric} in this time yet.`}
+          </p>
+        )}
+        <p className="vm-hint">
+          {metric === "followers"
+            ? "The follower count at the end of each " + unit + ", from the daily 5pm readings."
+            : `Each video's latest ${metric}, counted on the ${unit} it went out${running ? ", adding up from the start of the time chosen" : ""}.`}
+        </p>
+      </section>
 
       {missing > 0 && (
         <section className="card card-pad perf-missing">
@@ -366,14 +547,6 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
             </section>
           )}
 
-          {s.byMonth.length > 1 && (
-            <section className="card card-pad perf-card">
-              <h3 className="vm-sub">Month by month</h3>
-              <p className="vm-hint">Total views of the videos posted in each calendar month.</p>
-              <BarChart data={s.byMonth.map((g) => ({ label: `${monthName(g.name)} (${g.videos})`, value: g.views }))} formatValue={compact} />
-            </section>
-          )}
-
           <section className="card card-pad perf-card">
             <h3 className="vm-sub">Every video, most watched first</h3>
             <div className="perf-scroll">
@@ -396,9 +569,19 @@ export function PerformancePanel({ clientId, onOpenVideo }: { clientId: string; 
                     <tr key={v.id}>
                       <td>{i + 1}</td>
                       <th scope="row">
-                        <button type="button" className="vm-link" onClick={() => onOpenVideo(v.id)}>
-                          {v.name}
-                        </button>
+                        {v.link !== undefined && v.id.startsWith("sp:") ? (
+                          v.link ? (
+                            <a className="vm-link" href={v.link} target="_blank" rel="noopener noreferrer">
+                              {v.name} ↗
+                            </a>
+                          ) : (
+                            <span>{v.name}</span>
+                          )
+                        ) : (
+                          <button type="button" className="vm-link" onClick={() => onOpenVideo(v.id)}>
+                            {v.name}
+                          </button>
+                        )}
                         {v.title && <span className="perf-title">{v.title}</span>}
                       </th>
                       <td>{v.pillar ?? "–"}</td>

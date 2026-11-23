@@ -206,3 +206,16 @@ export async function meta(page: Page): Promise<{ image: string | null; descript
     published: null,
   }));
 }
+
+/**
+ * The view count TikTok shows on each video in the profile grid
+ * ("▷ 26K"), by the video's link. A backup for when the video's own page
+ * doesn't give its plays.
+ */
+export async function gridViews(page: Page): Promise<{ href: string; text: string }[]> {
+  const script = `(() => Array.from(document.querySelectorAll('[data-e2e="video-views"]')).map((el) => {
+    const a = el.closest('a[href]') || (el.closest('[data-e2e="user-post-item"]') || el.parentElement || document).querySelector('a[href*="/video/"]');
+    return a ? { href: a.href, text: (el.textContent || '').trim() } : null;
+  }).filter(Boolean))()`;
+  return (await page.evaluate(script).catch(() => [])) as { href: string; text: string }[];
+}
