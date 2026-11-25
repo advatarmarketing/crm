@@ -186,6 +186,12 @@ export function teamTourSteps(kind: TeamTourKind, opts: { clientId: string | nul
             body: "Every lead and where it’s up to. Keep it current: it’s how the whole team knows what’s coming.",
           },
           {
+            path: "/app/prospects",
+            selector: ".pd-new-row, .pd, main",
+            title: "Proposals",
+            body: "Make a proposal link for a prospect: pick a template, change any words or prices, preview it, then copy the link or the ready-written message. You’ll see exactly what they looked at, and when they pay.",
+          },
+          {
             path: "/app/clients",
             selector: "main .filter-bar, main",
             title: "Clients",

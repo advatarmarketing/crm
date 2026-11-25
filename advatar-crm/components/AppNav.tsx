@@ -96,6 +96,7 @@ const NAV_BY_ROLE: Record<ProfileRole, { href: string; label: string; icon: NavI
     { href: "/app/passwords", label: "Passwords", icon: "password" },
     { href: "/app/uploads", label: "Uploads", icon: "uploads" },
     { href: "/app/leads", label: "Leads", icon: "leads" },
+    { href: "/app/prospects", label: "Prospects", icon: "prospects" },
     { href: "/app/tools", label: "Tools", icon: "tools" },
     { href: "/app/journey", label: "Your Journey", icon: "journey" },
     { href: "/app/messages", label: "Messages", icon: "messages" },
