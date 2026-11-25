@@ -240,3 +240,92 @@ It shows once per person. They can replay the tour, or just the welcome, from th
 **See it yourself:** on **Team access**, press **Preview sales** or **Preview videography**. Watching a preview doesn't use up anyone's walkthrough.
 
 The wording lives in `lib/team-tour.tsx`. Ask for changes there.
+
+## Proposals and payment (Prospects)
+
+A proposal is a link you send a prospect. It opens as an animated slideshow in the CRM's own style.
+
+**What the client sees:**
+1. **The packages:** Essentials, Growth (shown first) and Accelerator, as pictures with no prices.
+2. **One page per part, in order**, each showing the visuals first and the price breakdown at the bottom:
+   - High Quality Visuals;
+   - Strategy and planning;
+   - Shoots;
+   - Edits;
+   - Social media management;
+   - Ad Campaigns (Meta, TikTok, Google, posters and leaflets);
+   - Influencer Marketing.
+
+   They can add extras (an extra shoot hour, a full day, more videos and so on), and the total updates as they go.
+3. **The summary:**
+   - three big tabs;
+   - Monthly, or 3 months upfront at 15% off;
+   - the total;
+   - **Let's go**;
+   - the **View the contract** link, with an arrow pointing to it.
+4. **Let's go:**
+   - they type their email (already filled in if you have it);
+   - the CRM saves their acceptance of the contract and emails them the proposal, contract and invoice;
+   - they choose **card** (Stripe) or **cash**.
+
+They have to go through every page before **Let's go** works. Ad spend and printing are never in our price: the ad pages show a *suggested* budget that they pay directly.
+
+**Making one (CEO, operations and sales):**
+1. **Prospects → Proposals → + New proposal.** Choose a new business or an existing client, add the contact name and email if you have them, and pick a template.
+2. **Edit anything**, on the left:
+   - every heading and line;
+   - the Cloudinary links for pictures and videos (empty ones show a placeholder);
+   - the hours and prices in each package;
+   - the extras;
+   - the suggested ad budgets;
+   - the hourly rate (£35);
+   - the 3-month discount (15%);
+   - the contract;
+   - the message.
+3. **Preview** shows exactly what they'll see. Nothing in a preview is tracked.
+4. **Save as template** keeps this setup to start future proposals from.
+5. On the deal page, **Create link / Copy link** copies the link. **Copy message** copies the ready-written email, with the link in it, to send from your Advatar email.
+
+**Changing the offer:** on the deal page, **New version from this** copies the current version so you can edit it and send the new link. The old link then says "This proposal has been updated" and points to the new one. The client goes through every page again.
+
+**What you'll see on the deal:**
+- whether they opened it, and how many times;
+- whether they read it all;
+- which packages they looked at, and for how long;
+- time on each page, with the longest highlighted;
+- which breakdowns they read and which extras they ticked;
+- whether they opened the contract;
+- how far they got: Let's go, email, card or cash.
+
+You're notified when they open it, finish it, accept it and pay.
+
+**When they pay:**
+- **Card:** Stripe confirms the payment, and the CRM then:
+  - marks it paid;
+  - makes them a client, with a paid invoice and their billing (monthly);
+  - creates their login and emails it to them;
+  - puts them under **Needs a team** on Prospects for the CEO to assign.
+
+  Monthly card payments carry on automatically.
+- **Cash:** the client is told to pay cash before you start. Once you have it, press **Cash received** on the deal, and they're set up the same way. Note later monthly cash payments there too.
+- **Existing clients** on a new deal are updated. No second client or login is made.
+- **Get login details** on the deal makes a fresh temporary password to hand over, if their email didn't arrive.
+
+### Switching on card payments (Stripe, one-time setup)
+1. In Stripe, go to **Developers → API keys → Create restricted key**. Give it:
+   - **Write:** Checkout Sessions, Products, Prices and Customers.
+   - **Read:** Subscriptions and Invoices.
+
+   Copy the key (it starts `rk_live_`).
+2. In Stripe, go to **Developers → Webhooks → Add endpoint**:
+   - URL: `https://<your-site>/api/stripe/webhook`
+   - Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded` and `invoice.paid`.
+
+   Copy the **signing secret** (it starts `whsec_`).
+3. In Vercel, go to **Settings → Environment Variables**, add `STRIPE_CHECKOUT_KEY` (the `rk_` key) and `STRIPE_WEBHOOK_SECRET` (the `whsec_` secret), then redeploy.
+
+Until this is done, clients only see the cash option, and the deal page says so.
+
+The contract, invoice and login emails need email set up: `RESEND_API_KEY` and `EMAIL_FROM`, the same as for notifications. Without it, everything else still works. The deal page tells you to send the contract and invoice links yourself, and **Get login details** gives you their password to hand over.
+
+The 3 months upfront option is a one-off Stripe payment. After the 3 months, set up their monthly billing (or a new proposal) as you agree with them.

@@ -44,6 +44,12 @@ export function createAdminClient() {
         autoRefreshToken: false,
         persistSession: false,
       },
+      // Never serve a stored copy. Next.js keeps GET fetches in its data
+      // cache unless told otherwise, and a cached read here showed a
+      // proposal as it was before the client accepted it.
+      global: {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, cache: "no-store" }),
+      },
     }
   );
 }
