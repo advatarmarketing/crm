@@ -396,6 +396,7 @@ export default async function ClientDetailPage({
         // on this client); this only avoids drawing refused controls.
         canEditPackage={canAssign}
         canEditVideos={callerRole === "ceo" || callerRole === "operations_manager" || callerRole === "staff"}
+        canApproveVideos={callerRole === "ceo" || callerRole === "operations_manager"}
         gaps={canAssign ? gaps : null}
         justAdded={searchParams?.added === "1"}
         notSaved={searchParams?.missing ? searchParams.missing.split(",").slice(0, 5) : []}

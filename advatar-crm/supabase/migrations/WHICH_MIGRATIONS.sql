@@ -151,6 +151,10 @@ from (
     (
       '0059', 'Every other day as a way of posting',
       case when exists (select 1 from pg_constraint where conname = 'client_packages_posting_mode_check' and pg_get_constraintdef(oid) like '%alternate%') then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0060', 'The client only sees a video once the CEO or operations approve it',
+      case when exists (select 1 from pg_trigger where tgname = 'submissions_approve_before_client') then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

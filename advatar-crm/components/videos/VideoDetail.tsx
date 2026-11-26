@@ -9,7 +9,7 @@ import { GUIDE_STAGES, guideHref } from "@/lib/guides";
 import { ASPECTS, BOX_LABEL, aspectCss, prettyDay, type BoxState, type ContentVideo, type VideoCycle } from "@/lib/videos";
 import { compact, type VideoPost } from "@/lib/performance";
 import { AddPost, PostRow, type MetricsSetup } from "@/components/performance/PostRow";
-import { sendVideoToClientAction, setVideoLinkAction, type VideoTextField } from "@/app/app/videos/actions";
+import { approveVideoAction, sendVideoToClientAction, setVideoLinkAction, type VideoTextField } from "@/app/app/videos/actions";
 import type { Delivery, VideoPatch } from "./VideoSchedule";
 
 /**
@@ -46,6 +46,7 @@ export function VideoDetail({
   cycles,
   editable,
   linkMode = null,
+  canApprove = false,
   onClose,
   onPrev,
   onNext,
@@ -78,6 +79,11 @@ export function VideoDetail({
    * can't save anything, so it only says where the link goes.
    */
   linkMode?: "add" | "preview" | null;
+  /**
+   * The CEO and operations. Approving a video is what lets the client
+   * see it (0060); everyone else waits for them.
+   */
+  canApprove?: boolean;
   onClose: () => void;
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
@@ -142,9 +148,9 @@ export function VideoDetail({
               ? "Approved by the client. Post it, then tick it as posted."
               : shared
                 ? "With the client. Waiting for them to approve or ask for changes."
-                : editable
-                  ? "The video is in. Send it to the client when it’s ready for them."
-                  : "The video is in. The team checks it and sends it to the client.";
+                : canApprove
+                  ? "The video is in. Watch it, then approve it to send it to the client."
+                  : "The video is in. Waiting for the CEO or operations to approve it for the client.";
 
   const steps: { label: string; state: StepState }[] = [
     { label: "Script", state: scripted || hasVideo ? "done" : "now" },
@@ -184,7 +190,7 @@ export function VideoDetail({
     if (!upload) return;
     setBusy(true);
     onError(null);
-    const res = await sendVideoToClientAction(upload.id, on);
+    const res = on ? await approveVideoAction(upload.id) : await sendVideoToClientAction(upload.id, false);
     if (res.error) onError(res.error);
     else await onReload();
     setBusy(false);
@@ -396,7 +402,11 @@ export function VideoDetail({
                 </label>
                 <p className="vm-hint">
                   Works with Google Drive (shared as “Anyone with the link”), Cloudinary, YouTube, Vimeo and Loom.
-                  {hasVideo && shared ? " The client is told a new version is ready." : ""}
+                  {hasVideo && shared
+                    ? canApprove
+                      ? " The client is told a new version is ready."
+                      : " It goes back to the CEO and operations to approve before the client sees it."
+                    : ""}
                 </p>
                 <div className="onboard-actions">
                   <button type="button" className="btn btn-primary" onClick={saveLink} disabled={busy || !link.trim()}>
@@ -441,22 +451,23 @@ export function VideoDetail({
                   <p>
                     {shared ? (
                       <>
-                        <strong>✓ The client can watch this</strong> on their Videos page.
+                        <strong>✓ Approved.</strong> The client can watch this on their Videos page.
                       </>
                     ) : (
                       <>
-                        <strong>Only the team can see this.</strong> The client sees it once {editable ? "you send" : "the team sends"} it.
+                        <strong>Waiting for approval.</strong> Only the team can see this.{" "}
+                        {canApprove ? "Approving it sends it to the client." : "The client sees it once the CEO or operations approve it."}
                       </>
                     )}
                   </p>
-                  {editable &&
+                  {canApprove &&
                     (shared ? (
                       <button type="button" className="vm-link" onClick={() => share(false)} disabled={busy}>
                         Hide from the client
                       </button>
                     ) : (
                       <button type="button" className="btn btn-primary" onClick={() => share(true)} disabled={busy}>
-                        Send to the client
+                        {busy ? "Approving…" : "Approve and send to the client"}
                       </button>
                     ))}
                 </div>
@@ -537,7 +548,7 @@ export function VideoDetail({
                 ) : shared ? (
                   <span className="pill pill-info">Waiting for the client</span>
                 ) : (
-                  <span className="pill">Not sent to the client yet</span>
+                  <span className="pill">Waiting for approval</span>
                 )}
               </p>
             )}

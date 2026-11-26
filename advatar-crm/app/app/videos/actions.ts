@@ -37,6 +37,7 @@ function friendly(message: string, code?: string): string {
   if (code === "42P01" || code === "PGRST205" || (/content_videos/.test(message) && /does not exist|could not find/i.test(message))) {
     return "The video schedule isn’t switched on yet — database update 0042 still needs running.";
   }
+  if (/Only the CEO or operations can approve/i.test(message)) return "Only the CEO or operations can approve a video for the client.";
   if (/row-level security|violates row-level/i.test(message)) {
     return "You can’t change this client’s schedule.";
   }
@@ -369,10 +370,39 @@ export async function setVideoLinkAction(videoId: string, pasted: string, label:
 }
 
 /**
- * Lets the client watch it (and approve or ask for changes, if their
+ * The CEO or operations approving a video: it is marked approved and
+ * the client can watch it (and approve or ask for changes, if their
  * package has a review step). The database tells them it is ready.
+ * Since 0060 nobody else can show a video to the client.
+ */
+export async function approveVideoAction(submissionId: string): Promise<VideoResult> {
+  const { supabase, user } = await signedIn();
+  if (!user) return { error: "Not signed in." };
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  const role = (me as { role?: string } | null)?.role;
+  if (role !== "ceo" && role !== "operations_manager") {
+    return { error: "Only the CEO or operations can approve a video for the client." };
+  }
+  const { data, error } = await supabase
+    .from("submissions")
+    .update({ status: "approved", visibility: "team_and_client" } as never)
+    .eq("id", submissionId)
+    .select("client_id");
+  if (error) return { error: friendly(error.message, error.code) };
+  if (!wrote(data)) return { error: "You can’t approve this video." };
+  refresh((data as { client_id: string }[])[0]?.client_id);
+  revalidatePath("/app/uploads");
+  revalidatePath("/app/portal/videos");
+  revalidatePath("/app/portal");
+  return { error: null };
+}
+
+/**
+ * Showing or hiding a video from the client. Showing it is approving
+ * it, so that goes through approveVideoAction; this is kept for hiding.
  */
 export async function sendVideoToClientAction(submissionId: string, share: boolean): Promise<VideoResult> {
+  if (share) return approveVideoAction(submissionId);
   const { supabase, user } = await signedIn();
   if (!user) return { error: "Not signed in." };
   const { data, error } = await supabase

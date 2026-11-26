@@ -1,0 +1,96 @@
+-- 0060 - The client only sees a video once the CEO or operations approve it
+--
+-- The flow this makes sure of:
+--   1. The videographer on a client adds the video's link (0058). Only
+--      the team can see it; the CEO and the staff on the client are told
+--      there is something to review.
+--   2. The CEO or an operations manager watches it and approves it.
+--      Approving it is what sends it to the client, who is told it is
+--      ready on their Videos page.
+--   3. If the videographer later adds a new version, the client stops
+--      seeing the video until the new version is approved too, so they
+--      never see a cut nobody has checked.
+--
+-- The database holds the line, not just the buttons: only the CEO and
+-- operations managers can make a video visible to the client. (Also a
+-- videographer the CEO has trusted to send work straight to the
+-- client with the switch on Team access, 0047.)
+--
+-- Safe to run twice. Needs 0020, 0025, 0042 and 0047.
+
+-- -----------------------------------------------------------------
+-- 1. Approving sends it to the client; nobody else can send it
+-- -----------------------------------------------------------------
+create or replace function public.submissions_approve_before_client()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  who text := public.current_role();
+  approver boolean;
+begin
+  -- The app's own server jobs and the database's triggers run with no
+  -- signed-in person; they are not what this guards against.
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  approver := who in ('ceo', 'operations_manager');
+
+  -- The CEO or operations approving a client's video: it goes to them.
+  if tg_op = 'UPDATE'
+     and approver
+     and new.client_id is not null
+     and new.status = 'approved'
+     and old.status is distinct from 'approved' then
+    new.visibility := 'team_and_client';
+  end if;
+
+  -- Anyone else trying to show it to the client.
+  if new.visibility = 'team_and_client'
+     and (tg_op = 'INSERT' or old.visibility is distinct from 'team_and_client')
+     and not approver
+     and not (who = 'videographer' and public.videographer_can_share()) then
+    raise exception 'Only the CEO or operations can approve a video for the client.'
+      using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists submissions_approve_before_client on public.submissions;
+create trigger submissions_approve_before_client
+  before insert or update on public.submissions
+  for each row execute procedure public.submissions_approve_before_client();
+
+-- -----------------------------------------------------------------
+-- 2. A videographer's new version goes back for approval
+-- -----------------------------------------------------------------
+-- Before the version row goes in, so the "new version ready" message to
+-- the client (0042) sees the video as team-only and stays quiet.
+create or replace function public.videographer_version_needs_approval()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is not null
+     and public.current_role() = 'videographer'
+     and not public.videographer_can_share() then
+    update public.submissions
+       set visibility = 'team_only'
+     where id = new.submission_id
+       and visibility = 'team_and_client';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists submission_versions_need_approval on public.submission_versions;
+create trigger submission_versions_need_approval
+  before insert on public.submission_versions
+  for each row execute procedure public.videographer_version_needs_approval();

@@ -24,7 +24,7 @@ and lead from anywhere. Start typing a name and press it.
 | **CEO** | Everything: all clients, all money, staff payments, and who's on the team. |
 | **Operations Manager** | Sales and strategy: all clients, the pipeline, prospects, and invoices. Not staff wages, not each client's monthly value, and can't invite people. |
 | **Staff** | Only the clients they've been assigned to. No money at all. |
-| **Videographer** | Only their assigned clients, read-only, except that they add each video's link (and new versions) and tick off the changes asked for. Plus their own payments. |
+| **Videographer** | Only their assigned clients, read-only, except that they add each video's link (and new versions) and tick off the changes asked for. The CEO or operations approve each video before the client sees it. Plus their own payments. |
 | **Client** | Only their own project portal. |
 
 **Important:** a staff member genuinely cannot reach another client's
