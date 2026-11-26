@@ -9,7 +9,7 @@ import { GUIDE_STAGES, guideHref } from "@/lib/guides";
 import { ASPECTS, BOX_LABEL, aspectCss, prettyDay, type BoxState, type ContentVideo, type VideoCycle } from "@/lib/videos";
 import { compact, type VideoPost } from "@/lib/performance";
 import { AddPost, PostRow, type MetricsSetup } from "@/components/performance/PostRow";
-import { approveVideoAction, sendVideoToClientAction, setVideoLinkAction, type VideoTextField } from "@/app/app/videos/actions";
+import { approveVideoAction, fixVideoLinkAction, sendVideoToClientAction, setVideoLinkAction, type VideoTextField } from "@/app/app/videos/actions";
 import type { Delivery, VideoPatch } from "./VideoSchedule";
 
 /**
@@ -118,7 +118,9 @@ export function VideoDetail({
   useEffect(() => {
     setItems(upload?.checklist ?? []);
   }, [upload?.checklist]);
-  const [linking, setLinking] = useState(false);
+  // "new" adds a link (the first, or a new version); "fix" corrects the
+  // link on the current version when the wrong one went in.
+  const [linking, setLinking] = useState<false | "new" | "fix">(false);
   const [link, setLink] = useState("");
   const [task, setTask] = useState("");
   const [busy, setBusy] = useState(false);
@@ -175,7 +177,9 @@ export function VideoDetail({
   async function saveLink() {
     setBusy(true);
     onError(null);
-    const res = await setVideoLinkAction(video.id, link, name).catch(() => ({ error: "That didn’t save. Check your connection and try again." }));
+    const res = await (linking === "fix" ? fixVideoLinkAction(video.id, link) : setVideoLinkAction(video.id, link, name)).catch(() => ({
+      error: "That didn’t save. Check your connection and try again.",
+    }));
     if (res.error) {
       setBusy(false);
       return onError(res.error);
@@ -380,7 +384,7 @@ export function VideoDetail({
                 </span>
                 <p>No video yet.</p>
                 {linkable && !linking && (
-                  <button type="button" className="btn btn-primary" onClick={() => setLinking(true)}>
+                  <button type="button" className="btn btn-primary" onClick={() => setLinking("new")}>
                     + Add the video link
                   </button>
                 )}
@@ -391,7 +395,9 @@ export function VideoDetail({
             {linkable && linking && (
               <div className="vd-link fade-in">
                 <label>
-                  <span className="vm-label">{hasVideo ? "Link to the new version" : "Video link or embed code"}</span>
+                  <span className="vm-label">
+                    {linking === "fix" ? `The right link for version ${upload?.current_version ?? 1}` : hasVideo ? "Link to the new version" : "Video link or embed code"}
+                  </span>
                   <textarea
                     rows={2}
                     autoFocus
@@ -402,6 +408,7 @@ export function VideoDetail({
                 </label>
                 <p className="vm-hint">
                   Works with Google Drive (shared as “Anyone with the link”), Cloudinary, YouTube, Vimeo and Loom.
+                  {linking === "fix" ? " This replaces the wrong link; it doesn’t make a new version." : ""}
                   {hasVideo && shared
                     ? canApprove
                       ? " The client is told a new version is ready."
@@ -410,7 +417,7 @@ export function VideoDetail({
                 </p>
                 <div className="onboard-actions">
                   <button type="button" className="btn btn-primary" onClick={saveLink} disabled={busy || !link.trim()}>
-                    {busy ? "Saving…" : hasVideo ? `Save as version ${(upload?.current_version ?? 1) + 1}` : "Show the player"}
+                    {busy ? "Saving…" : linking === "fix" ? "Save the right link" : hasVideo ? `Save as version ${(upload?.current_version ?? 1) + 1}` : "Show the player"}
                   </button>
                   <button type="button" className="btn" onClick={() => setLinking(false)} disabled={busy}>
                     Cancel
@@ -428,6 +435,11 @@ export function VideoDetail({
                       Open link ↗
                     </a>
                   )}
+                  {(canApprove || linkMode === "add") && !linking && (
+                    <button type="button" className="vm-link" onClick={() => setLinking("fix")}>
+                      Wrong link? Change it
+                    </button>
+                  )}
                   {editable && posts !== null && source?.kind !== "link" && (
                     <label className="vd-shape">
                       <span className="sr-only">Shape of the video</span>
@@ -442,7 +454,7 @@ export function VideoDetail({
                   )}
                   <span style={{ flex: 1 }} />
                   {linkable && !linking && (
-                    <button type="button" className="btn" onClick={() => setLinking(true)}>
+                    <button type="button" className="btn" onClick={() => setLinking("new")}>
                       + Add a new version
                     </button>
                   )}
@@ -477,7 +489,7 @@ export function VideoDetail({
 
           <section className="card card-pad vd-card vd-posted">
             <h3 className="vm-sub">Posted</h3>
-            {editable ? (
+            {linkable ? (
               <button type="button" className={posted ? "vd-post is-on" : "vd-post"} aria-pressed={posted} onClick={onTogglePosted}>
                 <span className="vd-post-tick" aria-hidden>
                   ✓
@@ -487,7 +499,7 @@ export function VideoDetail({
             ) : (
               <p className="vm-hint">{posted ? "Posted." : "Not posted yet."}</p>
             )}
-            {posted && editable && <p className="vm-hint">Click again to untick.</p>}
+            {posted && linkable && <p className="vm-hint">Click again to untick.</p>}
           </section>
 
           {posts !== null && (posted || posts.length > 0) && (
@@ -500,13 +512,13 @@ export function VideoDetail({
               )}
               {posts.length === 0 && (
                 <p className="vm-hint">
-                  {editable ? "Add the link on each platform it went out on. Its views, likes, comments and shares are then recorded here and counted on the Performance tab." : "No links added yet."}
+                  {linkable ? "Add the link on each platform it went out on. Its views, likes, comments and shares are then recorded here and counted on the Performance tab." : "No links added yet."}
                 </p>
               )}
               {posts.map((p) => (
-                <PostRow key={p.id} post={p} editable={editable} setup={setup} onChanged={onReload} />
+                <PostRow key={p.id} post={p} editable={editable} canRemove={linkable} setup={setup} onChanged={onReload} />
               ))}
-              {editable && <AddPost videoId={video.id} taken={posts.map((p) => p.platform)} onAdded={onReload} />}
+              {linkable && <AddPost videoId={video.id} taken={posts.map((p) => p.platform)} onAdded={onReload} />}
             </section>
           )}
         </div>

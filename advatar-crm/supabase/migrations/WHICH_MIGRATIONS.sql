@@ -155,6 +155,10 @@ from (
     (
       '0060', 'The client only sees a video once the CEO or operations approve it',
       case when exists (select 1 from pg_trigger where tgname = 'submissions_approve_before_client') then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0061', 'Videographers tick posted, add post links and correct a wrong link',
+      case when to_regprocedure('public.fix_video_link(uuid, text)') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;
