@@ -254,9 +254,28 @@ export async function moveVideoAction(id: string, publishOn: string): Promise<Vi
   return updateVideoAction(id, { publish_on: publishOn });
 }
 
+const NEEDS_0061 = "This isn’t switched on for videographers yet: database update 0061 still needs running.";
+const missingFn = (e: { code?: string; message: string }, name: string) =>
+  e.code === "PGRST202" || e.code === "42883" || e.message.includes(name);
+
+async function isVideographer(supabase: ReturnType<typeof createClient>, userId: string): Promise<boolean> {
+  const { data } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
+  return (data as { role?: string } | null)?.role === "videographer";
+}
+
 export async function setPostedAction(id: string, posted: boolean): Promise<VideoResult> {
   const { supabase, user } = await signedIn();
   if (!user) return { error: "Not signed in." };
+  // The videographer on the client can tick it too (0061), through a
+  // function that changes nothing else on the video.
+  if (await isVideographer(supabase, user.id)) {
+    const { error } = await supabase.rpc("set_video_posted" as never, { target_video: id, posted } as never);
+    if (error) return { error: missingFn(error, "set_video_posted") ? NEEDS_0061 : error.message };
+    const { data: v } = await supabase.from("content_videos").select("client_id").eq("id", id).maybeSingle();
+    refresh((v as { client_id: string } | null)?.client_id);
+    revalidatePath("/app/my-clients");
+    return { error: null };
+  }
   const { data, error } = await supabase
     .from("content_videos")
     .update({ posted_at: posted ? new Date().toISOString() : null, updated_by: user.id } as never)
@@ -364,6 +383,48 @@ export async function setVideoLinkAction(videoId: string, pasted: string, label:
   }
 
   refresh(v.client_id);
+  revalidatePath("/app/uploads");
+  revalidatePath("/app/portal/videos");
+  return { error: null };
+}
+
+/**
+ * The wrong link went in: put the right one on the current version
+ * instead of making a new version. For a videographer this goes
+ * through 0061's fix_video_link, which sends a video the client could
+ * already see back for approval and tells the team.
+ */
+export async function fixVideoLinkAction(videoId: string, pasted: string): Promise<VideoResult> {
+  const { supabase, user } = await signedIn();
+  if (!user) return { error: "Not signed in." };
+  const url = linkFromPaste(pasted);
+  if (!url) return { error: "That doesn’t look like a link. Paste the video’s link, or its embed code." };
+  if (url.length > 1000) return { error: "That link is too long." };
+
+  const { data: video } = await supabase.from("content_videos").select("client_id, submission_id").eq("id", videoId).maybeSingle();
+  const v = video as { client_id: string; submission_id: string | null } | null;
+  if (!v) return { error: "That video isn’t there any more." };
+
+  if (await isVideographer(supabase, user.id)) {
+    const { error } = await supabase.rpc("fix_video_link" as never, { target_video: videoId, link: url } as never);
+    if (error) return { error: missingFn(error, "fix_video_link") ? NEEDS_0061 : error.message };
+  } else {
+    if (!v.submission_id) return { error: "That video has no link to correct yet. Add one first." };
+    const { data: sub } = await supabase.from("submissions").select("current_version").eq("id", v.submission_id).maybeSingle();
+    const version = (sub as { current_version: number } | null)?.current_version ?? 0;
+    if (version < 1) return { error: "That video has no link to correct yet. Add one first." };
+    const { data, error } = await supabase
+      .from("submission_versions")
+      .update({ url, stream_url: null } as never)
+      .eq("submission_id", v.submission_id)
+      .eq("version", version)
+      .select("id");
+    if (error) return { error: friendly(error.message, error.code) };
+    if (!wrote(data)) return { error: "You can’t change this video’s link." };
+  }
+
+  refresh(v.client_id);
+  revalidatePath("/app/my-clients");
   revalidatePath("/app/uploads");
   revalidatePath("/app/portal/videos");
   return { error: null };

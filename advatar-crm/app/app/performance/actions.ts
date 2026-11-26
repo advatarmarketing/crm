@@ -14,7 +14,8 @@ import { filterPlatform, followerSpan, loadGrowth, platformName, type PlatformFi
 /**
  * Post links, their numbers, and reports (0046). Everything is written
  * as the signed-in person, so the database decides who may: management
- * and assigned staff. Videographers and clients can only read.
+ * and assigned staff. The videographer on a client can add post links
+ * and remove their own (0061); clients can only read.
  */
 
 export interface PerfResult {
@@ -79,7 +80,9 @@ export async function addPostAction(videoId: string, pasted: string, platform: P
   // numbers for a YouTube link. Otherwise the next daily run fills it.
   try {
     if (where === "youtube" && youtubeOn()) {
-      await refreshYoutube(supabase, user.id, [{ id: postId, url }]);
+      // Public numbers fetched by the server, written by the server: a
+      // videographer can add a link (0061) but not write numbers.
+      await refreshYoutube(createAdminClient() as unknown as ReturnType<typeof createClient>, user.id, [{ id: postId, url }]);
     } else if (where !== "other") {
       await applyToVideoPosts(createAdminClient(), clientId, where);
     }

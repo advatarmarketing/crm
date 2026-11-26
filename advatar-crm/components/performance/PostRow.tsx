@@ -55,12 +55,18 @@ function when(iso: string | null, source: VideoPost["metrics_source"]): string {
 export function PostRow({
   post,
   editable,
+  canRemove = editable,
   setup,
   heading,
   onChanged,
 }: {
   post: VideoPost;
   editable: boolean;
+  /**
+   * Remove the link. The team, and the videographer on the client for
+   * a link they added (0061), who can't type numbers in.
+   */
+  canRemove?: boolean;
   setup: MetricsSetup;
   /** Shown above the row where the video is not already obvious. */
   heading?: string;
@@ -174,9 +180,9 @@ export function PostRow({
         ))}
       </div>
 
-      {editable && (
+      {(editable || canRemove) && (
         <div className="post-actions">
-          {manual && (
+          {editable && manual && (
             <>
               <button type="button" className="btn" onClick={() => file.current?.click()} disabled={Boolean(busy)}>
                 Read from a screenshot
@@ -184,7 +190,7 @@ export function PostRow({
               <input ref={file} type="file" accept="image/*" hidden onChange={(e) => screenshot(e.target.files?.[0])} />
             </>
           )}
-          {post.platform === "youtube" && setup.youtube && (
+          {editable && post.platform === "youtube" && setup.youtube && (
             <button type="button" className="btn" onClick={youtube} disabled={Boolean(busy)}>
               Refresh now
             </button>
@@ -193,7 +199,7 @@ export function PostRow({
             <span className="vm-hint" role="status">
               {busy}
             </span>
-          ) : couldBeAuto ? (
+          ) : !editable ? null : couldBeAuto ? (
             <span className="vm-hint">
               Add this client&rsquo;s {platformLabel(post.platform)} profile link above (Accounts we manage) and these fill in by themselves after the next daily read.
             </span>
