@@ -11,7 +11,7 @@ import {
   describePackage,
   normalizePackage,
   postingDates,
-  videosPerWeek,
+  roughCount,
   type ClientPackage,
   type PackageDraft,
   type PackagePreset,
@@ -335,10 +335,10 @@ export function PackagePanel({
         <p style={hint}>
           {shown
             ? onPick
-              ? `${presetName_ ? `From “${presetName_}”. ` : ""}Roughly ${videosPerWeek(shown) * 4} videos every four weeks.`
+              ? `${presetName_ ? `From “${presetName_}”. ` : ""}${roughCount(shown)}`
               : savedPresetName
               ? `Set up from the “${savedPresetName}” package.`
-              : `Roughly ${videosPerWeek(shown) * 4} videos every four weeks.`
+              : roughCount(shown)
             : editable
               ? onPick
                 ? "Start from a saved package, or choose each option below. Nothing is picked for you."
@@ -452,6 +452,7 @@ export function PackagePanel({
             [
               ["weekdays", "Set days", "The same days every week"],
               ["daily", "Every day", "One a day, seven days a week"],
+              ["alternate", "Every other day", "Post one day, skip the next: 15 or 16 a month"],
               ["per_week", "A number a week", "Days chosen as we go"],
             ] as [PostingMode, string, string][]
           ).map(([mode, title, detail]) => (
@@ -505,6 +506,13 @@ export function PackagePanel({
           </label>
         )}
 
+        {draft.posting_mode === "alternate" && (
+          <p style={{ ...hint, marginBottom: 14 }}>
+            Counted from the first day of each month: day 1, 3, 5 and so on. That’s 15 videos in a 30-day month, 16 in a 31-day
+            one and 14 in February.
+          </p>
+        )}
+
         {(draft.posting_mode === "weekdays" || draft.posting_mode === "daily") && (
           <div>
             <p style={{ ...hint, marginBottom: 8 }}>Days with two videos (optional)</p>
@@ -534,6 +542,11 @@ export function PackagePanel({
             {effective?.posting_mode === "per_week" && (
               <p style={{ ...hint, marginTop: 8 }}>
                 A suggested spread — the actual days are set when the month is planned.
+              </p>
+            )}
+            {effective?.posting_mode === "alternate" && (
+              <p style={{ ...hint, marginTop: 8 }}>
+                Shown from today. Each month’s videos start on its first day.
               </p>
             )}
           </>
