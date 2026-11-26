@@ -301,6 +301,25 @@ export async function setVideoLinkAction(videoId: string, pasted: string, label:
   if (!url) return { error: "That doesn’t look like a link. Paste the video’s link, or its embed code." };
   if (url.length > 1000) return { error: "That link is too long." };
 
+  // A videographer can't write the schedule itself, so theirs goes
+  // through 0058's add_video_link, which only lets them add the link
+  // to a video of a client they film for, and does it all in one go.
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if ((me as { role?: string } | null)?.role === "videographer") {
+    const { data: clientId } = await supabase.from("content_videos").select("client_id").eq("id", videoId).maybeSingle();
+    const { error } = await supabase.rpc("add_video_link" as never, { target_video: videoId, link: url, fallback_title: label.slice(0, 200) } as never);
+    if (error) {
+      if (error.code === "PGRST202" || error.code === "42883" || /add_video_link/.test(error.message)) {
+        return { error: "Adding links isn’t switched on for videographers yet: database update 0058 still needs running." };
+      }
+      return { error: error.message };
+    }
+    refresh((clientId as { client_id: string } | null)?.client_id);
+    revalidatePath("/app/my-clients");
+    revalidatePath("/app/uploads");
+    return { error: null };
+  }
+
   const { data: video, error: vError } = await supabase
     .from("content_videos")
     .select("id, client_id, title, submission_id")

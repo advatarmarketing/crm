@@ -45,6 +45,7 @@ export function VideoDetail({
   pillars,
   cycles,
   editable,
+  linkMode = null,
   onClose,
   onPrev,
   onNext,
@@ -70,6 +71,13 @@ export function VideoDetail({
   pillars: string[];
   cycles: VideoCycle[];
   editable: boolean;
+  /**
+   * For a videographer, who can't edit the video otherwise: "add" lets
+   * them add the link and new versions, and tick off the changes asked
+   * for (0058). "preview" is the CEO looking at their screen, which
+   * can't save anything, so it only says where the link goes.
+   */
+  linkMode?: "add" | "preview" | null;
   onClose: () => void;
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
@@ -89,6 +97,9 @@ export function VideoDetail({
   const mode = pkg ? pkg.revisions : "unset";
   const reviews = mode !== "none";
   const source = hasVideo ? playerFor(delivery?.streamUrl, delivery?.url) : null;
+  // Can add the link and work through the changes: the team, or the
+  // videographer on this client.
+  const linkable = editable || linkMode === "add";
 
   // A framed player cannot tell us its shape, so it is chosen; wide
   // hosts start wide. A direct video file sizes itself.
@@ -116,7 +127,9 @@ export function VideoDetail({
   const next = posted
     ? "Posted. Nothing left to do on this one."
     : !hasVideo
-      ? scripted
+      ? !editable
+        ? "When it’s filmed and edited, add the video link."
+        : scripted
         ? "Scripted. When it’s filmed and edited, add the video link."
         : "Write the script below, or add the video link if it’s already made."
       : open.length > 0
@@ -129,7 +142,9 @@ export function VideoDetail({
               ? "Approved by the client. Post it, then tick it as posted."
               : shared
                 ? "With the client. Waiting for them to approve or ask for changes."
-                : "The video is in. Send it to the client when it’s ready for them.";
+                : editable
+                  ? "The video is in. Send it to the client when it’s ready for them."
+                  : "The video is in. The team checks it and sends it to the client.";
 
   const steps: { label: string; state: StepState }[] = [
     { label: "Script", state: scripted || hasVideo ? "done" : "now" },
@@ -154,7 +169,7 @@ export function VideoDetail({
   async function saveLink() {
     setBusy(true);
     onError(null);
-    const res = await setVideoLinkAction(video.id, link, name);
+    const res = await setVideoLinkAction(video.id, link, name).catch(() => ({ error: "That didn’t save. Check your connection and try again." }));
     if (res.error) {
       setBusy(false);
       return onError(res.error);
@@ -358,15 +373,16 @@ export function VideoDetail({
                   ▶
                 </span>
                 <p>No video yet.</p>
-                {editable && !linking && (
+                {linkable && !linking && (
                   <button type="button" className="btn btn-primary" onClick={() => setLinking(true)}>
                     + Add the video link
                   </button>
                 )}
+                {linkMode === "preview" && <p className="vm-hint">The videographer adds the video link here from their own login.</p>}
               </div>
             )}
 
-            {editable && linking && (
+            {linkable && linking && (
               <div className="vd-link fade-in">
                 <label>
                   <span className="vm-label">{hasVideo ? "Link to the new version" : "Video link or embed code"}</span>
@@ -415,7 +431,7 @@ export function VideoDetail({
                     </label>
                   )}
                   <span style={{ flex: 1 }} />
-                  {editable && !linking && (
+                  {linkable && !linking && (
                     <button type="button" className="btn" onClick={() => setLinking(true)}>
                       + Add a new version
                     </button>
@@ -429,7 +445,7 @@ export function VideoDetail({
                       </>
                     ) : (
                       <>
-                        <strong>Only the team can see this.</strong> The client sees it once you send it.
+                        <strong>Only the team can see this.</strong> The client sees it once {editable ? "you send" : "the team sends"} it.
                       </>
                     )}
                   </p>
@@ -491,7 +507,7 @@ export function VideoDetail({
               <strong>{mode === "unset" ? "No package chosen yet" : REVISION_LABELS[mode].title}</strong>
               <p>
                 {mode === "unset"
-                  ? "Until a package is chosen, the client can approve or ask for changes with no limit. Choose one on the Package tab."
+                  ? `Until a package is chosen, the client can approve or ask for changes with no limit.${editable ? " Choose one on the Package tab." : ""}`
                   : mode === "full"
                     ? `The client can approve, or leave notes and ask for changes${
                         roundsLimit ? `, up to ${roundsLimit} round${roundsLimit === 1 ? "" : "s"} per video` : ", with no limit on rounds"
@@ -550,7 +566,7 @@ export function VideoDetail({
                       {[...open, ...items.filter((i) => i.done)].map((item) => (
                         <li key={item.id} className={item.done ? "is-done" : ""}>
                           <label>
-                            <input type="checkbox" checked={item.done} onChange={() => tick(item)} disabled={!editable} />
+                            <input type="checkbox" checked={item.done} onChange={() => tick(item)} disabled={!linkable} />
                             <span>{item.text}</span>
                           </label>
                           <span className={item.source === "client" ? "pill pill-violet" : "pill"}>
@@ -564,7 +580,7 @@ export function VideoDetail({
                 )}
                 {items.length === 0 && <p className="vm-hint">No changes asked for. When the client leaves notes, they appear here as a checklist.</p>}
 
-                {editable && (
+                {linkable && (
                   <form
                     className="vd-add"
                     onSubmit={(e) => {
