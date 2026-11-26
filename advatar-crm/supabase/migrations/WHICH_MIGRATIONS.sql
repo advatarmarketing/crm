@@ -143,6 +143,10 @@ from (
     (
       '0057', 'Proposals: client proposal links, packages, tracking and payment',
       case when to_regclass('public.proposals') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0058', 'Videographers add the video link on their clients'' videos',
+      case when to_regprocedure('public.add_video_link(uuid, text, text)') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

@@ -5,6 +5,8 @@ import { loadScripts } from "@/lib/scripts";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { VIEW_AS_HEADER } from "@/lib/view-as";
 import { createClient } from "@/lib/supabase/server";
 import { PlannerDocument } from "@/components/PlannerDocument";
 import { VideoSchedule } from "@/components/videos/VideoSchedule";
@@ -237,13 +239,16 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
             client portal, a videographer can see a draft, just can't
             edit it yet). See PlannerDocument.tsx's requirePublished
             prop doc comment for why this differs from the client
-            portal's usage. */}
+            portal's usage. The videos inside it are read-only too,
+            except for the link: the videographer adds each video's
+            link and new versions there (0058). In a CEO's "view their
+            CRM" window that can't save, so it only says so. */}
         <Panel what="content plan" context={`client ${clientRow.id}`}>
           <PlannerDocument
             clientId={clientRow.id}
             editable={false}
             emptyMessage="No plan has been started for this client yet."
-            videos={<VideoSchedule clientId={clientRow.id} editable={false} />}
+            videos={<VideoSchedule clientId={clientRow.id} editable={false} linkMode={headers().get(VIEW_AS_HEADER) !== null ? "preview" : "add"} />}
           />
         </Panel>
       </section>

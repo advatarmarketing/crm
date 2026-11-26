@@ -87,7 +87,10 @@ export function VideoSchedule({
   pkg: givenPkg,
   initialOpenId = null,
   openHref,
+  linkMode = null,
 }: {
+  /** A videographer's view: see VideoDetail's linkMode. */
+  linkMode?: "add" | "preview" | null;
   /**
    * The client's view (their Content Plan): the same grid, read-only,
    * and a box opens that video on their own Videos page instead of the
@@ -320,6 +323,7 @@ export function VideoSchedule({
           pillars={pillars}
           cycles={cycles}
           editable={editable}
+          linkMode={linkMode}
           onClose={() => open(null)}
           onPrev={index > 0 ? () => open(siblings[index - 1].id) : null}
           onNext={index < siblings.length - 1 ? () => open(siblings[index + 1].id) : null}
