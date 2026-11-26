@@ -82,6 +82,7 @@ export function UploadsWorkspace({
 
   const abilities: UploadAbilities = {
     canReview,
+    canApprove: role === "ceo" || role === "operations_manager",
     canSubmit,
     canUpload,
     // Feedback comes from the people reviewing the work and from the

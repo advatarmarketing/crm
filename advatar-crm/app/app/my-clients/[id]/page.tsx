@@ -223,7 +223,7 @@ export default async function MyClientDetailPage({ params }: { params: { id: str
         <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--text-2)", margin: "0 0 12px", lineHeight: 1.6 }}>
           {canShareWithClient
             ? "Send it to the CEO and team for approval first, or straight to the client."
-            : "It goes to the CEO and the staff on this client for approval. They send it to the client."}
+            : "It goes to the CEO and operations for approval. Once they approve it, the client sees it."}
         </p>
         <Link href={`/app/uploads?client=${clientRow.id}`} className="btn btn-primary" style={{ textDecoration: "none" }}>
           + Upload a video for {clientRow.name}

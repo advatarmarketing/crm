@@ -287,9 +287,17 @@ export async function shareWithClientAction(submissionId: string): Promise<Submi
 
   if (!user) return { ok: false, error: "You are signed out. Sign in and try again." };
 
+  // Showing a video to the client is approving it, and that is the
+  // CEO's or operations' call (0060 enforces it in the database too).
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  const role = (me as { role?: string } | null)?.role;
+  if (role !== "ceo" && role !== "operations_manager") {
+    return { ok: false, error: "Only the CEO or operations can approve a video for the client." };
+  }
+
   const { data: updated, error } = await supabase
     .from("submissions")
-    .update({ visibility: "team_and_client" })
+    .update({ visibility: "team_and_client", status: "approved" } as never)
     .eq("id", submissionId)
     .select("id, title, client_id, planner_slot_id")
     .maybeSingle();

@@ -88,7 +88,10 @@ export function VideoSchedule({
   initialOpenId = null,
   openHref,
   linkMode = null,
+  canApprove = false,
 }: {
+  /** CEO and operations: can approve a video, which sends it to the client. */
+  canApprove?: boolean;
   /** A videographer's view: see VideoDetail's linkMode. */
   linkMode?: "add" | "preview" | null;
   /**
@@ -324,6 +327,7 @@ export function VideoSchedule({
           cycles={cycles}
           editable={editable}
           linkMode={linkMode}
+          canApprove={canApprove}
           onClose={() => open(null)}
           onPrev={index > 0 ? () => open(siblings[index - 1].id) : null}
           onNext={index < siblings.length - 1 ? () => open(siblings[index + 1].id) : null}

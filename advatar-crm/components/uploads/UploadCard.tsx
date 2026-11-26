@@ -20,8 +20,13 @@ import {
 } from "./styles";
 
 export interface UploadAbilities {
-  /** Move the status on, leave feedback, share with the client. */
+  /** Move the status on, leave feedback. */
   canReview: boolean;
+  /**
+   * Approve a video, which is what sends it to the client: the CEO and
+   * operations only (0060 holds the same line in the database).
+   */
+  canApprove: boolean;
   /** Add a new cut and work the checklist — the videographer who made it. */
   canSubmit: boolean;
   /**
@@ -177,7 +182,7 @@ export function UploadCard({
     setBusy(false);
     if (!result.ok) return setError(result.error);
 
-    setShareNote(result.note ?? "Shared. The client has been told.");
+    setShareNote(result.note ?? "Approved and sent. The client has been told.");
     router.refresh();
   }
 
@@ -346,9 +351,9 @@ export function UploadCard({
               </a>
             )}
 
-            {abilities.canReview && upload.visibility === "team_only" && (
-              <button type="button" onClick={share} disabled={busy} className="btn">
-                {busy ? "Sharing…" : "Share with the client"}
+            {abilities.canApprove && upload.visibility === "team_only" && upload.client_id && (
+              <button type="button" onClick={share} disabled={busy} className="btn btn-primary">
+                {busy ? "Approving…" : "Approve and send to the client"}
               </button>
             )}
 

@@ -97,6 +97,7 @@ export function ClientDetailTabs({
   packageAvailable = false,
   canEditPackage = false,
   canEditVideos = false,
+  canApproveVideos = false,
   account = null,
   gaps = null,
   justAdded = false,
@@ -154,6 +155,8 @@ export function ClientDetailTabs({
   canEditPackage?: boolean;
   /** Management on this client and assigned staff (0042). */
   canEditVideos?: boolean;
+  /** CEO and operations: approving a video is what sends it to the client (0060). */
+  canApproveVideos?: boolean;
   /** What is still missing (lib/onboarding/gaps.ts); null for anyone who can't fill it in. */
   gaps?: Gap[] | null;
   /** Arrived straight from adding the client. */
@@ -399,7 +402,7 @@ export function ClientDetailTabs({
           clientId={client.id}
           editable={true}
           initialSection={planSection}
-          videos={<VideoSchedule clientId={client.id} editable={canEditVideos} pkg={clientPackage} />}
+          videos={<VideoSchedule clientId={client.id} editable={canEditVideos} canApprove={canApproveVideos} pkg={clientPackage} />}
         />
       )}
 
@@ -419,7 +422,7 @@ export function ClientDetailTabs({
       )}
 
       {tab === "videos" && (
-        <VideoSchedule key={openVideo ?? "videos"} clientId={client.id} editable={canEditVideos} pkg={clientPackage} initialOpenId={openVideo} />
+        <VideoSchedule key={openVideo ?? "videos"} clientId={client.id} editable={canEditVideos} canApprove={canApproveVideos} pkg={clientPackage} initialOpenId={openVideo} />
       )}
 
       {tab === "performance" && canEditVideos && socialPanel && (
