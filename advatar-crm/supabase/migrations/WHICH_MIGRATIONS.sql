@@ -147,6 +147,10 @@ from (
     (
       '0058', 'Videographers add the video link on their clients'' videos',
       case when to_regprocedure('public.add_video_link(uuid, text, text)') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0059', 'Every other day as a way of posting',
+      case when exists (select 1 from pg_constraint where conname = 'client_packages_posting_mode_check' and pg_get_constraintdef(oid) like '%alternate%') then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

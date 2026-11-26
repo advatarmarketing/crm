@@ -828,7 +828,7 @@ export interface Database {
           revision_rounds: number | null;
           thumbnails: boolean;
           graphics: boolean;
-          posting_mode: "weekdays" | "daily" | "per_week";
+          posting_mode: "weekdays" | "daily" | "per_week" | "alternate";
           posting_weekdays: number[];
           videos_per_week: number | null;
           double_post_weekdays: number[];
@@ -843,7 +843,7 @@ export interface Database {
           revision_rounds?: number | null;
           thumbnails?: boolean;
           graphics?: boolean;
-          posting_mode?: "weekdays" | "daily" | "per_week";
+          posting_mode?: "weekdays" | "daily" | "per_week" | "alternate";
           posting_weekdays?: number[];
           videos_per_week?: number | null;
           double_post_weekdays?: number[];
@@ -858,7 +858,7 @@ export interface Database {
           revision_rounds?: number | null;
           thumbnails?: boolean;
           graphics?: boolean;
-          posting_mode?: "weekdays" | "daily" | "per_week";
+          posting_mode?: "weekdays" | "daily" | "per_week" | "alternate";
           posting_weekdays?: number[];
           videos_per_week?: number | null;
           double_post_weekdays?: number[];
@@ -875,7 +875,7 @@ export interface Database {
           revision_rounds: number | null;
           thumbnails: boolean;
           graphics: boolean;
-          posting_mode: "weekdays" | "daily" | "per_week";
+          posting_mode: "weekdays" | "daily" | "per_week" | "alternate";
           posting_weekdays: number[];
           videos_per_week: number | null;
           double_post_weekdays: number[];
@@ -889,7 +889,7 @@ export interface Database {
           revision_rounds?: number | null;
           thumbnails?: boolean;
           graphics?: boolean;
-          posting_mode?: "weekdays" | "daily" | "per_week";
+          posting_mode?: "weekdays" | "daily" | "per_week" | "alternate";
           posting_weekdays?: number[];
           videos_per_week?: number | null;
           double_post_weekdays?: number[];
@@ -903,7 +903,7 @@ export interface Database {
           revision_rounds?: number | null;
           thumbnails?: boolean;
           graphics?: boolean;
-          posting_mode?: "weekdays" | "daily" | "per_week";
+          posting_mode?: "weekdays" | "daily" | "per_week" | "alternate";
           posting_weekdays?: number[];
           videos_per_week?: number | null;
           double_post_weekdays?: number[];

@@ -12,7 +12,13 @@
  */
 
 export type RevisionMode = "none" | "approve" | "full";
-export type PostingMode = "weekdays" | "daily" | "per_week";
+/**
+ * "alternate" is every other day: post, skip, post, skip. It counts
+ * from the first day of whatever stretch is being planned (in practice
+ * the first day of the client's month), so a 30-day month holds 15
+ * videos and a 31-day month 16.
+ */
+export type PostingMode = "weekdays" | "daily" | "per_week" | "alternate";
 
 export interface PackageSettings {
   revisions: RevisionMode;
@@ -146,7 +152,12 @@ export function normalizePackage(
     revision_rounds = n;
   }
 
-  if (input.posting_mode !== "weekdays" && input.posting_mode !== "daily" && input.posting_mode !== "per_week") {
+  if (
+    input.posting_mode !== "weekdays" &&
+    input.posting_mode !== "daily" &&
+    input.posting_mode !== "per_week" &&
+    input.posting_mode !== "alternate"
+  ) {
     return { ok: false, error: "Choose when we post for this client." };
   }
   const posting_mode: PostingMode = input.posting_mode;
@@ -166,9 +177,10 @@ export function normalizePackage(
   }
 
   // A double-post day only makes sense on a day we post at all. With
-  // "N a week" the days are not fixed, so there is nothing to double.
+  // "N a week" or every other day the weekdays are not fixed, so there
+  // is nothing to double.
   let double_post_weekdays = cleanDays(input.double_post_weekdays);
-  if (posting_mode === "per_week") double_post_weekdays = [];
+  if (posting_mode === "per_week" || posting_mode === "alternate") double_post_weekdays = [];
   if (posting_mode === "weekdays") double_post_weekdays = double_post_weekdays.filter((d) => posting_weekdays.includes(d));
 
   return {
@@ -189,6 +201,7 @@ export function normalizePackage(
 /** Videos in a normal week under this package. */
 export function videosPerWeek(p: PackageSettings): number {
   if (p.posting_mode === "per_week") return p.videos_per_week ?? 0;
+  if (p.posting_mode === "alternate") return 3.5;
   const days = p.posting_mode === "daily" ? 7 : p.posting_weekdays.length;
   return days + p.double_post_weekdays.length;
 }
@@ -203,11 +216,18 @@ function listDays(days: number[], form: "short" | "long" = "short"): string {
 export function describePosting(p: PackageSettings): string {
   const parts: string[] = [];
   if (p.posting_mode === "daily") parts.push("Every day");
+  else if (p.posting_mode === "alternate") return "Every other day · 15 or 16 a month";
   else if (p.posting_mode === "per_week") parts.push(`${p.videos_per_week ?? 0} a week, days set as we go`);
   else parts.push(listDays(p.posting_weekdays));
   if (p.double_post_weekdays.length > 0) parts.push(`two on ${listDays(p.double_post_weekdays)}`);
   if (p.posting_mode !== "per_week") parts.push(`${videosPerWeek(p)} a week`);
   return parts.join(" · ");
+}
+
+/** "Roughly 20 videos every four weeks", or the month for every other day. */
+export function roughCount(p: PackageSettings): string {
+  if (p.posting_mode === "alternate") return "15 videos in a 30-day month, 16 in a 31-day one (14 in February).";
+  return `Roughly ${videosPerWeek(p) * 4} videos every four weeks.`;
 }
 
 /** The one-line summary shown in lists. */
@@ -251,6 +271,12 @@ export function postingDates(p: PackageSettings, from: string, days: number): { 
   const start = new Date(`${from}T00:00:00Z`);
   if (Number.isNaN(start.getTime())) return [];
 
+  const out: { date: string; count: number }[] = [];
+  if (p.posting_mode === "alternate") {
+    for (let i = 0; i < days; i += 2) out.push({ date: new Date(start.getTime() + i * 86_400_000).toISOString().slice(0, 10), count: 1 });
+    return out;
+  }
+
   const perDay = new Map<number, number>();
   if (p.posting_mode === "per_week") {
     for (const { day, count } of spreadDays(p.videos_per_week ?? 0)) perDay.set(day, count);
@@ -260,7 +286,6 @@ export function postingDates(p: PackageSettings, from: string, days: number): { 
     for (const d of p.double_post_weekdays) if (perDay.has(d)) perDay.set(d, 2);
   }
 
-  const out: { date: string; count: number }[] = [];
   for (let i = 0; i < days; i++) {
     const d = new Date(start.getTime() + i * 86_400_000);
     const count = perDay.get(isoWeekday(d)) ?? 0;
