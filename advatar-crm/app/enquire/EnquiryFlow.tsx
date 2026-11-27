@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { submitEnquiry } from "./actions";
+import { submitEnquiry, type EnquirySource } from "./actions";
 import {
   BUSINESS_TYPE,
   EMPTY_ENQUIRY,
@@ -35,7 +35,24 @@ type Screen = 1 | 2 | 3 | 4 | 5;
  * browser until then, so backing up and changing one costs nothing
  * and half an enquiry never reaches the CRM.
  */
-export function EnquiryFlow() {
+export function EnquiryFlow({
+  embedded = false,
+  source = "enquire",
+}: {
+  /**
+   * Inside another page (the VSL page) rather than the whole page: no
+   * full-screen frame or wordmark of its own, and moving between
+   * questions brings the form back into view rather than jumping to
+   * the top of a long page.
+   */
+  embedded?: boolean;
+  source?: EnquirySource;
+} = {}) {
+  const top = useRef<HTMLDivElement>(null);
+  const toTop = () => {
+    if (embedded) top.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    else window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const [screen, setScreen] = useState<Screen>(1);
   const [phase, setPhase] = useState<"in" | "out">("in");
   const [answers, setAnswers] = useState<EnquiryPayload>(EMPTY_ENQUIRY);
@@ -64,7 +81,7 @@ export function EnquiryFlow() {
         moving.current = false;
         // Back to the top of the card: on a phone the next question
         // would otherwise open half-scrolled.
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        toTop();
       }, FADE_MS);
     }, delay);
   }
@@ -106,12 +123,12 @@ export function EnquiryFlow() {
     setProblem(null);
     setFieldErrors({});
 
-    const result = await submitEnquiry(answers);
+    const result = await submitEnquiry(answers, source);
 
     if (result.ok) {
       setSent(true);
       setSending(false);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      toTop();
       return;
     }
 
@@ -122,7 +139,7 @@ export function EnquiryFlow() {
 
   if (sent) {
     return (
-      <Card>
+      <Card embedded={embedded} anchor={top}>
         <div className="enquire-step">
           <h1 style={headingStyle}>Thanks, we&rsquo;ve got your details.</h1>
           <p style={{ ...helperStyle, fontSize: 14 }}>
@@ -149,7 +166,7 @@ export function EnquiryFlow() {
     answers.lookingForOther.trim().length > 0 || (backOnFirst && answers.lookingFor.length > 0);
 
   return (
-    <Card>
+    <Card embedded={embedded} anchor={top}>
       {/* Keyed on the screen so React remounts it and the fade-in runs
           again each time, rather than only on the first question. */}
       <div key={screen} className="enquire-step" data-phase={phase}>
@@ -320,7 +337,14 @@ export function EnquiryFlow() {
 // Pieces
 // =================================================================
 
-function Card({ children }: { children: ReactNode }) {
+function Card({ children, embedded = false, anchor }: { children: ReactNode; embedded?: boolean; anchor?: Ref<HTMLDivElement> }) {
+  if (embedded) {
+    return (
+      <div ref={anchor} className="enquire-card enquire-card--embedded">
+        {children}
+      </div>
+    );
+  }
   return (
     <main className="login-shell">
       <div className="enquire-card">

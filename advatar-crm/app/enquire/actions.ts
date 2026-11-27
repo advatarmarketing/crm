@@ -50,7 +50,11 @@ function hashVisitor(): string {
  * checked again here — the checks in the page are there to be helpful,
  * not to be trusted.
  */
-export async function submitEnquiry(payload: EnquiryPayload): Promise<EnquiryResult> {
+/** Which page the enquiry came from, so the Leads board can tell them apart. */
+export type EnquirySource = "enquire" | "vsl";
+
+export async function submitEnquiry(payload: EnquiryPayload, from: EnquirySource = "enquire"): Promise<EnquiryResult> {
+  const source = from === "vsl" ? "Website enquiry (VSL page)" : "Website enquiry";
   // ---------------------------------------------------------------
   // The honeypot
   // ---------------------------------------------------------------
@@ -129,7 +133,7 @@ export async function submitEnquiry(payload: EnquiryPayload): Promise<EnquiryRes
     contact_email: email || null,
     contact_phone: phone,
     stage: "lead" as const,
-    lead_source: "Website enquiry",
+    lead_source: source,
     next_action: "Reply to website enquiry and book a discovery call",
     follow_up_date: followUp,
     notes: answers,
@@ -173,7 +177,7 @@ export async function submitEnquiry(payload: EnquiryPayload): Promise<EnquiryRes
   // email provider is down, that is ours to notice, not theirs.
 
   await recordSend(admin, visitor);
-  await tellTheTeam({ admin, leadId, business, name, phone, email, answers });
+  await tellTheTeam({ admin, leadId, business: from === "vsl" ? `${business} (VSL page)` : business, name, phone, email, answers });
 
   return { ok: true };
 }

@@ -59,7 +59,8 @@ export const viewport: Viewport = {
  * operating system's own preference for anyone who has never used the
  * toggle.
  *
- * The one exception is /enquire. That page is the brochure, not the
+ * The one exception is /enquire (and its video version, /enquire-vsl).
+ * That page is the brochure, not the
  * app: it is the first thing a stranger sees of Advatar, and it should
  * look the same for all of them rather than depending on how their
  * phone happens to be set. So with no stored choice it opens light,
@@ -78,7 +79,7 @@ const themeScript = `
   } catch (e) {}
   try {
     var p = location.pathname.replace(/\\/+$/, "");
-    if (p === "/enquire") {
+    if (p === "/enquire" || p === "/enquire-vsl") {
       document.documentElement.setAttribute("data-theme", "light");
     }
   } catch (e) {}

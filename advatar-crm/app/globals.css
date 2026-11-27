@@ -4214,3 +4214,521 @@ a.cw-meter:hover { border-color: var(--border-2); }
 .pd .pd-cash-row input[type="number"] { width: 130px; }
 .pd .pd-cash-row input:not([type]) { width: auto; flex: 1; min-width: 160px; }
 .pd .pd-tpls form input { width: auto; flex: 1; }
+
+/* =================================================================
+   VSL PAGE (/enquire-vsl)
+   One column: the pitch, the enquiry form, a dark strip of logos,
+   case studies, three links to the main site and a last nudge back
+   to the form. Shares the enquiry card's look for the form itself.
+   ================================================================= */
+
+.vsl {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 16px 72px;
+  font-family: var(--font-body);
+  color: var(--text-1);
+}
+
+.vsl-editbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -16px;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-bottom: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.vsl-editbar-error,
+.vsl-error {
+  width: 100%;
+  margin: 4px 0 0;
+  color: var(--danger-fg);
+  font-size: 13.5px;
+}
+
+.vsl-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px 0 8px;
+}
+
+.vsl-hero {
+  text-align: center;
+  padding: 28px 0 8px;
+}
+
+.vsl-title {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 5.4vw, 52px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0 auto 14px;
+  max-width: 820px;
+  text-wrap: balance;
+}
+
+.vsl-sub {
+  font-size: clamp(16px, 2.2vw, 19px);
+  line-height: 1.5;
+  color: var(--text-2);
+  margin: 0 auto 26px;
+  max-width: 640px;
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+
+.vsl-media {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: #0b0b0b;
+  box-shadow: var(--shadow-md);
+}
+
+.vsl-media.is-wide,
+.vsl-media.is-frame {
+  aspect-ratio: 16 / 9;
+}
+
+.vsl-media--img {
+  height: auto;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.vsl-media--empty {
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border: 1px dashed var(--border-2);
+  box-shadow: none;
+  font-size: 14px;
+}
+
+.vsl-proof {
+  margin: 22px auto 0;
+  max-width: 560px;
+}
+
+.vsl-proof-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.vsl-stars {
+  color: #f0b429;
+  font-size: 22px;
+  letter-spacing: 2px;
+}
+
+.vsl-proof-line {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 15.5px;
+}
+
+.vsl-form {
+  padding: 44px 0 8px;
+  scroll-margin-top: 64px;
+}
+
+.vsl-form .enquire-card--embedded {
+  margin: 0 auto;
+  scroll-margin-top: 72px;
+}
+
+.vsl-h2 {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3.6vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+
+.vsl-h3 {
+  font-family: var(--font-display);
+  font-size: 21px;
+  line-height: 1.25;
+  margin: 0 0 8px;
+}
+
+.vsl-center {
+  text-align: center;
+}
+
+.vsl-body {
+  color: var(--text-2);
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0 0 18px;
+  white-space: pre-wrap;
+}
+
+.vsl-section {
+  padding: 56px 0 8px;
+}
+
+/* The logo strip: dark whatever the theme, as on the main site. */
+.vsl-logos {
+  margin: 64px calc(50% - 50vw) 0;
+  padding: 56px 16px 60px;
+  background: #0d0c0b;
+  color: #e9e6e1;
+  text-align: center;
+}
+
+.vsl-logos-head {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #a39f98;
+  margin: 0 auto 34px;
+  max-width: 640px;
+}
+
+input.vsl-logos-head {
+  color: #e9e6e1;
+  background: #1b1a18;
+  border-color: #34312d;
+}
+
+.vsl-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+
+.vsl-marquee-track {
+  display: flex;
+  align-items: center;
+  gap: clamp(48px, 7vw, 96px);
+  width: max-content;
+  animation: vsl-marquee linear infinite;
+}
+
+.vsl-marquee:hover .vsl-marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes vsl-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vsl-marquee-track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: auto;
+  }
+}
+
+/* Every logo arrives as a white shape (lib/vsl-logo.ts); one height
+   and one strength of grey is what makes the strip look even. */
+.vsl-logo {
+  height: clamp(28px, 4vw, 42px);
+  width: auto;
+  max-width: 220px;
+  object-fit: contain;
+  opacity: 0.72;
+  flex: none;
+}
+
+.vsl-logo-manager {
+  max-width: 820px;
+  margin: 34px auto 0;
+  text-align: left;
+}
+
+.vsl-logo-manager .vsl-hint {
+  color: #a39f98;
+}
+
+.vsl-logo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.vsl-logo-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  padding: 14px 10px 10px;
+  border: 1px solid #34312d;
+  border-radius: var(--radius-md);
+  background: #161513;
+}
+
+.vsl-logo-tile .vsl-logo {
+  height: 30px;
+  align-self: center;
+}
+
+.vsl-logo-tile input {
+  font-size: 12.5px;
+  padding: 6px 8px;
+  color: #e9e6e1;
+  background: #0d0c0b;
+  border: 1px solid #34312d;
+  border-radius: var(--radius-sm);
+}
+
+.vsl-tile-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.vsl-tile-actions button {
+  flex: 1;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 5px 8px;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  opacity: 0.8;
+}
+
+.vsl-tile-actions button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.vsl-cases {
+  display: grid;
+  gap: 22px;
+  margin-top: 8px;
+}
+
+.vsl-case {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 760px) {
+  .vsl-case.has-media {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    align-items: center;
+  }
+  .vsl-case.has-media .vsl-case-cta {
+    grid-column: 1 / -1;
+  }
+}
+
+.vsl-kicker {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+.vsl-quote {
+  font-size: 18px;
+  line-height: 1.55;
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+}
+
+.vsl-quote::before {
+  content: "“";
+}
+
+.vsl-quote::after {
+  content: "”";
+}
+
+.vsl-person {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 14.5px;
+}
+
+.vsl-case-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 15.5px;
+  color: var(--text-2);
+}
+
+.vsl-link-block {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.vsl-link-block.is-editing {
+  text-align: left;
+}
+
+.vsl-final {
+  text-align: center;
+  padding: 72px 0 0;
+}
+
+.vsl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 12px 22px;
+  font: inherit;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--text-1);
+  border: 1px solid var(--text-1);
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.vsl-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.vsl-btn--quiet {
+  color: var(--text-1);
+  background: transparent;
+  border-color: var(--border-2);
+}
+
+.vsl-final .vsl-btn {
+  margin-top: 6px;
+}
+
+/* Editing */
+.vsl-input {
+  display: block;
+  width: 100%;
+  font: inherit;
+  padding: 10px 12px;
+  margin: 0 auto 14px;
+  color: var(--text-1);
+  background: var(--surface);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  text-align: inherit;
+}
+
+textarea.vsl-input {
+  resize: vertical;
+}
+
+.vsl-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  margin: 0 0 12px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.vsl-field input,
+.vsl-field textarea,
+.vsl-field select {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  padding: 9px 11px;
+  color: var(--text-1);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+}
+
+.vsl-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.vsl-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.vsl-add {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.vsl-hint {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+  margin: 0;
+}
+
+.vsl-case.is-editing .vsl-tile-actions button {
+  flex: none;
+}
+
+@media (max-width: 520px) {
+  .vsl-case {
+    padding: 18px 16px;
+  }
+  .vsl-case-cta .vsl-btn {
+    width: 100%;
+  }
+}

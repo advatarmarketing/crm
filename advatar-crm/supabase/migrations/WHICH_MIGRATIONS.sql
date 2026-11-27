@@ -159,6 +159,10 @@ from (
     (
       '0061', 'Videographers tick posted, add post links and correct a wrong link',
       case when to_regprocedure('public.fix_video_link(uuid, text)') is not null then 'RUN' else 'NOT RUN' end
+    ),
+    (
+      '0062', 'The video sales letter page (enquire-vsl)',
+      case when to_regclass('public.site_pages') is not null then 'RUN' else 'NOT RUN' end
     )
 ) as t(migration, what_it_adds, status)
 order by migration;

@@ -329,3 +329,24 @@ Until this is done, clients only see the cash option, and the deal page says so.
 The contract, invoice and login emails need email set up: `RESEND_API_KEY` and `EMAIL_FROM`, the same as for notifications. Without it, everything else still works. The deal page tells you to send the contract and invoice links yourself, and **Get login details** gives you their password to hand over.
 
 The 3 months upfront option is a one-off Stripe payment. After the 3 months, set up their monthly billing (or a new proposal) as you agree with them.
+
+## The VSL page (app.advatar.co.uk/enquire-vsl)
+
+The video version of the enquiry page. From top to bottom:
+1. Title, subheading and video.
+2. Your proof line, under the video.
+3. The same enquiry form as /enquire.
+4. A strip of client logos.
+5. Case studies and testimonials, each with a button back to the form.
+6. "What will happen next?", "Who we are" and "View more of our work", each linking to the main website.
+7. A last button back to the form.
+
+Enquiries from it land on the Leads board as **Website enquiry (VSL page)**.
+
+**Editing it:**
+1. Sign in to the CRM as the CEO or operations, then open the page. An **Edit page** bar appears at the top.
+2. Every heading and paragraph becomes a box to type in. The button texts and links are editable too.
+3. **Video and case study media:** paste a Cloudinary link. Video and image links both work.
+4. **Logos:** press **Upload logos** and choose any number at once. Each one is turned into the same light shape at the same height, so the strip looks even whatever the original looked like. Transparent PNGs come out best. Name them, move them left or right, or remove them.
+5. **Case studies and testimonials:** add, edit, move up or down, or remove them.
+6. Press **Save changes**. Nothing changes for visitors until you do.
